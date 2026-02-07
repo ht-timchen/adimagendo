@@ -4,6 +4,12 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
+// Ensure AUTH_URL has a scheme (Railway may set only hostname)
+const authUrl = process.env.AUTH_URL;
+if (authUrl && !/^https?:\/\//i.test(authUrl)) {
+  process.env.AUTH_URL = `https://${authUrl.replace(/^\/+/, "")}`;
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
