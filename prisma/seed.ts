@@ -1,6 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+const ADMIN_EMAIL = "admin@adimagendo.local";
+const ADMIN_PASSWORD = "imagendoadmin";
+const ADMIN_NAME = "Admin";
 
 async function main() {
   await prisma.checklistTemplate.upsert({
@@ -102,6 +107,28 @@ async function main() {
       update: {},
     });
   }
+
+  // Admin account: login with admin@adimagendo.local / imagendoadmin
+  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
+  const admin = await prisma.user.upsert({
+    where: { email: ADMIN_EMAIL },
+    create: {
+      email: ADMIN_EMAIL,
+      name: ADMIN_NAME,
+      passwordHash,
+      role: "ADMIN",
+    },
+    update: { name: ADMIN_NAME, passwordHash, role: "ADMIN" },
+  });
+  await prisma.participantProfile.upsert({
+    where: { userId: admin.id },
+    create: {
+      userId: admin.id,
+      enrollmentDate: new Date(),
+      studyPhase: "admin",
+    },
+    update: {},
+  });
 
   console.log("Seed completed.");
 }

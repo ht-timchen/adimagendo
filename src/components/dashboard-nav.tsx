@@ -11,6 +11,7 @@ import {
   Mail,
   Newspaper,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,19 +27,23 @@ const navItems = [
   { href: "/dashboard/news", label: "News", icon: Newspaper },
 ];
 
+const adminNavItem = { href: "/dashboard/admin", label: "Admin", icon: Shield };
+
 export function DashboardNav({
   user,
   mobile,
 }: {
-  user: { name?: string | null; email?: string | null };
+  user: { name?: string | null; email?: string | null; role?: string };
   mobile?: boolean;
 }) {
   const pathname = usePathname();
+  const items = user.role === "ADMIN" ? [adminNavItem, ...navItems] : navItems;
 
   if (mobile) {
+    const mobileItems = user.role === "ADMIN" ? [adminNavItem, ...navItems.slice(0, 4)] : navItems.slice(0, 5);
     return (
       <div className="flex w-full justify-around py-2">
-        {navItems.slice(0, 5).map((item) => {
+        {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (
@@ -64,7 +69,7 @@ export function DashboardNav({
   return (
     <div className="flex items-center gap-2">
       <div className="hidden gap-1 md:flex">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active =
             pathname === item.href ||
