@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getUploadDir } from "@/lib/uploads";
 import { readFile } from "fs/promises";
 import path from "path";
-
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 export async function GET(
   _req: Request,
@@ -22,7 +21,8 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   try {
-    const filepath = path.join(UPLOAD_DIR, doc.storageKey);
+    const uploadDir = getUploadDir();
+    const filepath = path.join(uploadDir, doc.storageKey);
     const buffer = await readFile(filepath);
     return new NextResponse(buffer, {
       headers: {

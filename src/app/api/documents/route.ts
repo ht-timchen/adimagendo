@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getUploadDir } from "@/lib/uploads";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 export async function GET() {
   const session = await auth();
@@ -38,11 +37,12 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(bytes);
     const ext = path.extname(file.name) || ".pdf";
     const safeTitle = (title || file.name).slice(0, 200);
-    const dir = path.join(UPLOAD_DIR, session.user.id);
+    const uploadDir = getUploadDir();
+    const dir = path.join(uploadDir, session.user.id);
     await mkdir(dir, { recursive: true });
     const filename = `${Date.now()}${ext}`;
     const storageKey = path.join(session.user.id, filename);
-    await writeFile(path.join(UPLOAD_DIR, storageKey), buffer);
+    await writeFile(path.join(uploadDir, storageKey), buffer);
     const doc = await prisma.document.create({
       data: {
         userId: session.user.id,
