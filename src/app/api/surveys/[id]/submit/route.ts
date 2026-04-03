@@ -50,6 +50,52 @@ export async function POST(
         completedAt: new Date(),
       },
     });
+
+    /**
+     * TODO: Migrate checklist status update to REDCap Webhook.
+     *
+     * [Current State - Temporary]:
+     * After user submits survey, checklist item is automatically marked as "COMPLETED".
+     * This is a temporary solution until REDCap webhook is configured.
+     *
+     * [Target Logic]:
+     * 1. User completes survey via external REDCap link.
+     * 2. REDCap sends a webhook notification to POST /api/webhook/redcap.
+     * 3. App updates checklist status upon receiving the webhook.
+     * 4. Remove the auto-complete logic below once webhook is live.
+     *
+     * [Blocked By]:
+     * - Klara needs to provide the REDCap survey URL.
+     * - REDCap webhook must be configured to trigger on survey submission.
+     */
+    // Update corresponding checklist item to completed
+    const checklistTemplate = await prisma.checklistTemplate.findFirst({
+      where: {
+        key: template.key,
+        type: "SURVEY",
+      },
+    });
+    if (checklistTemplate) {
+      await prisma.participantChecklistItem.upsert({
+        where: {
+          userId_templateId: {
+            userId: session.user.id,
+            templateId: checklistTemplate.id,
+          },
+        },
+        create: {
+          userId: session.user.id,
+          templateId: checklistTemplate.id,
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+        update: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("Survey submit error:", e);
