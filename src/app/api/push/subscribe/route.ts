@@ -1,0 +1,56 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { z } from "zod";
+
+const SubscriptionSchema = z.object({
+  endpoint: z.string().min(1),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+  expirationTime: z.number().nullable().optional(),
+});
+
+export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const parsed = SubscriptionSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { endpoint, keys } = parsed.data;
+
+    await prisma.pushSubscription.upsert({
+      where: { endpoint },
+      create: {
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        userId: session.user.id,
+      },
+      update: {
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        userId: session.user.id,
+      },
+    });
+
+    return new NextResponse(null, { status: 200 });
+  } catch (e) {
+    console.error("Push subscribe error:", e);
+    return NextResponse.json(
+      { error: "Failed to save subscription" },
+      { status: 500 }
+    );
+  }
+}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminTestNotification } from "@/components/admin-test-notification";
 import { Users, Mail, Newspaper, ListChecks } from "lucide-react";
 
 export default async function AdminOverviewPage() {
@@ -150,6 +151,8 @@ export default async function AdminOverviewPage() {
           </Link>
         </Card>
       </div>
+
+      <AdminTestNotification />
     </div>
   );
 }

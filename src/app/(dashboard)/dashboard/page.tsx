@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CalendarClock,
 } from "lucide-react";
+import { PushNotificationOptIn } from "@/components/push-notification-opt-in";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -81,6 +82,8 @@ export default async function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PushNotificationOptIn />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card className="transition-shadow hover:shadow-md">
