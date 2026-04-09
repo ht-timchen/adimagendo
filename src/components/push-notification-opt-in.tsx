@@ -25,18 +25,24 @@ function messageForError(
       return "Your browser doesn't support notifications.";
     case "invalid_subscription":
     case "subscribe_failed":
+    case "unsubscribe_failed":
     default:
       return result.message ?? "Something went wrong. Please try again.";
   }
 }
 
 export function PushNotificationOptIn() {
-  const { isSupported, isSubscribed, subscribe } = usePushNotification();
+  const { isSupported, isSubscribed, subscribe, unsubscribe } =
+    usePushNotification();
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (feedback !== "Notifications enabled!") return;
+    if (
+      feedback !== "Notifications enabled!" &&
+      feedback !== "Notifications disabled."
+    )
+      return;
     const t = setTimeout(() => setFeedback(null), 4000);
     return () => clearTimeout(t);
   }, [feedback]);
@@ -51,7 +57,7 @@ export function PushNotificationOptIn() {
       </CardHeader>
       <CardContent className="space-y-3">
         {isSubscribed ? (
-          <div className="space-y-1">
+          <div className="space-y-3">
             {feedback === "Notifications enabled!" && (
               <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
                 Notifications enabled!
@@ -60,6 +66,31 @@ export function PushNotificationOptIn() {
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Notifications are enabled
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                setFeedback(null);
+                setPending(true);
+                const result = await unsubscribe();
+                setPending(false);
+                if (result.ok) {
+                  setFeedback("Notifications disabled.");
+                } else {
+                  setFeedback(messageForError(result));
+                }
+              }}
+              disabled={pending}
+            >
+              {pending ? "Disabling…" : "Disable Notifications"}
+            </Button>
+            {feedback &&
+              feedback !== "Notifications enabled!" &&
+              feedback !== "Notifications disabled." && (
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  {feedback}
+                </p>
+              )}
           </div>
         ) : (
           <>
@@ -86,7 +117,8 @@ export function PushNotificationOptIn() {
             {feedback && (
               <p
                 className={`text-sm ${
-                  feedback === "Notifications enabled!"
+                  feedback === "Notifications enabled!" ||
+                  feedback === "Notifications disabled."
                     ? "text-emerald-600 dark:text-emerald-400"
                     : "text-amber-800 dark:text-amber-200"
                 }`}

@@ -44,7 +44,8 @@ export type PushSubscribeResult =
         | "registration_failed"
         | "subscribe_failed"
         | "server_error"
-        | "invalid_subscription";
+        | "invalid_subscription"
+        | "unsubscribe_failed";
       message?: string;
     };
 
@@ -163,5 +164,67 @@ export function usePushNotification() {
     }
   }, []);
 
-  return { isSupported, isSubscribed, subscribe };
+  const unsubscribe = useCallback(async (): Promise<PushSubscribeResult> => {
+    if (typeof window === "undefined") {
+      return { ok: false, error: "not_supported" };
+    }
+
+    const supported =
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window;
+    if (!supported) {
+      return { ok: false, error: "not_supported" };
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", {
+        scope: "/",
+      });
+      await navigator.serviceWorker.ready;
+
+      const subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        setIsSubscribed(false);
+        const res = await fetch("/api/push/subscribe", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ all: true }),
+        });
+        if (!res.ok) {
+          return { ok: false, error: "server_error" };
+        }
+        return { ok: true };
+      }
+
+      const unsubscribed = await subscription.unsubscribe();
+      if (!unsubscribed) {
+        return { ok: false, error: "unsubscribe_failed" };
+      }
+
+      setIsSubscribed(false);
+
+      const res = await fetch("/api/push/subscribe", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ all: true }),
+      });
+
+      if (!res.ok) {
+        return { ok: false, error: "server_error" };
+      }
+
+      return { ok: true };
+    } catch (e) {
+      return {
+        ok: false,
+        error: "unsubscribe_failed",
+        message: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }, []);
+
+  return { isSupported, isSubscribed, subscribe, unsubscribe };
 }

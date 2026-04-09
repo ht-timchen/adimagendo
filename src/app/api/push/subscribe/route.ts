@@ -54,3 +54,53 @@ export async function POST(req: Request) {
     );
   }
 }
+
+const DeleteBodySchema = z
+  .object({
+    all: z.literal(true).optional(),
+    endpoint: z.string().min(1).optional(),
+  })
+  .refine((d) => d.all === true || Boolean(d.endpoint?.trim()), {
+    message: "Provide all: true or endpoint",
+  });
+
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const parsed = DeleteBodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const { all, endpoint } = parsed.data;
+
+    if (all === true) {
+      await prisma.pushSubscription.deleteMany({
+        where: { userId: session.user.id },
+      });
+    } else if (endpoint) {
+      await prisma.pushSubscription.deleteMany({
+        where: {
+          endpoint,
+          userId: session.user.id,
+        },
+      });
+    }
+
+    return new NextResponse(null, { status: 200 });
+  } catch (e) {
+    console.error("Push unsubscribe error:", e);
+    return NextResponse.json(
+      { error: "Failed to remove subscription" },
+      { status: 500 }
+    );
+  }
+}
