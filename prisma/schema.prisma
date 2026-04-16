@@ -43,6 +43,19 @@ enum DocumentType {
   OTHER
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+/// External booking (R03) checklist flow — not used for templates without externalUrl.
+enum ChecklistBookingProgress {
+  NOT_STARTED
+  BOOKED_EXTERNALLY
+  CONFIRMED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -140,11 +153,14 @@ model ParticipantChecklistItem {
   status     ChecklistStatus @default(PENDING)
   completedAt DateTime?
   notes      String?
+  bookingProgress    ChecklistBookingProgress @default(NOT_STARTED)
+  bookedExternallyAt DateTime?
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   template ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  appointment Appointment?
 
   @@unique([userId, templateId])
 }
@@ -216,11 +232,17 @@ model Appointment {
   endAt       DateTime?
   location    String?
   externalUrl String?  // Link to booking
+  status      AppointmentStatus @default(CONFIRMED)
   addedToCalendar Boolean @default(false)
+  /// Participant-confirmed slot (checklist flow); .ics uses this when set.
+  scheduledStartAt   DateTime?
+  scheduledLocation  String?
+  participantChecklistItemId String? @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  participantChecklistItem ParticipantChecklistItem? @relation(fields: [participantChecklistItemId], references: [id], onDelete: Cascade)
 }
 
 model Document {

@@ -1,9 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarkCompleteButton } from "@/components/checklist-mark-complete";
-import Link from "next/link";
-import { ExternalLink, Check } from "lucide-react";
+import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
+import { ChecklistExternalBookingFlow } from "@/components/checklist-external-booking-flow";
+import { Check } from "lucide-react";
 
 export default async function ChecklistPage() {
   const session = await auth();
@@ -21,6 +23,18 @@ export default async function ChecklistPage() {
     where: { userId: session.user.id },
     include: { template: true },
   });
+  const checklistItemIds = userItems.map((i) => i.id);
+  const linkedAppointments =
+    checklistItemIds.length === 0
+      ? []
+      : await prisma.appointment.findMany({
+          where: { participantChecklistItemId: { in: checklistItemIds } },
+        });
+  const appointmentByChecklistItemId = new Map(
+    linkedAppointments
+      .filter((a) => a.participantChecklistItemId != null)
+      .map((a) => [a.participantChecklistItemId as string, a])
+  );
   const byTemplate = new Map(userItems.map((i) => [i.templateId, i]));
 
   return (
@@ -45,6 +59,9 @@ export default async function ChecklistPage() {
         ) : (
           templates.map((t) => {
             const item = byTemplate.get(t.id);
+            const linkedAppointment = item
+              ? appointmentByChecklistItemId.get(item.id)
+              : undefined;
             const status = item?.status ?? "PENDING";
             const dueDate =
               t.dueOffsetDays != null
@@ -87,26 +104,43 @@ export default async function ChecklistPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="flex flex-wrap items-center gap-2 pt-0">
+                <CardContent className="flex flex-col gap-2 pt-0">
                   {!isComplete && t.externalUrl && (
-                    <a
-                      href={t.externalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
-                    >
-                      Book or open link <ExternalLink className="ml-1 h-4 w-4" />
-                    </a>
+                    <ChecklistExternalBookingFlow
+                      templateId={t.id}
+                      templateTitle={t.title}
+                      templateDescription={t.description ?? null}
+                      externalUrl={t.externalUrl}
+                      bookingProgress={item?.bookingProgress ?? "NOT_STARTED"}
+                      bookedExternallyAt={
+                        item?.bookedExternallyAt?.toISOString() ?? null
+                      }
+                      appointment={
+                        linkedAppointment
+                          ? {
+                              id: linkedAppointment.id,
+                              title: linkedAppointment.title,
+                              description: linkedAppointment.description,
+                              scheduledStartAt:
+                                linkedAppointment.scheduledStartAt?.toISOString() ??
+                                null,
+                              scheduledLocation:
+                                linkedAppointment.scheduledLocation,
+                              location: linkedAppointment.location,
+                              startAt: linkedAppointment.startAt.toISOString(),
+                              externalUrl: linkedAppointment.externalUrl,
+                            }
+                          : null
+                      }
+                    />
                   )}
                   {!isComplete && t.type === "SURVEY" && (
-                    <Link
-                      href="/dashboard/surveys"
-                      className="inline-flex h-9 items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700"
-                    >
-                      Complete survey
-                    </Link>
+                    <ChecklistSurveySheet
+                      templateId={t.id}
+                      surveyUrl={REDCAP_PRE_SCREENING_SURVEY_URL}
+                    />
                   )}
-                  {!isComplete && (
+                  {!isComplete && !t.externalUrl && (
                     <MarkCompleteButton templateId={t.id} />
                   )}
                 </CardContent>

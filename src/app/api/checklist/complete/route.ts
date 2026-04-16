@@ -24,6 +24,25 @@ export async function POST(req: Request) {
     if (!template) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
+    if (template.externalUrl?.trim()) {
+      const existing = await prisma.participantChecklistItem.findUnique({
+        where: {
+          userId_templateId: {
+            userId: session.user.id,
+            templateId: parsed.data.templateId,
+          },
+        },
+      });
+      if (existing?.bookingProgress !== "CONFIRMED") {
+        return NextResponse.json(
+          {
+            error:
+              "Confirm your appointment date and time using \"Confirm appointment details\" before marking this item complete.",
+          },
+          { status: 400 }
+        );
+      }
+    }
     await prisma.participantChecklistItem.upsert({
       where: {
         userId_templateId: {

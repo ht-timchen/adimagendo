@@ -17,27 +17,46 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
-  const [profile, checklistCounts, upcomingAppointments, recentSymptoms] =
-    await Promise.all([
-      prisma.participantProfile.findUnique({
-        where: { userId },
-      }),
-      prisma.participantChecklistItem.groupBy({
-        by: ["status"],
-        where: { userId },
-        _count: true,
-      }),
-      prisma.appointment.findMany({
-        where: { userId, startAt: { gte: new Date() } },
-        orderBy: { startAt: "asc" },
-        take: 3,
-      }),
-      prisma.symptomEntry.findMany({
-        where: { userId },
-        orderBy: { date: "desc" },
-        take: 5,
-      }),
-    ]);
+  const staleCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const [
+    profile,
+    checklistCounts,
+    upcomingAppointments,
+    staleUnconfirmedBookings,
+    recentSymptoms,
+  ] = await Promise.all([
+    prisma.participantProfile.findUnique({
+      where: { userId },
+    }),
+    prisma.participantChecklistItem.groupBy({
+      by: ["status"],
+      where: { userId },
+      _count: true,
+    }),
+    prisma.appointment.findMany({
+      where: {
+        userId,
+        startAt: { gte: new Date() },
+        status: { not: "CANCELLED" },
+      },
+      orderBy: { startAt: "asc" },
+      take: 3,
+    }),
+    prisma.participantChecklistItem.findMany({
+      where: {
+        userId,
+        bookingProgress: "BOOKED_EXTERNALLY",
+        bookedExternallyAt: { not: null, lt: staleCutoff },
+        template: { externalUrl: { not: null } },
+      },
+      include: { template: { select: { title: true } } },
+    }),
+    prisma.symptomEntry.findMany({
+      where: { userId },
+      orderBy: { date: "desc" },
+      take: 5,
+    }),
+  ]);
 
   const pending =
     checklistCounts.find((c) => c.status === "PENDING")?._count ?? 0;
@@ -60,6 +79,31 @@ export default async function DashboardPage() {
             : "Your participant dashboard"}
         </p>
       </div>
+
+      {staleUnconfirmedBookings.length > 0 ? (
+        <div
+          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-50"
+          role="status"
+        >
+          <p className="font-semibold">Please confirm your appointment</p>
+          <p className="mt-1 text-amber-900/95 dark:text-amber-100/90">
+            It has been more than 48 hours since you booked using an external
+            site. Return to your checklist to enter the date and time you chose
+            so reminders stay accurate.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {staleUnconfirmedBookings.map((row) => (
+              <li key={row.id}>{row.template.title}</li>
+            ))}
+          </ul>
+          <Link
+            href="/dashboard/checklist"
+            className="mt-3 inline-flex font-medium text-amber-950 underline-offset-2 hover:underline dark:text-amber-100"
+          >
+            Go to checklist
+          </Link>
+        </div>
+      ) : null}
 
       <Card>
         <CardHeader className="pb-2">
@@ -118,10 +162,10 @@ export default async function DashboardPage() {
                 : "No upcoming appointments"}
             </p>
             <Link
-              href="/dashboard/checklist"
+              href="/dashboard/appointments"
               className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
             >
-              Book & manage <ChevronRight className="ml-1 h-4 w-4" />
+              View appointments <ChevronRight className="ml-1 h-4 w-4" />
             </Link>
           </CardContent>
         </Card>

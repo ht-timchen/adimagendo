@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import Link from "next/link";
+import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
 
 export default async function SurveysPage() {
   const session = await auth();
@@ -10,10 +11,23 @@ export default async function SurveysPage() {
   const templates = await prisma.surveyTemplate.findMany({
     orderBy: { intervalMonths: "asc" },
   });
-  const responses = await prisma.surveyResponse.findMany({
-    where: { userId: session.user.id },
-  });
-  const completedIds = new Set(responses.filter((r) => r.completed).map((r) => r.templateId));
+  const [responses, completedChecklistItems] = await Promise.all([
+    prisma.surveyResponse.findMany({
+      where: { userId: session.user.id },
+      select: { templateId: true, completed: true },
+    }),
+    prisma.participantChecklistItem.findMany({
+      where: { userId: session.user.id, status: "COMPLETED", template: { type: "SURVEY" } },
+      select: { template: { select: { key: true } } },
+    }),
+  ]);
+
+  const completedSurveyIds = new Set(
+    responses.filter((r) => r.completed).map((r) => r.templateId)
+  );
+  const completedChecklistKeys = new Set(
+    completedChecklistItems.map((item) => item.template.key)
+  );
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -33,7 +47,7 @@ export default async function SurveysPage() {
           </Card>
         ) : (
           templates.map((t) => {
-            const done = completedIds.has(t.id);
+            const done = completedSurveyIds.has(t.id) || completedChecklistKeys.has(t.key);
             return (
               <Card key={t.id}>
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -43,12 +57,11 @@ export default async function SurveysPage() {
                       Completed
                     </span>
                   ) : (
-                    <Link
-                      href={`/dashboard/surveys/${t.id}`}
-                      className="inline-flex h-9 items-center justify-center rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700"
-                    >
-                      Start survey
-                    </Link>
+                    <ChecklistSurveySheet
+                      surveyId={t.id}
+                      surveyUrl={REDCAP_PRE_SCREENING_SURVEY_URL}
+                      triggerLabel="Start survey"
+                    />
                   )}
                 </CardHeader>
                 {t.description && (

@@ -21,6 +21,8 @@ function messageForError(
       return "Push notifications aren't available in this environment yet.";
     case "registration_failed":
       return "We couldn't prepare the app for notifications. Try refreshing the page.";
+    case "sync_failed":
+      return "We couldn't refresh your notification subscription for this account. Please try again.";
     case "not_supported":
       return "Your browser doesn't support notifications.";
     case "invalid_subscription":

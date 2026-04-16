@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Calendar,
+  CalendarClock,
   FileText,
   Mail,
   Newspaper,
@@ -19,6 +20,11 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/checklist", label: "Checklist", icon: ListChecks },
+  {
+    href: "/dashboard/appointments",
+    label: "Appointments",
+    icon: CalendarClock,
+  },
   { href: "/dashboard/symptoms", label: "Symptoms", icon: Calendar },
   { href: "/dashboard/absences", label: "Absences", icon: Calendar },
   { href: "/dashboard/surveys", label: "Surveys", icon: FileText },

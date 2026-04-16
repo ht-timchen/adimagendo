@@ -45,9 +45,34 @@ export type PushSubscribeResult =
         | "subscribe_failed"
         | "server_error"
         | "invalid_subscription"
-        | "unsubscribe_failed";
+        | "unsubscribe_failed"
+        | "sync_failed";
       message?: string;
     };
+
+type EndpointCheckResult = {
+  isCurrentUser: boolean;
+};
+
+async function verifyEndpointForCurrentUser(
+  endpoint: string
+): Promise<EndpointCheckResult | null> {
+  try {
+    const url = `/api/push/subscribe?endpoint=${encodeURIComponent(endpoint)}`;
+    const res = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      isCurrentUser?: boolean;
+    };
+    return { isCurrentUser: Boolean(data.isCurrentUser) };
+  } catch {
+    return null;
+  }
+}
 
 export function usePushNotification() {
   const isSupported = useSyncExternalStore(
@@ -68,8 +93,57 @@ export function usePushNotification() {
           scope: "/",
         });
         if (cancelled) return;
-        const existing = await registration.pushManager.getSubscription();
-        if (!cancelled) setIsSubscribed(!!existing);
+        await navigator.serviceWorker.ready;
+        let existing = await registration.pushManager.getSubscription();
+        if (!existing) {
+          if (!cancelled) setIsSubscribed(false);
+          return;
+        }
+
+        const check = await verifyEndpointForCurrentUser(existing.endpoint);
+        if (cancelled) return;
+
+        if (check?.isCurrentUser) {
+          setIsSubscribed(true);
+          return;
+        }
+
+        // Browser has a subscription, but it's not valid for current user.
+        // Recreate and save under current user to avoid false "enabled" state.
+        try {
+          await existing.unsubscribe();
+          existing = null;
+        } catch {
+          if (!cancelled) setIsSubscribed(false);
+          return;
+        }
+
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidKey?.trim()) {
+          if (!cancelled) setIsSubscribed(false);
+          return;
+        }
+
+        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+        const repaired = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+
+        const payload = repaired.toJSON();
+        if (!payload.endpoint || !payload.keys?.p256dh || !payload.keys?.auth) {
+          if (!cancelled) setIsSubscribed(false);
+          return;
+        }
+
+        const saveRes = await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+
+        if (!cancelled) setIsSubscribed(saveRes.ok);
       } catch {
         if (!cancelled) setIsSubscribed(false);
       }
@@ -137,11 +211,35 @@ export function usePushNotification() {
         return { ok: false, error: "invalid_subscription" };
       }
 
+      const check = await verifyEndpointForCurrentUser(payload.endpoint);
+      if (!check?.isCurrentUser) {
+        try {
+          await subscription.unsubscribe();
+        } catch {
+          return { ok: false, error: "sync_failed" };
+        }
+
+        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      }
+
+      const repairedPayload = subscription.toJSON();
+      if (
+        !repairedPayload.endpoint ||
+        !repairedPayload.keys?.p256dh ||
+        !repairedPayload.keys?.auth
+      ) {
+        return { ok: false, error: "invalid_subscription" };
+      }
+
       const res = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify(repairedPayload),
       });
 
       if (!res.ok) {

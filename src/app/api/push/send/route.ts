@@ -10,8 +10,9 @@ import { z } from "zod";
 
 const BodySchema = z.object({
   userId: z.string().min(1).optional(),
-  title: z.string().min(1),
-  body: z.string(),
+  title: z.string().trim().min(1),
+  message: z.string().trim().min(1).optional(),
+  body: z.string().trim().min(1).optional(),
   url: z.string().default("/"),
 });
 
@@ -53,14 +54,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { userId, title, body, url } = parsed;
-  const payload = JSON.stringify({ title, body, url });
+  const { userId, title, message, body, url } = parsed;
+  const rawMessage = (message ?? body ?? "").trim();
+  const finalTitle = " ";
+  const finalBody = rawMessage ? rawMessage : title;
+  const payload = JSON.stringify({ title: finalTitle, body: finalBody, url });
 
   setVapidDetails(vapidSubject(mailto), publicKey, privateKey);
 
   const subscriptions = await prisma.pushSubscription.findMany(
     userId ? { where: { userId } } : undefined
   );
+
+  if (userId && subscriptions.length === 0) {
+    return NextResponse.json(
+      { error: "User has no active push subscription" },
+      { status: 404 }
+    );
+  }
+
+  if (!userId && subscriptions.length === 0) {
+    return NextResponse.json(
+      { error: "No active push subscriptions" },
+      { status: 404 }
+    );
+  }
 
   let sent = 0;
   let removed = 0;
@@ -86,6 +104,13 @@ export async function POST(req: Request) {
         console.error("Push send error:", err);
       }
     }
+  }
+
+  if (sent === 0) {
+    const error = userId
+      ? "Notification could not be delivered. The participant may have disabled notifications or their subscription may have expired."
+      : "No notifications were delivered.";
+    return NextResponse.json({ error }, { status: 502 });
   }
 
   return NextResponse.json(

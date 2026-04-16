@@ -24,3 +24,18 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+/* Installed PWA on iPhone: keep bottom nav and scroll padding clear of the home indicator */
+@media (display-mode: standalone) and (max-width: 767px) {
+  .dashboard-bottom-nav-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .dashboard-main-safe-mobile {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+}

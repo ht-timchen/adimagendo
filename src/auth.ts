@@ -11,6 +11,9 @@ if (authUrl && !/^https?:\/\//i.test(authUrl)) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Accept session/API requests when the browser Host differs from AUTH_URL
+  // (e.g. phone opens http://192.168.x.x:3000 while env still says localhost).
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {

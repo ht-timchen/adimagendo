@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Web push test controls for admins only. Use under /dashboard/admin (see
+ * dashboard/admin/layout.tsx); the API route also requires role ADMIN.
+ */
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,14 +15,41 @@ type ApiResponse = {
   sent?: number;
   removed?: number;
   failed?: number;
+  target?: string;
+  subscriptions?: number;
 };
 
+type SuccessSummary = {
+  isSuccess: boolean;
+  message?: string;
+};
+
+function buildSuccessSummary(data: ApiResponse): SuccessSummary {
+  const sent = data.sent ?? 0;
+  const failed = data.failed ?? 0;
+  const removed = data.removed ?? 0;
+  if (sent === 0) {
+    return {
+      isSuccess: false,
+      message: "No notifications were delivered.",
+    };
+  }
+  if (failed === 0 && removed === 0) {
+    return { isSuccess: true };
+  }
+  return {
+    isSuccess: false,
+    message: `Sent to ${sent} device(s), but some deliveries failed or subscriptions expired.`,
+  };
+}
+
 export function AdminTestNotification() {
-  const [userId, setUserId] = useState("");
-  const [sendToAll, setSendToAll] = useState(false);
+  const [title, setTitle] = useState("");
+  const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [isError, setIsError] = useState(false);
+  const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(
+    null
+  );
 
   return (
     <Card>
@@ -26,51 +57,53 @@ export function AdminTestNotification() {
         <CardTitle className="text-base">Send test notification</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Send to all subscribers.
+        </p>
+
         <div className="space-y-1">
-          <label
-            htmlFor="push-user-id"
-            className="text-sm text-slate-700 dark:text-slate-300"
-          >
-            User ID (leave blank if sending to all)
+          <label className="text-sm text-slate-700 dark:text-slate-300">
+            Title
           </label>
           <Input
-            id="push-user-id"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="cuid user id"
-            disabled={isSending || sendToAll}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Enter title"
+            disabled={isSending}
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-          <input
-            type="checkbox"
-            checked={sendToAll}
-            onChange={(e) => setSendToAll(e.target.checked)}
+        <div className="space-y-1">
+          <label className="text-sm text-slate-700 dark:text-slate-300">
+            Notification message (optional)
+          </label>
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Enter message"
             disabled={isSending}
           />
-          Send to all subscribers
-        </label>
+        </div>
 
         <Button
           type="button"
-          disabled={isSending || (!sendToAll && !userId.trim())}
+          disabled={isSending || !title.trim()}
           onClick={async () => {
             setIsSending(true);
-            setFeedback(null);
-            setIsError(false);
+            setSuccessSummary(null);
             try {
               const payload: {
                 title: string;
-                body: string;
+                message?: string;
                 url: string;
-                userId?: string;
               } = {
-                title: "Test",
-                body: "Hello from ADIMAGENDO!",
+                title: title.trim(),
                 url: "/",
               };
-              if (!sendToAll && userId.trim()) payload.userId = userId.trim();
+              const trimmedMessage = message.trim();
+              if (trimmedMessage) {
+                payload.message = trimmedMessage;
+              }
 
               const res = await fetch("/api/push/send", {
                 method: "POST",
@@ -80,16 +113,21 @@ export function AdminTestNotification() {
 
               const data = (await res.json().catch(() => ({}))) as ApiResponse;
               if (!res.ok) {
-                setIsError(true);
-                setFeedback(data.error ?? "Failed to send test notification.");
+                setSuccessSummary({
+                  isSuccess: false,
+                  message:
+                    typeof data.error === "string" && data.error.trim()
+                      ? data.error.trim()
+                      : "Failed to send notification.",
+                });
               } else {
-                setFeedback(
-                  `Sent: ${data.sent ?? 0}, removed expired: ${data.removed ?? 0}, failed: ${data.failed ?? 0}`
-                );
+                setSuccessSummary(buildSuccessSummary(data));
               }
             } catch {
-              setIsError(true);
-              setFeedback("Failed to send test notification.");
+              setSuccessSummary({
+                isSuccess: false,
+                message: "Failed to send notification.",
+              });
             } finally {
               setIsSending(false);
             }
@@ -98,16 +136,17 @@ export function AdminTestNotification() {
           {isSending ? "Sending..." : "Send Test Notification"}
         </Button>
 
-        {feedback && (
-          <p
-            className={`text-sm ${
-              isError
-                ? "text-amber-800 dark:text-amber-300"
-                : "text-emerald-700 dark:text-emerald-400"
-            }`}
+        {successSummary && (
+          <div
+            className="space-y-2 rounded-md border border-emerald-200/80 bg-emerald-50/80 p-3 text-sm dark:border-emerald-900/50 dark:bg-emerald-950/40"
+            role="status"
           >
-            {feedback}
-          </p>
+            <p className="font-medium text-emerald-900 dark:text-emerald-100">
+              {successSummary.isSuccess
+                ? "✅ Notification sent successfully."
+                : `❌ ${successSummary.message ?? "Failed to send notification."}`}
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>

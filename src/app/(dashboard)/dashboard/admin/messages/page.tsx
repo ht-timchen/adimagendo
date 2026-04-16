@@ -1,13 +1,9 @@
 import Link from "next/link";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 
 export default async function AdminMessagesPage() {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") return null;
-
   const messages = await prisma.contactMessage.findMany({
     orderBy: { createdAt: "desc" },
     include: { user: { select: { email: true, name: true } } },

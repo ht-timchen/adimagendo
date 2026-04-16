@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import { AdminNewsForm } from "@/components/admin-news-form";
@@ -10,9 +9,6 @@ export default async function AdminNewsEditPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") return null;
-
   const { id } = await params;
   const post = await prisma.newsPost.findUnique({ where: { id } });
   if (!post) notFound();

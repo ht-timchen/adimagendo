@@ -12,6 +12,40 @@ const SubscriptionSchema = z.object({
   expirationTime: z.number().nullable().optional(),
 });
 
+const VerifyQuerySchema = z.object({
+  endpoint: z.string().min(1),
+});
+
+export async function GET(req: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const parsed = VerifyQuerySchema.safeParse({
+    endpoint: searchParams.get("endpoint"),
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  const { endpoint } = parsed.data;
+  const existing = await prisma.pushSubscription.findUnique({
+    where: { endpoint },
+    select: { userId: true },
+  });
+
+  return NextResponse.json({
+    exists: Boolean(existing),
+    isCurrentUser: existing?.userId === session.user.id,
+  });
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
