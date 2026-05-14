@@ -64,6 +64,9 @@ model User {
   name          String?
   image         String?
   role          Role      @default(PARTICIPANT)
+  active        Boolean   @default(true)
+  superAdmin    Boolean   @default(false)
+  dateOfBirth   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -125,6 +128,7 @@ model ParticipantProfile {
   userId        String   @unique
   enrollmentDate DateTime
   studyPhase    String?  // e.g. "baseline", "3-month", etc.
+  studyRecordId String?   // External / REDCap record mapping
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -172,6 +176,8 @@ model SymptomEntry {
   painLevel   Int?     // 1-10
   symptoms    Json     // e.g. ["cramping", "fatigue"] - stored as JSON array for SQLite
   notes       String?
+  syncedToRedcap Boolean @default(false)
+  syncedAt    DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -294,6 +300,19 @@ model NewsPost {
   publishedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ProjectSettings {
+  id          String   @id @default("default")
+  projectName String
+  description String   @default("")
+  projectId   String   @default("")
+  startDate   String   @default("")
+  endDate     String   @default("")
+  status      String   @default("Active")
+  timeZone    String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model VerificationToken {

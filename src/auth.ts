@@ -4,15 +4,12 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
-// Ensure AUTH_URL has a scheme (Railway may set only hostname)
 const authUrl = process.env.AUTH_URL;
 if (authUrl && !/^https?:\/\//i.test(authUrl)) {
   process.env.AUTH_URL = `https://${authUrl.replace(/^\/+/, "")}`;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Accept session/API requests when the browser Host differs from AUTH_URL
-  // (e.g. phone opens http://192.168.x.x:3000 while env still says localhost).
   trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -29,37 +26,72 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         const email = String(credentials.email).toLowerCase();
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            role: true,
+            passwordHash: true,
+            active: true,
+            superAdmin: true,
+          },
+        });
         if (!user?.passwordHash) return null;
-        const ok = await bcrypt.compare(
-          String(credentials.password),
-          user.passwordHash
-        );
+        if (!user.active) return null;
+        const ok = await bcrypt.compare(String(credentials.password), user.passwordHash);
         if (!ok) return null;
+        const sessionRole = user.superAdmin ? "SUPER_ADMIN" : user.role;
         return {
           id: user.id,
           email: user.email,
           name: user.name ?? undefined,
           image: user.image ?? undefined,
-          role: user.role,
+          role: sessionRole,
+          active: user.active,
+          superAdmin: user.superAdmin,
         };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        token.role = (user as { role?: string }).role;
+        const u = user as {
+          id: string;
+          email: string;
+          role: string;
+          active?: boolean;
+          superAdmin?: boolean;
+        };
+        token.id = u.id;
+        token.email = u.email;
+        token.role = u.role;
+        token.active = u.active ?? true;
+        token.superAdmin = u.superAdmin ?? false;
+      } else if (trigger === "update" && token.id) {
+        const db = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { email: true, role: true, active: true, superAdmin: true },
+        });
+        if (db) {
+          token.email = db.email;
+          token.active = db.active;
+          token.superAdmin = db.superAdmin;
+          token.role = db.superAdmin ? "SUPER_ADMIN" : db.role;
+        }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.role = token.role as string;
+        session.user.email = (token.email as string) ?? session.user.email;
+        session.user.role = (token.role as string) ?? "PARTICIPANT";
+        session.user.active = token.active !== false;
+        session.user.superAdmin = token.superAdmin === true;
       }
       return session;
     },

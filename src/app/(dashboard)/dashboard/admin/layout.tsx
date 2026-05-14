@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { ClinicalAdminShell } from "@/components/admin/clinical-admin-shell";
 
-/** Everything under /dashboard/admin is visible only to users with role ADMIN. */
 export default async function AdminLayout({
   children,
 }: {
@@ -11,8 +12,28 @@ export default async function AdminLayout({
   if (!session?.user) {
     redirect("/login");
   }
-  if (session.user.role !== "ADMIN") {
+  const r = session.user.role;
+  if (r !== "ADMIN" && r !== "SUPER_ADMIN") {
     redirect("/dashboard");
   }
-  return <>{children}</>;
+
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { superAdmin: true },
+  });
+
+  return (
+    <ClinicalAdminShell
+      user={{
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+        role: r,
+        superAdmin: me?.superAdmin ?? session.user.superAdmin ?? false,
+      }}
+    >
+      {children}
+    </ClinicalAdminShell>
+  );
 }

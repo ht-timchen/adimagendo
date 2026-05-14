@@ -43,10 +43,11 @@ export function DashboardNav({
   mobile?: boolean;
 }) {
   const pathname = usePathname();
-  const items = user.role === "ADMIN" ? [adminNavItem, ...navItems] : navItems;
+  const isAdminNav = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  const items = isAdminNav ? [adminNavItem, ...navItems] : navItems;
 
   if (mobile) {
-    const mobileItems = user.role === "ADMIN" ? [adminNavItem, ...navItems.slice(0, 4)] : navItems.slice(0, 5);
+    const mobileItems = isAdminNav ? [adminNavItem, ...navItems.slice(0, 4)] : navItems.slice(0, 5);
     return (
       <div className="flex w-full justify-around py-2">
         {mobileItems.map((item) => {

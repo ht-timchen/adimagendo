@@ -16,6 +16,11 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const role = session.user.role;
+  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+    redirect("/dashboard/admin");
+  }
+
   const userId = session.user.id;
   const staleCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const [
