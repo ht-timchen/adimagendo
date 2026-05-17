@@ -9,8 +9,11 @@ import {
 import {
   displayStudyRecordId,
   lastActiveTimestamp,
-  participantEngagementStatus,
 } from "@/lib/admin-display";
+import {
+  parseOverviewTableFilter,
+  participantOverviewTableWhere,
+} from "@/lib/admin-overview-table-filter";
 import { sendParticipantPushAction } from "./_actions";
 
 const COHORT_TARGET = Number(process.env.NEXT_PUBLIC_COHORT_TARGET ?? "400") || 400;
@@ -93,7 +96,7 @@ async function earliestActivityStart(): Promise<Date | null> {
 }
 
 async function loadDashboardData(
-  sp: { range?: string; page?: string },
+  sp: { range?: string; page?: string; filter?: string; q?: string },
   now: Date
 ): Promise<AdminOverviewDashboardData> {
   const rangeKey = parseRangeKey(sp.range);
@@ -105,18 +108,25 @@ async function loadDashboardData(
 
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const pageSize = 10;
+  const tableFilter = parseOverviewTableFilter(sp.filter);
+  const tableSearch = sp.q?.trim() ?? "";
+  const tableWhere = participantOverviewTableWhere(tableFilter, tableSearch);
 
   const [
-    activeParticipants,
+    enrolledParticipants,
+    engagedInPeriod,
     checklistDone,
     checklistTotal,
     surveysCompleted,
     totalParticipants,
   ] = await Promise.all([
     prisma.user.count({
+      where: { role: "PARTICIPANT", isActive: true },
+    }),
+    prisma.user.count({
       where: {
         role: "PARTICIPANT",
-        active: true,
+        isActive: true,
         OR: [
           { symptoms: { some: { date: { gte: from, lte: to } } } },
           {
@@ -138,8 +148,10 @@ async function loadDashboardData(
 
   const checklistRatePct =
     checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
-  const activePctOfCohort =
-    COHORT_TARGET > 0 ? Math.min(100, Math.round((activeParticipants / COHORT_TARGET) * 100)) : 0;
+  const enrolledPctOfCohort =
+    COHORT_TARGET > 0
+      ? Math.min(100, Math.round((enrolledParticipants / COHORT_TARGET) * 100))
+      : 0;
 
   const denomTrend = Math.max(1, checklistTotal);
   const trend: { label: string; pct: number }[] = [];
@@ -207,16 +219,20 @@ async function loadDashboardData(
     c.intensity = c.count / maxC;
   }
 
-  const skip = (page - 1) * pageSize;
+  const filteredTotal = await prisma.user.count({ where: tableWhere });
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const skip = (safePage - 1) * pageSize;
+
   const users = await prisma.user.findMany({
-    where: { role: "PARTICIPANT" },
+    where: tableWhere,
     orderBy: { createdAt: "desc" },
     skip,
     take: pageSize,
     select: {
       id: true,
       name: true,
-      active: true,
+      isActive: true,
       profile: { select: { studyRecordId: true } },
       checklist: {
         select: {
@@ -233,33 +249,29 @@ async function loadDashboardData(
     const lastActive = await lastActiveTimestamp(u.id);
     const totalC = u.checklist.length;
     const doneC = u.checklist.filter((c) => c.status === "COMPLETED").length;
-    const checklistPct = totalC > 0 ? Math.round((doneC / totalC) * 100) : 0;
     const pending = u.checklist.find((c) => c.status !== "COMPLETED");
     const currentStep = pending?.template.title ?? "All steps complete";
-
-    const status = participantEngagementStatus(u.active, lastActive, now);
 
     rows.push({
       userId: u.id,
       recordId: displayStudyRecordId(u.profile, u.id),
       name: u.name?.trim() || "Participant",
-      status,
-      checklistPct,
+      checklistCompleted: doneC,
+      checklistTotal: totalC,
       currentStep,
       lastActive: lastActive ? lastActive.toISOString() : null,
     });
   }
-
-  const totalPages = Math.max(1, Math.ceil(totalParticipants / pageSize));
 
   return {
     rangeKey,
     rangeLabel: rangeLabel(rangeKey),
     chartRangeLabel: chartRangeShort(rangeKey),
     kpi: {
-      activeParticipants,
+      enrolledParticipants,
+      engagedInPeriod,
       cohortTarget: COHORT_TARGET,
-      activePctOfCohort,
+      enrolledPctOfCohort,
       checklistRatePct,
       surveysCompleted,
     },
@@ -267,9 +279,11 @@ async function loadDashboardData(
     heatmap: { mode: heatmapMode, cells, columns },
     table: {
       rows,
-      page,
+      page: safePage,
       totalPages,
-      total: totalParticipants,
+      total: filteredTotal,
+      filter: tableFilter,
+      search: tableSearch,
     },
   };
 }
@@ -277,7 +291,7 @@ async function loadDashboardData(
 export default async function AdminOverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; page?: string }>;
+  searchParams: Promise<{ range?: string; page?: string; filter?: string; q?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");

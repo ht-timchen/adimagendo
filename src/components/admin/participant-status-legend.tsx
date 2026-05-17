@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const rows = [
-  { label: "🟢 Active", text: "Activity within the last 7 days." },
-  { label: "🟡 Inactive", text: "No activity for 7–30 days." },
-  { label: "🔴 At Risk", text: "No activity for more than 30 days." },
+  { label: "🟢 Active", text: "Participant is active in the study." },
   { label: "⚫ Withdrawn", text: "Participant has withdrawn from the study." },
 ] as const;
 

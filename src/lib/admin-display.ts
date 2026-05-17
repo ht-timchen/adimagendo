@@ -34,16 +34,24 @@ export function displayStudyRecordId(
   return userId.replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase() || userId.slice(0, 8);
 }
 
-/** Engagement tiers for admin overview (days since last symptom/survey/appointment activity). */
-export function participantEngagementStatus(
-  active: boolean,
-  lastActive: Date | null,
-  now: Date
-): "active" | "inactive" | "at_risk" | "withdrawn" {
+export type ParticipantStudyStatus = "active" | "withdrawn";
+
+/** Participant status: enrolled vs withdrawn. */
+export function participantEngagementStatus(active: boolean): ParticipantStudyStatus {
   if (!active) return "withdrawn";
-  if (!lastActive) return "at_risk";
-  const days = (now.getTime() - lastActive.getTime()) / 86400000;
-  if (days < 7) return "active";
-  if (days <= 30) return "inactive";
-  return "at_risk";
+  return "active";
+}
+
+export function participantStatusDisplay(status: ParticipantStudyStatus): {
+  label: string;
+  dot: string;
+} {
+  switch (status) {
+    case "active":
+      return { label: "Active", dot: "bg-emerald-500" };
+    case "withdrawn":
+      return { label: "Withdrawn", dot: "bg-slate-700" };
+    default:
+      return { label: status, dot: "bg-slate-400" };
+  }
 }

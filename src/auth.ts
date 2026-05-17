@@ -35,12 +35,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             image: true,
             role: true,
             passwordHash: true,
-            active: true,
+            isActive: true,
             superAdmin: true,
           },
         });
         if (!user?.passwordHash) return null;
-        if (!user.active) return null;
+        if (!user.isActive) return null;
         const ok = await bcrypt.compare(String(credentials.password), user.passwordHash);
         if (!ok) return null;
         const sessionRole = user.superAdmin ? "SUPER_ADMIN" : user.role;
@@ -50,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name ?? undefined,
           image: user.image ?? undefined,
           role: sessionRole,
-          active: user.active,
+          active: user.isActive,
           superAdmin: user.superAdmin,
         };
       },
@@ -74,11 +74,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       } else if (trigger === "update" && token.id) {
         const db = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { email: true, role: true, active: true, superAdmin: true },
+          select: { email: true, role: true, isActive: true, superAdmin: true },
         });
         if (db) {
           token.email = db.email;
-          token.active = db.active;
+          token.active = db.isActive;
           token.superAdmin = db.superAdmin;
           token.role = db.superAdmin ? "SUPER_ADMIN" : db.role;
         }

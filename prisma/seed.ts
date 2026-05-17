@@ -119,8 +119,9 @@ async function main() {
       name: ADMIN_NAME,
       passwordHash,
       role: "ADMIN",
+      superAdmin: true,
     },
-    update: { name: ADMIN_NAME, passwordHash, role: "ADMIN" },
+    update: { name: ADMIN_NAME, passwordHash, role: "ADMIN", superAdmin: true },
   });
   await prisma.participantProfile.upsert({
     where: { userId: admin.id },

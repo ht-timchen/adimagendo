@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useFormState } from "react-dom";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useActionState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -31,8 +32,13 @@ import {
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { ParticipantStatusLegend } from "@/components/admin/participant-status-legend";
+import {
+  OVERVIEW_TABLE_FILTER_OPTIONS,
+  overviewTableFilterLabel,
+  type OverviewTableFilter,
+} from "@/lib/admin-overview-table-filter";
 
 export type RangeKey = "7d" | "30d" | "3m" | "6m" | "12m" | "all";
 
@@ -41,9 +47,10 @@ export type AdminOverviewDashboardData = {
   rangeLabel: string;
   chartRangeLabel: string;
   kpi: {
-    activeParticipants: number;
+    enrolledParticipants: number;
+    engagedInPeriod: number;
     cohortTarget: number;
-    activePctOfCohort: number;
+    enrolledPctOfCohort: number;
     checklistRatePct: number;
     surveysCompleted: number;
   };
@@ -58,40 +65,222 @@ export type AdminOverviewDashboardData = {
       userId: string;
       recordId: string;
       name: string;
-      status: "active" | "inactive" | "at_risk" | "withdrawn";
-      checklistPct: number;
+      checklistCompleted: number;
+      checklistTotal: number;
       currentStep: string;
       lastActive: string | null;
     }[];
     page: number;
     totalPages: number;
     total: number;
+    filter: OverviewTableFilter;
+    search: string;
   };
 };
+
+const FILTER_MENU_WIDTH = 280;
+const FILTER_MENU_GAP = 6;
+
+function OverviewParticipantsFilter({
+  filter,
+  search,
+  isActive,
+  onApply,
+  onClear,
+}: {
+  filter: OverviewTableFilter;
+  search: string;
+  isActive: boolean;
+  onApply: (filter: OverviewTableFilter, search: string) => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [draftFilter, setDraftFilter] = useState<OverviewTableFilter>(filter);
+  const [draftSearch, setDraftSearch] = useState(search);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftFilter(filter);
+    setDraftSearch(search);
+  }, [open, filter, search]);
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    const menu = menuRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuHeight = menu?.offsetHeight ?? 320;
+    const viewportPad = 12;
+    let top = rect.bottom + FILTER_MENU_GAP;
+    if (top + menuHeight > window.innerHeight - viewportPad) {
+      top = rect.top - FILTER_MENU_GAP - menuHeight;
+    }
+    top = Math.max(viewportPad, Math.min(top, window.innerHeight - menuHeight - viewportPad));
+    let left = rect.right - FILTER_MENU_WIDTH;
+    left = Math.max(viewportPad, Math.min(left, window.innerWidth - FILTER_MENU_WIDTH - viewportPad));
+    setMenuPos({ top, left });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPos(null);
+      return;
+    }
+    updateMenuPosition();
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onScrollOrResize() {
+      updateMenuPosition();
+    }
+    window.addEventListener("resize", onScrollOrResize);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", onScrollOrResize);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  const selectClass =
+    "flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2";
+
+  const menu = (
+    <div
+      ref={menuRef}
+      role="dialog"
+      aria-label="Filter participants"
+      style={
+        menuPos
+          ? {
+              position: "fixed",
+              top: menuPos.top,
+              left: menuPos.left,
+              width: FILTER_MENU_WIDTH,
+              zIndex: 9999,
+            }
+          : { position: "fixed", visibility: "hidden", width: FILTER_MENU_WIDTH, zIndex: 9999 }
+      }
+      className="rounded-xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-300/40 ring-1 ring-slate-900/5"
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Filter table</p>
+      <div className="mt-3 space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-600">Show</label>
+          <select
+            className={selectClass}
+            value={draftFilter}
+            onChange={(e) => setDraftFilter(e.target.value as OverviewTableFilter)}
+          >
+            {OVERVIEW_TABLE_FILTER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-600">Search name or record ID</label>
+          <Input
+            value={draftSearch}
+            onChange={(e) => setDraftSearch(e.target.value)}
+            placeholder="e.g. STUDY-ABC123"
+            className="rounded-xl"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onApply(draftFilter, draftSearch);
+                setOpen(false);
+              }
+            }}
+          />
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="rounded-xl"
+          onClick={() => {
+            onClear();
+            setOpen(false);
+          }}
+        >
+          Clear
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="rounded-xl bg-violet-600 hover:bg-violet-700"
+          onClick={() => {
+            onApply(draftFilter, draftSearch);
+            setOpen(false);
+          }}
+        >
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div ref={triggerRef} className="relative">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className={cn(
+          "rounded-xl border-slate-200",
+          isActive && "border-violet-300 bg-violet-50 text-violet-900"
+        )}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Filter className="mr-1 h-4 w-4" />
+        Filter
+        {isActive ? (
+          <span className="ml-1.5 rounded-full bg-violet-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            On
+          </span>
+        ) : null}
+      </Button>
+      {mounted && open ? createPortal(menu, document.body) : null}
+    </div>
+  );
+}
 
 function greetingWord(): string {
   const h = new Date().getHours();
   if (h < 12) return "morning";
   if (h < 18) return "afternoon";
   return "evening";
-}
-
-function statusDisplay(status: AdminOverviewDashboardData["table"]["rows"][0]["status"]): {
-  label: string;
-  dot: string;
-} {
-  switch (status) {
-    case "active":
-      return { label: "Active", dot: "bg-emerald-500" };
-    case "inactive":
-      return { label: "Inactive", dot: "bg-amber-400" };
-    case "at_risk":
-      return { label: "At Risk", dot: "bg-rose-500" };
-    case "withdrawn":
-      return { label: "Withdrawn", dot: "bg-slate-700" };
-    default:
-      return { label: status, dot: "bg-slate-400" };
-  }
 }
 
 function PushModal({
@@ -108,7 +297,7 @@ function PushModal({
     formData: FormData
   ) => Promise<{ ok: boolean; error?: string }>;
 }) {
-  const [state, formAction] = useFormState(action, null);
+  const [state, formAction] = useActionState(action, null);
   const ref = useRef<HTMLDialogElement>(null);
   const router = useRouter();
 
@@ -205,6 +394,27 @@ export function ClinicalAdminOverviewDashboard({
     router.push(`${pathname}?${q.toString()}`);
   };
 
+  const applyTableFilters = (filter: OverviewTableFilter, search: string) => {
+    const q = new URLSearchParams(searchParams.toString());
+    if (filter === "all") q.delete("filter");
+    else q.set("filter", filter);
+    if (search.trim()) q.set("q", search.trim());
+    else q.delete("q");
+    q.set("page", "1");
+    router.push(`${pathname}?${q.toString()}`);
+  };
+
+  const clearTableFilters = () => {
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete("filter");
+    q.delete("q");
+    q.set("page", "1");
+    router.push(`${pathname}?${q.toString()}`);
+  };
+
+  const tableFilterActive =
+    data.table.filter !== "all" || data.table.search.length > 0;
+
   const greet = greetingWord();
 
   const quickLinks = [
@@ -226,7 +436,8 @@ export function ClinicalAdminOverviewDashboard({
               </h1>
               <p className="mt-1 text-sm text-slate-600">Here&apos;s what&apos;s happening with your study today.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <select
                   aria-label="Time range"
@@ -256,6 +467,8 @@ export function ClinicalAdminOverviewDashboard({
               >
                 {adminInitial}
               </Link>
+              </div>
+              <p className="text-xs text-slate-500">Range applies to engaged count, heatmap &amp; surveys</p>
             </div>
           </header>
 
@@ -264,15 +477,27 @@ export function ClinicalAdminOverviewDashboard({
             <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
               <CardContent className="p-5">
                 <Users className="mb-3 h-5 w-5 text-violet-600" />
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Active Participants</p>
-                <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{data.kpi.activeParticipants}</p>
-                <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                  <span>
-                    {data.kpi.activePctOfCohort}% of {data.kpi.cohortTarget}
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600">
-                    <TrendingUp className="h-3.5 w-3.5" /> Up
-                  </span>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Participants</p>
+                <div className="mt-3 space-y-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Enrolled</p>
+                    <p className="text-3xl font-bold tabular-nums text-slate-900">
+                      {data.kpi.enrolledParticipants}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">Active in the study (not withdrawn)</p>
+                  </div>
+                  <div className="border-t border-slate-100 pt-3">
+                    <p className="text-xs text-slate-500">Engaged ({data.rangeLabel})</p>
+                    <p className="text-2xl font-bold tabular-nums text-violet-700">
+                      {data.kpi.engagedInPeriod}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Logged symptoms, completed a survey, or had an appointment
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                  {data.kpi.enrolledPctOfCohort}% of {data.kpi.cohortTarget} cohort target (enrolled)
                 </div>
               </CardContent>
             </Card>
@@ -374,22 +599,39 @@ export function ClinicalAdminOverviewDashboard({
             <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
               <div>
                 <CardTitle className="text-lg font-semibold text-slate-900">Recent Participants Overview</CardTitle>
-                <CardDescription>Monitor participant status and engagement</CardDescription>
+                <CardDescription>Monitor checklist progress and engagement</CardDescription>
               </div>
-              <Button type="button" variant="outline" size="sm" className="rounded-xl border-slate-200">
-                <Filter className="mr-1 h-4 w-4" />
-                Filter
-              </Button>
+              <OverviewParticipantsFilter
+                filter={data.table.filter}
+                search={data.table.search}
+                isActive={tableFilterActive}
+                onApply={applyTableFilters}
+                onClear={clearTableFilters}
+              />
             </CardHeader>
+            {tableFilterActive ? (
+              <div className="border-b border-slate-100 px-6 pb-3 text-xs text-slate-600">
+                Showing {data.table.total} participant{data.table.total === 1 ? "" : "s"}
+                {data.table.filter !== "all" ? (
+                  <span>
+                    {" "}
+                    · Filter: <span className="font-medium">{overviewTableFilterLabel(data.table.filter)}</span>
+                  </span>
+                ) : null}
+                {data.table.search ? (
+                  <span>
+                    {" "}
+                    · Search: <span className="font-medium">&quot;{data.table.search}&quot;</span>
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <CardContent className="overflow-x-auto px-0 pb-0">
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Record ID</th>
                     <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">
-                      <ParticipantStatusLegend />
-                    </th>
                     <th className="px-4 py-3">Checklist</th>
                     <th className="px-4 py-3">Current Step</th>
                     <th className="px-4 py-3">Last Active</th>
@@ -397,28 +639,25 @@ export function ClinicalAdminOverviewDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.table.rows.map((row) => {
-                    const sd = statusDisplay(row.status);
-                    return (
+                  {data.table.rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                        No participants match this filter.
+                      </td>
+                    </tr>
+                  ) : null}
+                  {data.table.rows.map((row) => (
                       <tr key={row.userId} className="border-b border-slate-100 hover:bg-slate-50/60">
                         <td className="px-4 py-3 font-mono text-xs text-slate-700">{row.recordId}</td>
                         <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center gap-2">
-                            <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", sd.dot)} />
-                            <span className="text-slate-700">{sd.label}</span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex max-w-[140px] items-center gap-2">
-                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                              <div
-                                className="h-full rounded-full bg-violet-500"
-                                style={{ width: `${Math.min(100, row.checklistPct)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs tabular-nums text-slate-600">{row.checklistPct}%</span>
-                          </div>
+                        <td className="px-4 py-3 tabular-nums text-slate-800">
+                          {row.checklistTotal > 0 ? (
+                            <span>
+                              {row.checklistCompleted} of {row.checklistTotal}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
                         </td>
                         <td className="max-w-[200px] truncate px-4 py-3 text-slate-700" title={row.currentStep}>
                           {row.currentStep}
@@ -444,8 +683,7 @@ export function ClinicalAdminOverviewDashboard({
                           </Button>
                         </td>
                       </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600">

@@ -83,7 +83,7 @@ export async function notifyAllParticipantsAction(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   if (!title) redirect("/dashboard/admin/actions/notify?error=missing-title");
   const ids = await prisma.user.findMany({
-    where: { role: "PARTICIPANT", active: true },
+    where: { role: "PARTICIPANT", isActive: true },
     select: { id: true },
   });
   await prisma.notification.createMany({
@@ -158,7 +158,7 @@ export async function createAdminPersonAction(formData: FormData) {
       name,
       passwordHash,
       role: "ADMIN",
-      active: true,
+      isActive: true,
       superAdmin: false,
     },
   });
@@ -173,7 +173,7 @@ export async function setAdminActiveAction(formData: FormData) {
   if (!userId || userId === session.user.id) redirect("/dashboard/admin/people?error=cannot-self");
   await prisma.user.update({
     where: { id: userId, role: "ADMIN" },
-    data: { active },
+    data: { isActive: active },
   });
   revalidatePath("/dashboard/admin/people");
   redirect("/dashboard/admin/people");

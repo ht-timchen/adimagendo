@@ -12,6 +12,7 @@ datasource db {
 
 enum Role {
   PARTICIPANT
+  USER
   ADMIN
 }
 
@@ -63,12 +64,14 @@ model User {
   passwordHash  String?
   name          String?
   image         String?
-  role          Role      @default(PARTICIPANT)
-  active        Boolean   @default(true)
-  superAdmin    Boolean   @default(false)
-  dateOfBirth   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role              Role      @default(PARTICIPANT)
+  isActive          Boolean   @default(true) @map("active")
+  superAdmin        Boolean   @default(false)
+  inviteToken       String?
+  inviteTokenExpiry DateTime?
+  dateOfBirth       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   accounts         Account[]
   sessions         Session[]

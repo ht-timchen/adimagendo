@@ -19,6 +19,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const activated = searchParams.get("activated") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -56,6 +57,11 @@ export function LoginForm() {
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="space-y-4">
+            {activated ? (
+              <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm text-emerald-900">
+                Account activated. Please sign in.
+              </p>
+            ) : null}
             {error && (
               <p className="text-center text-sm text-red-600 dark:text-red-400">
                 {error}

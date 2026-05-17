@@ -10,20 +10,34 @@ export async function ensureAdmin() {
   return session;
 }
 
-export async function ensurePeopleAdmin() {
-  const session = await ensureAdmin();
+/** Can access People page and assign ADMIN / SUPER_ADMIN roles (DB + env, not JWT-only). */
+export async function canAssignStaffRoles(
+  userId: string,
+  email: string,
+  sessionRole?: string
+): Promise<boolean> {
+  if (sessionRole === "SUPER_ADMIN") return true;
+
   const me = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { superAdmin: true, email: true },
+    where: { id: userId },
+    select: { superAdmin: true },
   });
   const envList = (process.env.SUPER_ADMIN_EMAILS ?? "")
     .split(",")
     .map((x) => x.trim().toLowerCase())
     .filter(Boolean);
   const superCount = await prisma.user.count({ where: { superAdmin: true } });
-  const isSuper =
-    me?.superAdmin === true || envList.includes(session.user.email.toLowerCase());
   const bootstrap = superCount === 0 && envList.length === 0;
-  if (!isSuper && !bootstrap) redirect("/dashboard/admin");
+  if (bootstrap) return true;
+  if (me?.superAdmin === true) return true;
+  if (envList.includes(email.toLowerCase())) return true;
+  return false;
+}
+
+/** Super-admin-only flows (legacy server actions). People page uses {@link ensureAdmin} instead. */
+export async function ensurePeopleAdmin() {
+  const session = await ensureAdmin();
+  const isSuper = await canAssignStaffRoles(session.user.id, session.user.email);
+  if (!isSuper) redirect("/dashboard/admin");
   return session;
 }

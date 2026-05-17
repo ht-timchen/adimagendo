@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import type { ProjectSettings } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ const inputClass =
   "rounded-xl border-slate-200 focus-visible:ring-violet-500 dark:border-slate-700";
 
 export function ProjectSettingsForm({ initial }: { initial: ProjectSettings }) {
-  const [state, formAction] = useFormState(updateProjectSettingsAction, null);
+  const [state, formAction] = useActionState(updateProjectSettingsAction, null);
 
   const tzOptions: string[] = [...COMMON_TIMEZONES];
   const tz = initial.timeZone?.trim();
