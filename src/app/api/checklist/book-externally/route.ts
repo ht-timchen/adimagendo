@@ -45,10 +45,10 @@ export async function POST(req: Request) {
   });
 
   if (existing?.bookingProgress === "CONFIRMED") {
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, checklistItemId: existing.id });
   }
 
-  await prisma.participantChecklistItem.upsert({
+  const item = await prisma.participantChecklistItem.upsert({
     where: {
       userId_templateId: {
         userId: session.user.id,
@@ -68,5 +68,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, checklistItemId: item.id });
 }

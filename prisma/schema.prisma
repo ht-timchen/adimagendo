@@ -85,6 +85,7 @@ model User {
   notifications    Notification[]
   contactMessages  ContactMessage[]
   pushSubscriptions PushSubscription[]
+  milestones        ParticipantMilestone[]
 }
 
 model PushSubscription {
@@ -147,10 +148,50 @@ model ChecklistTemplate {
   externalUrl   String?
   dueOffsetDays Int?
   sortOrder     Int              @default(0)
+  /// Explicit link to SurveyTemplate.key (SURVEY steps only).
+  surveyTemplateKey String?
+  /// Per-step REDCap instrument URL (replaces global constant at runtime).
+  redcapUrl         String?
+  /// ChecklistTemplate.key values that must be COMPLETED before this step unlocks.
+  prerequisiteKeys  Json?
+  /// Additional enrollment-based unlock: enrollmentDate + unlockOffsetDays.
+  unlockOffsetDays  Int?
+  /// Groups related steps for milestone evaluation (e.g. level_1_imaging).
+  completionGroupKey String?
+  /// StudyMilestone.key values that must be achieved before this step unlocks.
+  requiredMilestoneKeys Json?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
+  surveyTemplate   SurveyTemplate? @relation(fields: [surveyTemplateKey], references: [key], onDelete: SetNull)
   participantItems ParticipantChecklistItem[]
+}
+
+/// Protocol milestone definition (metadata-driven; evaluated in application layer).
+model StudyMilestone {
+  key          String   @id
+  title        String
+  /// ChecklistTemplate.key values that must all be COMPLETED to achieve this milestone.
+  requiredKeys Json
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  participantAchievements ParticipantMilestone[]
+}
+
+model ParticipantMilestone {
+  id           String   @id @default(cuid())
+  userId       String
+  milestoneKey String
+  achievedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestone  StudyMilestone @relation(fields: [milestoneKey], references: [key], onDelete: Cascade)
+
+  @@unique([userId, milestoneKey])
+  @@index([userId])
 }
 
 model ParticipantChecklistItem {
@@ -205,15 +246,16 @@ model AbsenceEntry {
 
 model SurveyTemplate {
   id          String   @id @default(cuid())
-  key         String   @unique // e.g. "qol_baseline", "qol_3m"
+  key         String   @unique // e.g. "enrollment_survey", "qol_3m"
   title       String
   description String?
-  intervalMonths Int   // 0, 3, 6, 9, 12
+  intervalMonths Int   // 0, 3, 6, 9, 12, 24, 36, etc.
   questions   Json     // Array of question configs
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  responses SurveyResponse[]
+  responses          SurveyResponse[]
+  checklistTemplates ChecklistTemplate[]
 }
 
 model SurveyResponse {

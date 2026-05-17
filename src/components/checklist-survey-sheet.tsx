@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 type Props = {
   surveyUrl: string;
   triggerLabel?: string;
+  disabled?: boolean;
 } & (
   | { templateId: string; surveyId?: never }
   | { surveyId: string; templateId?: never }
@@ -18,6 +19,7 @@ export function ChecklistSurveySheet({
   surveyId,
   surveyUrl,
   triggerLabel = "Complete survey",
+  disabled: disabledProp = false,
 }: Props) {
   const router = useRouter();
   const [openSurvey, setOpenSurvey] = useState(false);
@@ -32,6 +34,7 @@ export function ChecklistSurveySheet({
   };
 
   const markCompleted = async () => {
+    if (disabledProp) return;
     setIsSaving(true);
     setError(null);
     try {
@@ -142,8 +145,10 @@ export function ChecklistSurveySheet({
     <>
       <Button
         type="button"
-        className="h-9 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700"
+        className="h-9 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={disabledProp}
         onClick={() => {
+          if (disabledProp) return;
           const nav = window.navigator as Navigator & { standalone?: boolean };
           const isStandaloneMode =
             (typeof window.matchMedia === "function" &&

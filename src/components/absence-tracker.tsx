@@ -106,7 +106,7 @@ export function AbsenceTracker() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Log absence</CardTitle>
+          <CardTitle className="text-base">Log entry</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -169,7 +169,7 @@ export function AbsenceTracker() {
               />
             </div>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Add absence"}
+              {saving ? "Saving…" : "Add entry"}
             </Button>
           </form>
         </CardContent>
@@ -234,11 +234,11 @@ export function AbsenceTracker() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">This month&apos;s absences</CardTitle>
+          <CardTitle className="text-base">This month&apos;s diary</CardTitle>
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
-            <p className="text-sm text-slate-500">No absences logged for this month.</p>
+            <p className="text-sm text-slate-500">No diary entries for this month.</p>
           ) : (
             <ul className="space-y-2">
               {entries.map((e) => (

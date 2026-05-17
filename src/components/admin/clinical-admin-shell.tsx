@@ -47,6 +47,19 @@ const actionNav = [
   { href: "/dashboard/admin/actions/notify", label: "Send notifications", icon: Bell },
 ] as const;
 
+const adminMobileTabs = [
+  { href: "/dashboard/admin/participants", label: "Participants", icon: Users },
+  {
+    href: "/dashboard/admin/actions/notify",
+    label: "Notifications",
+    icon: Bell,
+  },
+] as const;
+
+function adminMobileTabActive(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function navItemActive(pathname: string, href: string): boolean {
   if (href === "/dashboard/admin") {
     return pathname === "/dashboard/admin" || pathname === "/dashboard/admin/";
@@ -182,15 +195,35 @@ export function ClinicalAdminShell({
             <LogOut className="h-5 w-5" />
           </Button>
         </header>
-        <div className="border-b border-slate-200 bg-white px-2 py-2 dark:border-slate-800 dark:bg-slate-900 md:hidden">
-          <SidebarNav
-            pathname={pathname}
-            actionsOpen={actionsOpen}
-            setActionsOpen={setActionsOpen}
-            compact
-          />
-        </div>
-        <main className="min-h-0 flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        <main className="dashboard-main-safe-mobile min-h-0 flex-1 overflow-auto p-4 pb-24 md:p-6 md:pb-6">
+          {children}
+        </main>
+        <nav
+          className="dashboard-bottom-nav-safe fixed bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 md:hidden"
+          aria-label="Admin"
+        >
+          <div className="flex w-full justify-around py-2">
+            {adminMobileTabs.map((item) => {
+              const Icon = item.icon;
+              const active = adminMobileTabActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-lg px-4 py-1 text-xs font-medium transition-colors",
+                    active
+                      ? "text-violet-600 dark:text-violet-400"
+                      : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </div>
     </div>
   );

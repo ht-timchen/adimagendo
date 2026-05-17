@@ -14,6 +14,8 @@ import {
   parseOverviewTableFilter,
   participantOverviewTableWhere,
 } from "@/lib/admin-overview-table-filter";
+import { summarizeParticipantChecklist } from "@/lib/participant-checklist-summary";
+import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { sendParticipantPushAction } from "./_actions";
 
 const COHORT_TARGET = Number(process.env.NEXT_PUBLIC_COHORT_TARGET ?? "400") || 400;
@@ -111,6 +113,11 @@ async function loadDashboardData(
   const tableFilter = parseOverviewTableFilter(sp.filter);
   const tableSearch = sp.q?.trim() ?? "";
   const tableWhere = participantOverviewTableWhere(tableFilter, tableSearch);
+  const validTemplateIds = await getValidChecklistTemplateIds();
+  const checklistScope =
+    validTemplateIds.length > 0
+      ? { templateId: { in: validTemplateIds } }
+      : { templateId: { in: [] as string[] } };
 
   const [
     enrolledParticipants,
@@ -138,8 +145,10 @@ async function loadDashboardData(
         ],
       },
     }),
-    prisma.participantChecklistItem.count({ where: { status: "COMPLETED" } }),
-    prisma.participantChecklistItem.count(),
+    prisma.participantChecklistItem.count({
+      where: { status: "COMPLETED", ...checklistScope },
+    }),
+    prisma.participantChecklistItem.count({ where: checklistScope }),
     prisma.surveyResponse.count({
       where: { completed: true, updatedAt: { gte: from, lte: to } },
     }),
@@ -235,11 +244,12 @@ async function loadDashboardData(
       isActive: true,
       profile: { select: { studyRecordId: true } },
       checklist: {
+        where: checklistScope,
         select: {
           status: true,
-          template: { select: { title: true } },
+          template: { select: { title: true, sortOrder: true } },
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: { template: { sortOrder: "asc" } },
       },
     },
   });
@@ -247,18 +257,15 @@ async function loadDashboardData(
   const rows: AdminOverviewDashboardData["table"]["rows"] = [];
   for (const u of users) {
     const lastActive = await lastActiveTimestamp(u.id);
-    const totalC = u.checklist.length;
-    const doneC = u.checklist.filter((c) => c.status === "COMPLETED").length;
-    const pending = u.checklist.find((c) => c.status !== "COMPLETED");
-    const currentStep = pending?.template.title ?? "All steps complete";
+    const checklist = summarizeParticipantChecklist(u.checklist);
 
     rows.push({
       userId: u.id,
       recordId: displayStudyRecordId(u.profile, u.id),
       name: u.name?.trim() || "Participant",
-      checklistCompleted: doneC,
-      checklistTotal: totalC,
-      currentStep,
+      checklistCompleted: checklist.completed,
+      checklistTotal: checklist.total,
+      currentStep: checklist.currentStep,
       lastActive: lastActive ? lastActive.toISOString() : null,
     });
   }

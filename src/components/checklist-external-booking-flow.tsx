@@ -9,10 +9,13 @@ import { ExternalLink } from "lucide-react";
 import {
   combineLocalDateTime,
   formatAppointmentDateTime,
-  tomorrowYmdLocal,
+  todayYmdLocal,
 } from "@/lib/local-datetime";
 
-export type ChecklistBookingProgress = "NOT_STARTED" | "BOOKED_EXTERNALLY" | "CONFIRMED";
+export type ChecklistBookingProgress =
+  | "NOT_STARTED"
+  | "BOOKED_EXTERNALLY"
+  | "CONFIRMED";
 
 type AppointmentPayload = {
   id: string;
@@ -27,12 +30,13 @@ type AppointmentPayload = {
 
 type Props = {
   templateId: string;
+  checklistItemId: string | null;
   templateTitle: string;
   templateDescription: string | null;
   externalUrl: string;
   bookingProgress: ChecklistBookingProgress;
-  bookedExternallyAt: string | null;
   appointment: AppointmentPayload | null;
+  actionsDisabled?: boolean;
 };
 
 function statusLabel(
@@ -45,25 +49,27 @@ function statusLabel(
     if (raw) {
       const dt = new Date(raw);
       return {
-        text: `Confirmed · ${formatAppointmentDateTime(dt)}`,
+        text: `Confirmed (${formatAppointmentDateTime(dt)})`,
         tone: "ok",
       };
     }
     return { text: "Confirmed", tone: "ok" };
   }
   if (progress === "BOOKED_EXTERNALLY") {
-    return { text: "Booked externally", tone: "warn" };
+    return { text: "Booked Externally", tone: "warn" };
   }
-  return { text: "Not started", tone: "muted" };
+  return { text: "Not Started", tone: "muted" };
 }
 
 export function ChecklistExternalBookingFlow({
   templateId,
+  checklistItemId,
   templateTitle,
   templateDescription,
   externalUrl,
   bookingProgress: initialProgress,
   appointment: initialAppointment,
+  actionsDisabled = false,
 }: Props) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -72,7 +78,8 @@ export function ChecklistExternalBookingFlow({
   const [appointment, setAppointment] = useState<AppointmentPayload | null>(
     initialAppointment
   );
-  const [finishingBooking, setFinishingBooking] = useState(false);
+  const [itemId, setItemId] = useState<string | null>(checklistItemId);
+  const [bookingNow, setBookingNow] = useState(false);
   const [step, setStep] = useState<"form" | "preview">("form");
   const [dateStr, setDateStr] = useState("");
   const [timeStr, setTimeStr] = useState("");
@@ -83,14 +90,16 @@ export function ChecklistExternalBookingFlow({
   useEffect(() => {
     setBookingProgress(initialProgress);
     setAppointment(initialAppointment);
-  }, [initialProgress, initialAppointment]);
+    setItemId(checklistItemId);
+  }, [initialProgress, initialAppointment, checklistItemId]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 3200);
+    window.setTimeout(() => setToast(null), 4000);
   }, []);
 
   const openModal = () => {
+    if (actionsDisabled) return;
     setStep("form");
     setDateStr("");
     setTimeStr("");
@@ -109,8 +118,10 @@ export function ChecklistExternalBookingFlow({
     setStep("form");
   };
 
-  const onFinishedBooking = async () => {
-    setFinishingBooking(true);
+  const onBookNow = async () => {
+    if (actionsDisabled) return;
+    window.open(externalUrl, "_blank", "noopener,noreferrer");
+    setBookingNow(true);
     try {
       const res = await fetch("/api/checklist/book-externally", {
         method: "POST",
@@ -118,10 +129,14 @@ export function ChecklistExternalBookingFlow({
         body: JSON.stringify({ templateId }),
       });
       if (!res.ok) return;
+      const data = (await res.json().catch(() => ({}))) as {
+        checklistItemId?: string;
+      };
       setBookingProgress("BOOKED_EXTERNALLY");
+      if (data.checklistItemId) setItemId(data.checklistItemId);
       router.refresh();
     } finally {
-      setFinishingBooking(false);
+      setBookingNow(false);
     }
   };
 
@@ -136,15 +151,23 @@ export function ChecklistExternalBookingFlow({
   };
 
   const confirmAppointment = async () => {
+    if (actionsDisabled) return;
     const combined = combineLocalDateTime(dateStr, timeStr);
     if (!combined) return;
+
+    const resolvedItemId = itemId ?? checklistItemId;
+    if (!resolvedItemId) {
+      showToast("Checklist item not found. Tap Book Now again.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const res = await fetch("/api/checklist/confirm-appointment", {
+      const res = await fetch("/api/appointments/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          templateId,
+          checklistItemId: resolvedItemId,
           scheduledStartAt: combined.toISOString(),
           scheduledLocation: location.trim() || null,
         }),
@@ -153,6 +176,7 @@ export function ChecklistExternalBookingFlow({
         error?: string;
         appointmentId?: string;
         scheduledStartAt?: string | null;
+        alreadyCompleted?: boolean;
       };
       if (!res.ok) {
         showToast(
@@ -175,7 +199,9 @@ export function ChecklistExternalBookingFlow({
         });
       }
       closeModal();
-      showToast("Appointment confirmed! Reminders enabled.");
+      showToast(
+        "Appointment confirmed! Add it to your calendar below."
+      );
       router.refresh();
     } finally {
       setSubmitting(false);
@@ -211,25 +237,26 @@ export function ChecklistExternalBookingFlow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <a
-          href={externalUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
-        >
-          Book or open link <ExternalLink className="ml-1 h-4 w-4" />
-        </a>
         {bookingProgress === "NOT_STARTED" ? (
           <Button
             type="button"
             size="sm"
-            variant="secondary"
-            disabled={finishingBooking}
-            onClick={onFinishedBooking}
+            disabled={actionsDisabled || bookingNow}
+            onClick={onBookNow}
           >
-            {finishingBooking ? "Saving…" : "I've finished booking"}
+            {bookingNow ? "Saving…" : "Book Now"}
+            <ExternalLink className="ml-1 h-4 w-4" />
           </Button>
-        ) : null}
+        ) : (
+          <a
+            href={externalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+          >
+            Open booking site <ExternalLink className="ml-1 h-4 w-4" />
+          </a>
+        )}
       </div>
 
       {showExpandedPanel ? (
@@ -237,10 +264,14 @@ export function ChecklistExternalBookingFlow({
           {bookingProgress === "BOOKED_EXTERNALLY" ? (
             <div className="space-y-2">
               <p className="text-sm text-slate-700 dark:text-slate-300">
-                Confirm the date and time you chose with the clinic so your
-                reminders stay accurate.
+                Enter the date and time from your booking confirmation.
               </p>
-              <Button type="button" size="sm" onClick={openModal}>
+              <Button
+                type="button"
+                size="sm"
+                disabled={actionsDisabled}
+                onClick={openModal}
+              >
                 Confirm appointment details
               </Button>
             </div>
@@ -264,12 +295,7 @@ export function ChecklistExternalBookingFlow({
             </div>
           ) : null}
         </div>
-      ) : (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          When you have finished on the booking site, click{" "}
-          <span className="font-medium">I've finished booking</span> to continue.
-        </p>
-      )}
+      ) : null}
 
       <dialog
         ref={dialogRef}
@@ -291,7 +317,7 @@ export function ChecklistExternalBookingFlow({
                 </label>
                 <Input
                   type="date"
-                  min={tomorrowYmdLocal()}
+                  min={todayYmdLocal()}
                   value={dateStr}
                   onChange={(e) => setDateStr(e.target.value)}
                 />
@@ -338,7 +364,7 @@ export function ChecklistExternalBookingFlow({
                   ? formatAppointmentDateTime(previewCombined)
                   : "—"}
               </span>
-              . Is this correct?
+              . Correct?
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <Button
@@ -364,7 +390,7 @@ export function ChecklistExternalBookingFlow({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 right-6 z-[60] max-w-sm rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 shadow-md dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100"
+          className="fixed bottom-24 left-1/2 z-[60] max-w-sm -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 shadow-md dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100 md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
         >
           {toast}
         </div>

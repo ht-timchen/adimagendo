@@ -130,12 +130,12 @@ Railway runs your app in a container with a persistent volume, so you can keep u
 - **Auth** – Register, login (credentials), sign out.
 - **Dashboard** – Progress, upcoming appointments, quick actions, recent symptoms.
 - **Checklist** – Study requirements with due dates and links (e.g. book scan).
-- **Placeholder pages** – Symptoms, absences, surveys, documents, contact, news (structure only; to be implemented).
+- **Placeholder pages** – Symptoms, diary, surveys, documents, contact, news (structure only; to be implemented).
 
 ## Roadmap
 
 - Symptom diary (calendar + daily log)
-- Absence tracking
+- Diary (absence / hospital admission tracking)
 - QoL survey flow (3/6/9/12 months)
 - Document upload (report cards) and referral inbox
 - Notifications (email + in-app)

@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { getStepCompletionBlock } from "@/lib/workflow/assert-step-available";
+import {
+  alreadyCompletedResponse,
+  completionOkResponse,
+} from "@/lib/workflow/completion-response";
 import { z } from "zod";
 
 const BodySchema = z.object({
@@ -24,15 +29,29 @@ export async function POST(req: Request) {
     if (!template) {
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
-    if (template.externalUrl?.trim()) {
-      const existing = await prisma.participantChecklistItem.findUnique({
-        where: {
-          userId_templateId: {
-            userId: session.user.id,
-            templateId: parsed.data.templateId,
-          },
+
+    const workflowBlock = await getStepCompletionBlock(
+      session.user.id,
+      template.key
+    );
+    if (workflowBlock) {
+      return NextResponse.json(workflowBlock, { status: 403 });
+    }
+
+    const existing = await prisma.participantChecklistItem.findUnique({
+      where: {
+        userId_templateId: {
+          userId: session.user.id,
+          templateId: parsed.data.templateId,
         },
-      });
+      },
+    });
+
+    if (existing?.status === "COMPLETED") {
+      return alreadyCompletedResponse();
+    }
+
+    if (template.externalUrl?.trim()) {
       if (existing?.bookingProgress !== "CONFIRMED") {
         return NextResponse.json(
           {
@@ -43,6 +62,7 @@ export async function POST(req: Request) {
         );
       }
     }
+
     await prisma.participantChecklistItem.upsert({
       where: {
         userId_templateId: {
@@ -61,7 +81,7 @@ export async function POST(req: Request) {
         completedAt: new Date(),
       },
     });
-    return NextResponse.json({ ok: true });
+    return completionOkResponse();
   } catch (e) {
     console.error("Checklist complete error:", e);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });

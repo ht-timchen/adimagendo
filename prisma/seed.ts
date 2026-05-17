@@ -1,5 +1,13 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { assertProtocolValid, validateProtocol } from "./validate-protocol";
+import { deleteOrphanedParticipantChecklistItems } from "../src/lib/valid-checklist-items";
+import { BOOK_APPOINTMENT_ROWS } from "../src/lib/checklist-booking-group";
+
+function bookExternalUrl(templateKey: string): string | undefined {
+  return BOOK_APPOINTMENT_ROWS.find((r) => r.templateKey === templateKey)
+    ?.externalUrl;
+}
 
 const prisma = new PrismaClient();
 
@@ -7,110 +15,384 @@ const ADMIN_EMAIL = "admin@adimagendo.local";
 const ADMIN_PASSWORD = "imagendoadmin";
 const ADMIN_NAME = "Admin";
 
+/** Placeholder REDCap URLs — replace per instrument when available. */
+const REDCAP_PLACEHOLDER =
+  process.env.REDCAP_PLACEHOLDER_URL ??
+  "https://surveys.adelaide.edu.au/redcap/surveys/?s=XPJJPXPADKK7RYMA";
+
+const SCALE_QUESTIONS = [
+  {
+    id: "q1",
+    text: "Overall, how would you rate your quality of life?",
+    type: "scale",
+    min: 1,
+    max: 10,
+  },
+  {
+    id: "q2",
+    text: "How would you rate your health today?",
+    type: "scale",
+    min: 1,
+    max: 5,
+  },
+] as const;
+
+type SurveySeed = {
+  key: string;
+  title: string;
+  description: string;
+  intervalMonths: number;
+};
+
+type ChecklistSeed = {
+  key: string;
+  title: string;
+  description: string;
+  type: Prisma.ChecklistItemType;
+  sortOrder: number;
+  externalUrl?: string;
+  dueOffsetDays?: number;
+  unlockOffsetDays?: number;
+  surveyTemplateKey?: string;
+  redcapUrl?: string;
+  prerequisiteKeys?: string[];
+  requiredMilestoneKeys?: string[];
+  completionGroupKey?: string;
+};
+
+const DEPRECATED_CHECKLIST_KEYS = ["enrollment_survey", "book_appointment"];
+const DEPRECATED_SURVEY_KEYS = ["enrollment_survey"];
+
+const SURVEY_TEMPLATES: SurveySeed[] = [
+  {
+    key: "qol_baseline",
+    title: "Baseline QoL survey",
+    description: "Baseline quality-of-life questionnaire",
+    intervalMonths: 0,
+  },
+  {
+    key: "pre_tvus_survey",
+    title: "Pre-TVUS survey",
+    description: "Before transvaginal ultrasound",
+    intervalMonths: 0,
+  },
+  {
+    key: "post_tvus_survey",
+    title: "Post-TVUS survey",
+    description: "After transvaginal ultrasound",
+    intervalMonths: 0,
+  },
+  { key: "qol_3m", title: "3-month survey", description: "3-month follow-up", intervalMonths: 3 },
+  { key: "qol_6m", title: "6-month survey", description: "6-month follow-up", intervalMonths: 6 },
+  { key: "qol_9m", title: "9-month survey", description: "9-month follow-up", intervalMonths: 9 },
+  {
+    key: "qol_12m",
+    title: "12-month survey",
+    description: "12-month follow-up",
+    intervalMonths: 12,
+  },
+  {
+    key: "qol_24m",
+    title: "24-month survey",
+    description: "24-month follow-up",
+    intervalMonths: 24,
+  },
+  {
+    key: "qol_36m",
+    title: "36-month survey",
+    description: "36-month follow-up",
+    intervalMonths: 36,
+  },
+];
+
+const BOOK_APPOINTMENT_PREREQS = ["book_ultrasound", "book_mri", "book_bloods"];
+
+const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
+  {
+    key: "qol_baseline",
+    title: "Baseline QoL survey",
+    description: "Complete your baseline quality-of-life questionnaire.",
+    type: "SURVEY",
+    sortOrder: 0,
+    surveyTemplateKey: "qol_baseline",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: [],
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "book_ultrasound",
+    title: "Book ultrasound",
+    description: "Book your transvaginal ultrasound appointment.",
+    type: "APPOINTMENT",
+    sortOrder: 1,
+    externalUrl: bookExternalUrl("book_ultrasound"),
+    prerequisiteKeys: ["qol_baseline"],
+    completionGroupKey: "book_appointments",
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "book_mri",
+    title: "Book MRI",
+    description: "Book your MRI appointment.",
+    type: "APPOINTMENT",
+    sortOrder: 2,
+    externalUrl: bookExternalUrl("book_mri"),
+    prerequisiteKeys: ["qol_baseline"],
+    completionGroupKey: "book_appointments",
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "book_bloods",
+    title: "Book blood test",
+    description: "Book your blood test appointment.",
+    type: "APPOINTMENT",
+    sortOrder: 3,
+    externalUrl: bookExternalUrl("book_bloods"),
+    prerequisiteKeys: ["qol_baseline"],
+    completionGroupKey: "book_appointments",
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "pre_tvus_survey",
+    title: "Pre-TVUS survey",
+    description: "Complete before your ultrasound appointment.",
+    type: "SURVEY",
+    sortOrder: 4,
+    surveyTemplateKey: "pre_tvus_survey",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: BOOK_APPOINTMENT_PREREQS,
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "ultrasound_completed",
+    title: "Ultrasound completed",
+    description: "Confirm your transvaginal ultrasound is complete.",
+    type: "SCAN",
+    sortOrder: 5,
+    prerequisiteKeys: ["pre_tvus_survey"],
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "post_tvus_survey",
+    title: "Post-TVUS survey",
+    description: "Complete after your ultrasound appointment.",
+    type: "SURVEY",
+    sortOrder: 6,
+    surveyTemplateKey: "post_tvus_survey",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["ultrasound_completed"],
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "confirm_blood_test",
+    title: "Blood test completed",
+    description: "Confirm your blood test is complete.",
+    type: "BLOOD_TEST",
+    sortOrder: 7,
+    prerequisiteKeys: ["post_tvus_survey"],
+    completionGroupKey: "level_1_imaging",
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "confirm_mri",
+    title: "MRI completed",
+    description: "Confirm your MRI is complete.",
+    type: "OTHER",
+    sortOrder: 8,
+    prerequisiteKeys: ["post_tvus_survey"],
+    completionGroupKey: "level_1_imaging",
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "qol_3m",
+    title: "3-month survey",
+    description: "Complete your 3-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 9,
+    surveyTemplateKey: "qol_3m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
+    requiredMilestoneKeys: ["level_1_complete"],
+    dueOffsetDays: 90,
+    unlockOffsetDays: 90,
+  },
+  {
+    key: "qol_6m",
+    title: "6-month survey",
+    description: "Complete your 6-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 10,
+    surveyTemplateKey: "qol_6m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["qol_3m"],
+    dueOffsetDays: 180,
+    unlockOffsetDays: 180,
+  },
+  {
+    key: "qol_9m",
+    title: "9-month survey",
+    description: "Complete your 9-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 11,
+    surveyTemplateKey: "qol_9m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["qol_6m"],
+    dueOffsetDays: 270,
+    unlockOffsetDays: 270,
+  },
+  {
+    key: "qol_12m",
+    title: "12-month survey",
+    description: "Complete your 12-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 12,
+    surveyTemplateKey: "qol_12m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["qol_9m"],
+    dueOffsetDays: 360,
+    unlockOffsetDays: 360,
+  },
+  {
+    key: "qol_24m",
+    title: "24-month survey",
+    description: "Complete your 24-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 13,
+    surveyTemplateKey: "qol_24m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["qol_12m"],
+    requiredMilestoneKeys: ["level_2_complete"],
+    dueOffsetDays: 730,
+    unlockOffsetDays: 730,
+  },
+  {
+    key: "mri_3y_completed",
+    title: "3-year MRI completed",
+    description: "Confirm your 3-year MRI is complete.",
+    type: "SCAN",
+    sortOrder: 14,
+    prerequisiteKeys: ["qol_24m"],
+    requiredMilestoneKeys: ["level_2_complete"],
+    dueOffsetDays: 1095,
+    unlockOffsetDays: 1095,
+  },
+  {
+    key: "qol_36m",
+    title: "36-month survey",
+    description: "Complete your 36-month follow-up survey.",
+    type: "SURVEY",
+    sortOrder: 15,
+    surveyTemplateKey: "qol_36m",
+    redcapUrl: REDCAP_PLACEHOLDER,
+    prerequisiteKeys: ["mri_3y_completed"],
+    dueOffsetDays: 1095,
+    unlockOffsetDays: 1095,
+  },
+];
+
+const STUDY_MILESTONES = [
+  {
+    key: "level_1_complete",
+    title: "Level 1 complete",
+    requiredKeys: [
+      "qol_baseline",
+      ...BOOK_APPOINTMENT_PREREQS,
+      "pre_tvus_survey",
+      "ultrasound_completed",
+      "post_tvus_survey",
+      "confirm_blood_test",
+      "confirm_mri",
+    ],
+    sortOrder: 0,
+  },
+  {
+    key: "level_2_complete",
+    title: "Level 2 complete",
+    requiredKeys: ["qol_3m", "qol_6m", "qol_9m", "qol_12m"],
+    sortOrder: 1,
+  },
+  {
+    key: "long_term_complete",
+    title: "Long-term follow-up complete",
+    requiredKeys: ["qol_24m", "mri_3y_completed", "qol_36m"],
+    sortOrder: 2,
+  },
+];
+
 async function main() {
-  await prisma.checklistTemplate.upsert({
-    where: { key: "endometriosis_scan" },
-    create: {
-      key: "endometriosis_scan",
-      title: "Endometriosis-specific scan",
-      description: "Book your free endometriosis-specific scan.",
-      type: "SCAN",
-      externalUrl: "https://example.com/book-scan",
-      dueOffsetDays: 0,
-      sortOrder: 0,
-    },
-    update: {
-	externalUrl: "https://specialistimaging.com.au/opening-times/",
-},
-  });
+  const validation = validateProtocol(CHECKLIST_TEMPLATES, STUDY_MILESTONES);
+  assertProtocolValid(validation);
 
-  await prisma.checklistTemplate.upsert({
-    where: { key: "antral_follicle" },
-    create: {
-      key: "antral_follicle",
-      title: "Antral follicle count",
-      description: "Have your antral follicle count done.",
-      type: "OTHER",
-      dueOffsetDays: 0,
-      sortOrder: 1,
-    },
-    update: {},
-  });
-
-  await prisma.checklistTemplate.upsert({
-    where: { key: "fasting_glucose" },
-    create: {
-      key: "fasting_glucose",
-      title: "Fasting glucose blood test",
-      description: "Complete your fasting glucose blood test.",
-      type: "BLOOD_TEST",
-      dueOffsetDays: 0,
-      sortOrder: 2,
-    },
-    update: {},
-  });
-
-  await prisma.checklistTemplate.upsert({
-    where: { key: "qol_baseline" },
-    create: {
-      key: "qol_baseline",
-      title: "Baseline QoL survey",
-      description: "Complete your baseline quality of life survey.",
-      type: "SURVEY",
-      dueOffsetDays: 0,
-      sortOrder: 3,
-    },
-    update: {},
-  });
-
-  for (const months of [3, 6, 9, 12]) {
-    await prisma.checklistTemplate.upsert({
-      where: { key: `qol_${months}m` },
-      create: {
-        key: `qol_${months}m`,
-        title: `${months}-month QoL survey`,
-        description: `Complete your ${months}-month quality of life survey.`,
-        type: "SURVEY",
-        dueOffsetDays: months * 30,
-        sortOrder: 4 + months,
-      },
-      update: {},
-    });
-  }
-
-  await prisma.surveyTemplate.upsert({
-    where: { key: "qol_baseline" },
-    create: {
-      key: "qol_baseline",
-      title: "Baseline quality of life",
-      description: "Baseline assessment",
-      intervalMonths: 0,
-      questions: [
-        { id: "q1", text: "Overall, how would you rate your quality of life?", type: "scale", min: 1, max: 10 },
-        { id: "q2", text: "How would you rate your health today?", type: "scale", min: 1, max: 5 },
-      ],
-    },
-    update: {},
-  });
-
-  for (const months of [3, 6, 9, 12]) {
+  for (const survey of SURVEY_TEMPLATES) {
     await prisma.surveyTemplate.upsert({
-      where: { key: `qol_${months}m` },
+      where: { key: survey.key },
       create: {
-        key: `qol_${months}m`,
-        title: `${months}-month quality of life`,
-        description: `${months}-month follow-up`,
-        intervalMonths: months,
-        questions: [
-          { id: "q1", text: "Overall, how would you rate your quality of life?", type: "scale", min: 1, max: 10 },
-          { id: "q2", text: "How would you rate your health today?", type: "scale", min: 1, max: 5 },
-        ],
+        key: survey.key,
+        title: survey.title,
+        description: survey.description,
+        intervalMonths: survey.intervalMonths,
+        questions: SCALE_QUESTIONS,
       },
-      update: {},
+      update: {
+        title: survey.title,
+        description: survey.description,
+        intervalMonths: survey.intervalMonths,
+      },
     });
   }
 
-  // Admin account: login with admin@adimagendo.local / imagendoadmin
+  for (const step of CHECKLIST_TEMPLATES) {
+    await prisma.checklistTemplate.upsert({
+      where: { key: step.key },
+      create: {
+        key: step.key,
+        title: step.title,
+        description: step.description,
+        type: step.type,
+        sortOrder: step.sortOrder,
+        externalUrl: step.externalUrl,
+        dueOffsetDays: step.dueOffsetDays,
+        unlockOffsetDays: step.unlockOffsetDays,
+        surveyTemplateKey: step.surveyTemplateKey,
+        redcapUrl: step.redcapUrl,
+        prerequisiteKeys: step.prerequisiteKeys ?? [],
+        requiredMilestoneKeys: step.requiredMilestoneKeys ?? [],
+        completionGroupKey: step.completionGroupKey,
+      },
+      update: {
+        title: step.title,
+        description: step.description,
+        type: step.type,
+        sortOrder: step.sortOrder,
+        externalUrl: step.externalUrl,
+        dueOffsetDays: step.dueOffsetDays,
+        unlockOffsetDays: step.unlockOffsetDays,
+        surveyTemplateKey: step.surveyTemplateKey,
+        redcapUrl: step.redcapUrl,
+        prerequisiteKeys: step.prerequisiteKeys ?? [],
+        requiredMilestoneKeys: step.requiredMilestoneKeys ?? [],
+        completionGroupKey: step.completionGroupKey,
+      },
+    });
+  }
+
+  for (const milestone of STUDY_MILESTONES) {
+    await prisma.studyMilestone.upsert({
+      where: { key: milestone.key },
+      create: {
+        key: milestone.key,
+        title: milestone.title,
+        requiredKeys: milestone.requiredKeys,
+        sortOrder: milestone.sortOrder,
+      },
+      update: {
+        title: milestone.title,
+        requiredKeys: milestone.requiredKeys,
+        sortOrder: milestone.sortOrder,
+      },
+    });
+  }
+
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.upsert({
     where: { email: ADMIN_EMAIL },
@@ -133,7 +415,19 @@ async function main() {
     update: {},
   });
 
-  console.log("Seed completed.");
+  await prisma.checklistTemplate.deleteMany({
+    where: { key: { in: DEPRECATED_CHECKLIST_KEYS } },
+  });
+  await prisma.surveyTemplate.deleteMany({
+    where: { key: { in: DEPRECATED_SURVEY_KEYS } },
+  });
+
+  const orphansRemoved = await deleteOrphanedParticipantChecklistItems();
+  if (orphansRemoved > 0) {
+    console.log(`Removed ${orphansRemoved} orphaned participant checklist row(s).`);
+  }
+
+  console.log("Seed completed: protocol checklist, surveys, and milestones.");
 }
 
 main()

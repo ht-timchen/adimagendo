@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { displayStudyRecordId, participantEngagementStatus } from "@/lib/admin-display";
 import { summarizeParticipantChecklist } from "@/lib/participant-checklist-summary";
+import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import {
   AdminParticipantsTable,
   type ParticipantRow,
@@ -18,6 +19,12 @@ function formatDate(d: Date | null | undefined): string | null {
 }
 
 export default async function AdminParticipantsPage() {
+  const validTemplateIds = await getValidChecklistTemplateIds();
+  const checklistScope =
+    validTemplateIds.length > 0
+      ? { templateId: { in: validTemplateIds } }
+      : { templateId: { in: [] as string[] } };
+
   const users = await prisma.user.findMany({
     where: { role: "PARTICIPANT" },
     select: {
@@ -33,10 +40,12 @@ export default async function AdminParticipantsPage() {
         },
       },
       checklist: {
+        where: checklistScope,
         select: {
           status: true,
           template: { select: { title: true, sortOrder: true } },
         },
+        orderBy: { template: { sortOrder: "asc" } },
       },
     },
     orderBy: { createdAt: "desc" },

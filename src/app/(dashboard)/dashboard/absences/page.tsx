@@ -8,7 +8,7 @@ export default async function AbsencesPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Absence tracking</h1>
+        <h1 className="text-2xl font-bold">Diary</h1>
         <p className="text-slate-600 dark:text-slate-400">
           Record days you were absent from work or school.
         </p>

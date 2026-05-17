@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/db";
 import {
   ConfirmExternalAppointmentError,
   confirmExternalAppointment,
 } from "@/lib/checklist/confirm-external-appointment";
-import { alreadyCompletedResponse } from "@/lib/workflow/completion-response";
 import { z } from "zod";
 
 const BodySchema = z.object({
-  templateId: z.string().min(1),
+  checklistItemId: z.string().min(1),
   scheduledStartAt: z.string().min(1),
   scheduledLocation: z.string().optional().nullable(),
 });
@@ -32,29 +30,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const item = await prisma.participantChecklistItem.findUnique({
-    where: {
-      userId_templateId: {
-        userId: session.user.id,
-        templateId: parsed.data.templateId,
-      },
-    },
-  });
-
-  if (!item) {
-    return NextResponse.json(
-      { error: "Checklist item not found. Use Book Now first." },
-      { status: 404 }
-    );
-  }
-
-  if (
-    item.status === "COMPLETED" &&
-    item.bookingProgress === "CONFIRMED"
-  ) {
-    return alreadyCompletedResponse();
-  }
-
   const loc =
     parsed.data.scheduledLocation?.trim() === ""
       ? null
@@ -63,7 +38,7 @@ export async function POST(req: Request) {
   try {
     const result = await confirmExternalAppointment({
       userId: session.user.id,
-      checklistItemId: item.id,
+      checklistItemId: parsed.data.checklistItemId,
       scheduledStartAt: new Date(parsed.data.scheduledStartAt),
       scheduledLocation: loc,
     });
@@ -73,7 +48,7 @@ export async function POST(req: Request) {
     if (e instanceof ConfirmExternalAppointmentError) {
       return NextResponse.json({ error: e.message }, { status: e.status });
     }
-    console.error("POST /api/checklist/confirm-appointment:", e);
+    console.error("POST /api/appointments/confirm:", e);
     return NextResponse.json({ error: "Failed to confirm appointment." }, { status: 500 });
   }
 }
