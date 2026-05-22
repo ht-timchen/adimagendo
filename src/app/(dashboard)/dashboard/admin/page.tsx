@@ -14,7 +14,7 @@ import {
   parseOverviewTableFilter,
   participantOverviewTableWhere,
 } from "@/lib/admin-overview-table-filter";
-import { summarizeParticipantChecklist } from "@/lib/participant-checklist-summary";
+import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { sendParticipantPushAction } from "./_actions";
 
@@ -247,9 +247,8 @@ async function loadDashboardData(
         where: checklistScope,
         select: {
           status: true,
-          template: { select: { title: true, sortOrder: true } },
+          template: { select: { key: true } },
         },
-        orderBy: { template: { sortOrder: "asc" } },
       },
     },
   });
@@ -257,15 +256,20 @@ async function loadDashboardData(
   const rows: AdminOverviewDashboardData["table"]["rows"] = [];
   for (const u of users) {
     const lastActive = await lastActiveTimestamp(u.id);
-    const checklist = summarizeParticipantChecklist(u.checklist);
+    const progress = computeAdminChecklistProgress(
+      u.checklist.map((item) => ({
+        templateKey: item.template.key,
+        status: item.status,
+      }))
+    );
 
     rows.push({
       userId: u.id,
       recordId: displayStudyRecordId(u.profile, u.id),
       name: u.name?.trim() || "Participant",
-      checklistCompleted: checklist.completed,
-      checklistTotal: checklist.total,
-      currentStep: checklist.currentStep,
+      checklistCompleted: progress.completed,
+      checklistTotal: progress.total,
+      currentStep: progress.currentStepName,
       lastActive: lastActive ? lastActive.toISOString() : null,
     });
   }
@@ -307,7 +311,8 @@ export default async function AdminOverviewPage({
 
   const sp = await searchParams;
   const data = await loadDashboardData(sp, new Date());
-  const adminName = session.user.name?.trim() || session.user.email.split("@")[0] || "Admin";
+  const adminName =
+    session.user.name?.trim() || session.user.email.split("@")[0] || "there";
   const adminInitial = adminName.slice(0, 1).toUpperCase();
 
   return (

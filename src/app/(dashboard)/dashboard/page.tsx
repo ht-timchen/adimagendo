@@ -11,6 +11,8 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { PushNotificationOptIn } from "@/components/push-notification-opt-in";
+import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
+import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -23,9 +25,15 @@ export default async function DashboardPage() {
 
   const userId = session.user.id;
   const staleCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const validTemplateIds = await getValidChecklistTemplateIds();
+  const checklistScope =
+    validTemplateIds.length > 0
+      ? { templateId: { in: validTemplateIds } }
+      : { templateId: { in: [] as string[] } };
+
   const [
     profile,
-    checklistCounts,
+    checklistItems,
     upcomingAppointments,
     staleUnconfirmedBookings,
     recentSymptoms,
@@ -33,10 +41,12 @@ export default async function DashboardPage() {
     prisma.participantProfile.findUnique({
       where: { userId },
     }),
-    prisma.participantChecklistItem.groupBy({
-      by: ["status"],
-      where: { userId },
-      _count: true,
+    prisma.participantChecklistItem.findMany({
+      where: { userId, ...checklistScope },
+      select: {
+        status: true,
+        template: { select: { key: true } },
+      },
     }),
     prisma.appointment.findMany({
       where: {
@@ -63,12 +73,16 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const pending =
-    checklistCounts.find((c) => c.status === "PENDING")?._count ?? 0;
-  const completed =
-    checklistCounts.find((c) => c.status === "COMPLETED")?._count ?? 0;
-  const total = pending + completed + (checklistCounts.find((c) => c.status === "OVERDUE")?._count ?? 0);
-  const progressPercent = total ? Math.round((completed / total) * 100) : 0;
+  const studyProgress = computeAdminChecklistProgress(
+    checklistItems.map((item) => ({
+      templateKey: item.template.key,
+      status: item.status,
+    }))
+  );
+  const stepsCompleted = studyProgress.completed;
+  const stepsTotal = studyProgress.total;
+  const stepsRemaining = stepsTotal - stepsCompleted;
+  const progressPercent = Math.round((stepsCompleted / stepsTotal) * 100);
 
   const displayName = session.user.name ?? session.user.email ?? "Participant";
 
@@ -117,10 +131,10 @@ export default async function DashboardPage() {
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-slate-600 dark:text-slate-400">
-              Checklist items completed
+              Study steps completed
             </span>
             <span className="font-medium">
-              {completed} of {total || "—"}
+              {stepsCompleted} of {stepsTotal}
             </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -142,9 +156,11 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              {pending > 0
-                ? `${pending} item${pending === 1 ? "" : "s"} still to complete`
-                : "All caught up for now."}
+              {stepsRemaining > 0
+                ? studyProgress.currentStepName
+                  ? `Next: ${studyProgress.currentStepName}`
+                  : `${stepsRemaining} step${stepsRemaining === 1 ? "" : "s"} remaining`
+                : "All study steps complete."}
             </p>
             <Link
               href="/dashboard/checklist"

@@ -39,26 +39,65 @@ type Props = {
   actionsDisabled?: boolean;
 };
 
-function statusLabel(
-  progress: ChecklistBookingProgress,
-  appointment: AppointmentPayload | null
-): { text: string; tone: "muted" | "warn" | "ok" } {
-  if (progress === "CONFIRMED") {
-    const raw =
-      appointment?.scheduledStartAt ?? appointment?.startAt ?? null;
-    if (raw) {
-      const dt = new Date(raw);
-      return {
-        text: `Confirmed (${formatAppointmentDateTime(dt)})`,
-        tone: "ok",
-      };
+function statusTone(
+  progress: ChecklistBookingProgress
+): "muted" | "warn" | "ok" {
+  if (progress === "CONFIRMED") return "ok";
+  if (progress === "BOOKED_EXTERNALLY") return "warn";
+  return "muted";
+}
+
+function statusLabelBase(
+  progress: ChecklistBookingProgress
+): string {
+  if (progress === "CONFIRMED") return "Confirmed";
+  if (progress === "BOOKED_EXTERNALLY") return "Booked Externally";
+  return "Not Started";
+}
+
+function confirmedAtIso(appointment: AppointmentPayload | null): string | null {
+  if (!appointment) return null;
+  return appointment.scheduledStartAt ?? appointment.startAt ?? null;
+}
+
+/** Avoid locale/timezone mismatch between SSR and client for confirmed dates. */
+function BookingProgressBadge({
+  progress,
+  appointment,
+}: {
+  progress: ChecklistBookingProgress;
+  appointment: AppointmentPayload | null;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const tone = statusTone(progress);
+  const badgeClass =
+    tone === "ok"
+      ? "bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-100 dark:ring-emerald-900"
+      : tone === "warn"
+        ? "bg-amber-50 text-amber-950 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-900"
+        : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700";
+
+  let text = statusLabelBase(progress);
+  if (mounted && progress === "CONFIRMED") {
+    const iso = confirmedAtIso(appointment);
+    if (iso) {
+      text = `Confirmed (${formatAppointmentDateTime(new Date(iso))})`;
     }
-    return { text: "Confirmed", tone: "ok" };
   }
-  if (progress === "BOOKED_EXTERNALLY") {
-    return { text: "Booked Externally", tone: "warn" };
-  }
-  return { text: "Not Started", tone: "muted" };
+
+  return (
+    <div
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${badgeClass}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      {text}
+    </div>
+  );
 }
 
 export function ChecklistExternalBookingFlow({
@@ -208,14 +247,6 @@ export function ChecklistExternalBookingFlow({
     }
   };
 
-  const badge = statusLabel(bookingProgress, appointment);
-  const badgeClass =
-    badge.tone === "ok"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-100 dark:ring-emerald-900"
-      : badge.tone === "warn"
-        ? "bg-amber-50 text-amber-950 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-900"
-        : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700";
-
   const showExpandedPanel =
     bookingProgress === "BOOKED_EXTERNALLY" || bookingProgress === "CONFIRMED";
   const apptForIcs = appointment;
@@ -229,12 +260,7 @@ export function ChecklistExternalBookingFlow({
 
   return (
     <div className="mt-3 w-full space-y-3">
-      <div
-        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${badgeClass}`}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-        {badge.text}
-      </div>
+      <BookingProgressBadge progress={bookingProgress} appointment={appointment} />
 
       <div className="flex flex-wrap items-center gap-2">
         {bookingProgress === "NOT_STARTED" ? (

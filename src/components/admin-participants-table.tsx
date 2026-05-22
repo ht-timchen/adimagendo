@@ -6,6 +6,7 @@ import { Bell, ChevronDown, Copy, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ADMIN_CHECKLIST_ALL_COMPLETE_LABEL } from "@/lib/admin/checklist-progress";
 import { participantStatusDisplay, type ParticipantStudyStatus } from "@/lib/admin-display";
 import { ParticipantStatusLegend } from "@/components/admin/participant-status-legend";
 
@@ -142,8 +143,8 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                 <ParticipantStatusLegend />
               </th>
               <th className="px-4 py-3">Enrollment date</th>
-              <th className="px-4 py-3">Checklist</th>
-              <th className="px-4 py-3">Current step</th>
+              <th className="px-4 py-3">Progress</th>
+              <th className="px-4 py-3">Current Step</th>
               <th className="px-4 py-3">Date of birth</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
@@ -183,16 +184,14 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                     {p.enrollmentDate ?? "—"}
                   </td>
                   <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
-                    {p.checklistTotal > 0 ? (
-                      <span>
-                        {p.checklistCompleted} of {p.checklistTotal}
-                      </span>
-                    ) : (
-                      <span className="text-slate-500">—</span>
-                    )}
+                    {p.checklistCompleted} / {p.checklistTotal}
                   </td>
-                  <td className="max-w-[200px] px-4 py-3 text-slate-700 dark:text-slate-300">
-                    <span className="line-clamp-2">{p.currentStep ?? "—"}</span>
+                  <td className="max-w-[220px] px-4 py-3 text-slate-700 dark:text-slate-300">
+                    <span className="line-clamp-2">
+                      {p.currentStep === null && p.checklistCompleted >= p.checklistTotal
+                        ? ADMIN_CHECKLIST_ALL_COMPLETE_LABEL
+                        : (p.currentStep ?? "—")}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
                     {p.dateOfBirth ?? "—"}

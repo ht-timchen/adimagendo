@@ -39,6 +39,7 @@ import {
   overviewTableFilterLabel,
   type OverviewTableFilter,
 } from "@/lib/admin-overview-table-filter";
+import { ADMIN_CHECKLIST_ALL_COMPLETE_LABEL } from "@/lib/admin/checklist-progress";
 
 export type RangeKey = "7d" | "30d" | "3m" | "6m" | "12m" | "all";
 
@@ -67,7 +68,7 @@ export type AdminOverviewDashboardData = {
       name: string;
       checklistCompleted: number;
       checklistTotal: number;
-      currentStep: string;
+      currentStep: string | null;
       lastActive: string | null;
     }[];
     page: number;
@@ -463,7 +464,7 @@ export function ClinicalAdminOverviewDashboard({
               <Link
                 href="/dashboard/admin/profile"
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-violet-100 text-sm font-semibold text-violet-800 shadow-sm transition hover:bg-violet-200"
-                aria-label="Admin profile"
+                aria-label="Profile"
               >
                 {adminInitial}
               </Link>
@@ -632,7 +633,7 @@ export function ClinicalAdminOverviewDashboard({
                   <tr className="border-y border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Record ID</th>
                     <th className="px-4 py-3">Name</th>
-                    <th className="px-4 py-3">Checklist</th>
+                    <th className="px-4 py-3">Progress</th>
                     <th className="px-4 py-3">Current Step</th>
                     <th className="px-4 py-3">Last Active</th>
                     <th className="px-4 py-3 text-right">Actions</th>
@@ -651,16 +652,21 @@ export function ClinicalAdminOverviewDashboard({
                         <td className="px-4 py-3 font-mono text-xs text-slate-700">{row.recordId}</td>
                         <td className="px-4 py-3 font-medium text-slate-900">{row.name}</td>
                         <td className="px-4 py-3 tabular-nums text-slate-800">
-                          {row.checklistTotal > 0 ? (
-                            <span>
-                              {row.checklistCompleted} of {row.checklistTotal}
-                            </span>
-                          ) : (
-                            <span className="text-slate-500">—</span>
-                          )}
+                          {row.checklistCompleted} / {row.checklistTotal}
                         </td>
-                        <td className="max-w-[200px] truncate px-4 py-3 text-slate-700" title={row.currentStep}>
-                          {row.currentStep}
+                        <td
+                          className="max-w-[200px] truncate px-4 py-3 text-slate-700"
+                          title={
+                            row.currentStep === null &&
+                            row.checklistCompleted >= row.checklistTotal
+                              ? ADMIN_CHECKLIST_ALL_COMPLETE_LABEL
+                              : (row.currentStep ?? "—")
+                          }
+                        >
+                          {row.currentStep === null &&
+                          row.checklistCompleted >= row.checklistTotal
+                            ? ADMIN_CHECKLIST_ALL_COMPLETE_LABEL
+                            : (row.currentStep ?? "—")}
                         </td>
                         <td className="px-4 py-3 text-slate-600">
                           {row.lastActive

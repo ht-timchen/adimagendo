@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { displayStudyRecordId, participantEngagementStatus } from "@/lib/admin-display";
-import { summarizeParticipantChecklist } from "@/lib/participant-checklist-summary";
+import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import {
   AdminParticipantsTable,
@@ -43,16 +43,20 @@ export default async function AdminParticipantsPage() {
         where: checklistScope,
         select: {
           status: true,
-          template: { select: { title: true, sortOrder: true } },
+          template: { select: { key: true } },
         },
-        orderBy: { template: { sortOrder: "asc" } },
       },
     },
     orderBy: { createdAt: "desc" },
   });
 
   const participants: ParticipantRow[] = users.map((u) => {
-    const checklist = summarizeParticipantChecklist(u.checklist);
+    const progress = computeAdminChecklistProgress(
+      u.checklist.map((item) => ({
+        templateKey: item.template.key,
+        status: item.status,
+      }))
+    );
     return {
       id: u.id,
       name: u.name,
@@ -60,9 +64,9 @@ export default async function AdminParticipantsPage() {
       recordId: displayStudyRecordId(u.profile, u.id),
       enrollmentDate: formatDate(u.profile?.enrollmentDate),
       dateOfBirth: formatDate(u.dateOfBirth),
-      checklistCompleted: checklist.completed,
-      checklistTotal: checklist.total,
-      currentStep: checklist.currentStep,
+      checklistCompleted: progress.completed,
+      checklistTotal: progress.total,
+      currentStep: progress.currentStepName,
       status: participantEngagementStatus(u.isActive),
     };
   });

@@ -14,7 +14,6 @@ import {
   LogOut,
   Mail,
   Newspaper,
-  PanelLeft,
   Settings,
   Users,
   UsersRound,
@@ -153,12 +152,8 @@ export function ClinicalAdminShell({
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <aside className="hidden shrink-0 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex md:w-56 md:flex-col md:border-b-0 md:border-r">
-        <div className="flex h-14 items-center gap-2 border-b border-slate-100 px-4 dark:border-slate-800">
-          <PanelLeft className="h-5 w-5 text-violet-600" aria-hidden />
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Clinical</p>
-            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">Admin</p>
-          </div>
+        <div className="flex h-14 items-center border-b border-slate-100 px-4 dark:border-slate-800">
+          <span className="font-semibold text-violet-700 dark:text-violet-400">ADIMAGENDO</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
           <SidebarNav
@@ -200,7 +195,7 @@ export function ClinicalAdminShell({
         </main>
         <nav
           className="dashboard-bottom-nav-safe fixed bottom-0 left-0 right-0 z-10 border-t border-slate-200 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95 md:hidden"
-          aria-label="Admin"
+          aria-label="Main navigation"
         >
           <div className="flex w-full justify-around py-2">
             {adminMobileTabs.map((item) => {

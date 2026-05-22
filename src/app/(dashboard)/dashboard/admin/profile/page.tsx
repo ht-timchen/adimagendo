@@ -10,8 +10,8 @@ export default async function AdminProfilePage() {
   return (
     <div className="mx-auto max-w-lg space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Admin profile</h1>
-        <p className="mt-1 text-sm text-slate-600">Signed-in clinical admin account.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Profile</h1>
+        <p className="mt-1 text-sm text-slate-600">Your signed-in account.</p>
       </div>
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
