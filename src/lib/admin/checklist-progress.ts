@@ -147,6 +147,25 @@ export function computeAdminChecklistProgress(
 }
 
 /**
+ * Cohort-wide checklist completion: sum of logical steps completed across
+ * enrolled participants, divided by (participants × 15 study steps).
+ */
+export function computeCohortChecklistCompletionPct(
+  participantsChecklists: AdminChecklistProgressItem[][]
+): number {
+  const n = participantsChecklists.length;
+  if (n === 0) return 0;
+
+  let completedSteps = 0;
+  for (const items of participantsChecklists) {
+    completedSteps += computeAdminChecklistProgress(items).completed;
+  }
+
+  const maxSteps = n * ADMIN_CHECKLIST_STEP_TOTAL;
+  return Math.round((completedSteps / maxSteps) * 100);
+}
+
+/**
  * Loads a participant's checklist items and returns admin display progress.
  */
 export async function getAdminChecklistProgress(

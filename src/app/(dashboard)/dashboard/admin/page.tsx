@@ -14,7 +14,11 @@ import {
   parseOverviewTableFilter,
   participantOverviewTableWhere,
 } from "@/lib/admin-overview-table-filter";
-import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
+import {
+  ADMIN_CHECKLIST_STEP_TOTAL,
+  computeAdminChecklistProgress,
+  computeCohortChecklistCompletionPct,
+} from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { sendParticipantPushAction } from "./_actions";
 
@@ -119,21 +123,19 @@ async function loadDashboardData(
       ? { templateId: { in: validTemplateIds } }
       : { templateId: { in: [] as string[] } };
 
+  const enrolledWhere = { role: "PARTICIPANT" as const, isActive: true };
+
   const [
     enrolledParticipants,
     engagedInPeriod,
-    checklistDone,
-    checklistTotal,
+    enrolledWithChecklist,
     surveysCompleted,
     totalParticipants,
   ] = await Promise.all([
-    prisma.user.count({
-      where: { role: "PARTICIPANT", isActive: true },
-    }),
+    prisma.user.count({ where: enrolledWhere }),
     prisma.user.count({
       where: {
-        role: "PARTICIPANT",
-        isActive: true,
+        ...enrolledWhere,
         OR: [
           { symptoms: { some: { date: { gte: from, lte: to } } } },
           {
@@ -145,24 +147,41 @@ async function loadDashboardData(
         ],
       },
     }),
-    prisma.participantChecklistItem.count({
-      where: { status: "COMPLETED", ...checklistScope },
+    prisma.user.findMany({
+      where: enrolledWhere,
+      select: {
+        checklist: {
+          where: checklistScope,
+          select: {
+            status: true,
+            template: { select: { key: true } },
+          },
+        },
+      },
     }),
-    prisma.participantChecklistItem.count({ where: checklistScope }),
     prisma.surveyResponse.count({
       where: { completed: true, updatedAt: { gte: from, lte: to } },
     }),
     prisma.user.count({ where: { role: "PARTICIPANT" } }),
   ]);
 
-  const checklistRatePct =
-    checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+  const checklistRatePct = computeCohortChecklistCompletionPct(
+    enrolledWithChecklist.map((u) =>
+      u.checklist.map((item) => ({
+        templateKey: item.template.key,
+        status: item.status,
+      }))
+    )
+  );
   const enrolledPctOfCohort =
     COHORT_TARGET > 0
       ? Math.min(100, Math.round((enrolledParticipants / COHORT_TARGET) * 100))
       : 0;
 
-  const denomTrend = Math.max(1, checklistTotal);
+  const denomTrend = Math.max(
+    1,
+    enrolledParticipants * ADMIN_CHECKLIST_STEP_TOTAL
+  );
   const trend: { label: string; pct: number }[] = [];
   const trendCursor = new Date(from);
   while (trendCursor <= to && trend.length < 14) {

@@ -508,7 +508,7 @@ export function ClinicalAdminOverviewDashboard({
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Checklist Completion Rate</p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{data.kpi.checklistRatePct}%</p>
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                  <span>Across all checklist items</span>
+                  <span>Average study steps (15 per participant)</span>
                   <span className="inline-flex items-center gap-0.5 font-semibold text-violet-600">
                     <TrendingUp className="h-3.5 w-3.5" /> Up
                   </span>
