@@ -11,6 +11,7 @@ import {
   FileDown,
   FileUp,
   LayoutDashboard,
+  Link as LinkIcon,
   LogOut,
   Mail,
   Newspaper,
@@ -44,6 +45,7 @@ const actionNav = [
   { href: "/dashboard/admin/actions/import", label: "Import CSV file", icon: FileUp },
   { href: "/dashboard/admin/actions/export", label: "Export CSV file", icon: FileDown },
   { href: "/dashboard/admin/actions/notify", label: "Send notifications", icon: Bell },
+  { href: "/dashboard/admin/actions/enrolment", label: "Enrolment Links", icon: LinkIcon },
 ] as const;
 
 const adminMobileTabs = [
