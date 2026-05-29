@@ -2,7 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { EnrolmentClient, type EnrolmentTokenRow } from "./EnrolmentClient";
+import {
+  EnrolmentClient,
+  type EnrolmentTokenRow,
+  type RedcapParticipantRow,
+} from "./EnrolmentClient";
 
 function deriveTokenStatus(usedAt: Date | null, expiresAt: Date): EnrolmentTokenRow["status"] {
   if (usedAt) return "used";
@@ -39,8 +43,25 @@ export default async function AdminEnrolmentPage() {
     status: deriveTokenStatus(row.usedAt, row.expiresAt),
   }));
 
+  const redcapRows = await prisma.redcapParticipantSync.findMany({
+    orderBy: { enrollmentDate: "desc" },
+  });
+
+  const redcapParticipants: RedcapParticipantRow[] = redcapRows.map((p) => ({
+    id: p.id,
+    studyRecordId: p.studyRecordId,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    email: p.email,
+    dateOfBirth: p.dateOfBirth?.toISOString() ?? null,
+    enrollmentDate: p.enrollmentDate?.toISOString() ?? null,
+    redcapType: p.redcapType,
+    consentStatus: p.consentStatus,
+    createdAt: p.createdAt.toISOString(),
+  }));
+
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8">
       <div>
         <Link
           href="/dashboard/admin"
@@ -55,7 +76,10 @@ export default async function AdminEnrolmentPage() {
         </p>
       </div>
 
-      <EnrolmentClient initialTokens={initialTokens} />
+      <EnrolmentClient
+        initialTokens={initialTokens}
+        redcapParticipants={redcapParticipants}
+      />
     </div>
   );
 }
