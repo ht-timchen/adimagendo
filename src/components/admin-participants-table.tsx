@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { ADMIN_CHECKLIST_ALL_COMPLETE_LABEL } from "@/lib/admin/checklist-progress";
+import { LEVEL_1_FOLLOW_UP_LABEL } from "@/lib/checklist/level1-follow-up";
 import { participantStatusDisplay, type ParticipantStudyStatus } from "@/lib/admin-display";
 import { ParticipantStatusLegend } from "@/components/admin/participant-status-legend";
 
@@ -21,6 +22,7 @@ export type ParticipantRow = {
   checklistTotal: number;
   currentStep: string | null;
   status: ParticipantStudyStatus;
+  level1FollowUpDue: boolean;
 };
 
 type CredentialsPayload = {
@@ -144,6 +146,7 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
               </th>
               <th className="px-4 py-3">Enrollment date</th>
               <th className="px-4 py-3">Progress</th>
+              <th className="px-4 py-3">Level 1 follow-up</th>
               <th className="px-4 py-3">Current Step</th>
               <th className="px-4 py-3">Date of birth</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -152,7 +155,7 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
           <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
             {participants.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                   No participants found.
                 </td>
               </tr>
@@ -185,6 +188,18 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                   </td>
                   <td className="px-4 py-3 tabular-nums text-slate-800 dark:text-slate-200">
                     {p.checklistCompleted} / {p.checklistTotal}
+                  </td>
+                  <td className="max-w-[200px] px-4 py-3">
+                    {p.level1FollowUpDue ? (
+                      <span
+                        className="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+                        title={LEVEL_1_FOLLOW_UP_LABEL}
+                      >
+                        Follow-up due
+                      </span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
                   </td>
                   <td className="max-w-[220px] px-4 py-3 text-slate-700 dark:text-slate-300">
                     <span className="line-clamp-2">

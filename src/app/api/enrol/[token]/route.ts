@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { resolveParticipantEnrollmentDate } from "@/lib/checklist/resolve-enrollment-date";
 import { prisma } from "@/lib/db";
 
 export async function POST(
@@ -75,6 +76,10 @@ export async function POST(
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const enrollmentDate = await resolveParticipantEnrollmentDate(
+      studyRecordId,
+      new Date()
+    );
 
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -91,7 +96,7 @@ export async function POST(
         data: {
           userId: user.id,
           studyRecordId,
-          enrollmentDate: new Date(),
+          enrollmentDate,
         },
       });
 

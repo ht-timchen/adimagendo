@@ -180,8 +180,15 @@ export function ChecklistExternalBookingFlow({
   };
 
   const goPreview = () => {
+    if (!dateStr.trim() || !timeStr.trim()) {
+      showToast("Please enter both date and time.");
+      return;
+    }
     const combined = combineLocalDateTime(dateStr, timeStr);
-    if (!combined) return;
+    if (!combined) {
+      showToast("Please enter a valid date and time.");
+      return;
+    }
     if (combined.getTime() <= Date.now()) {
       showToast("Please choose a future date and time.");
       return;
@@ -373,7 +380,11 @@ export function ChecklistExternalBookingFlow({
               <Button type="button" variant="outline" onClick={closeModal}>
                 Cancel
               </Button>
-              <Button type="button" onClick={goPreview}>
+              <Button
+                type="button"
+                onClick={goPreview}
+                disabled={!dateStr.trim() || !timeStr.trim()}
+              >
                 Continue
               </Button>
             </div>

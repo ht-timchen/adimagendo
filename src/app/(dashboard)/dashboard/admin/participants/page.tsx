@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { displayStudyRecordId, participantEngagementStatus } from "@/lib/admin-display";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
+import { isLevel1FollowUpDue } from "@/lib/checklist/level1-follow-up";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import {
   AdminParticipantsTable,
@@ -57,6 +58,19 @@ export default async function AdminParticipantsPage() {
         status: item.status,
       }))
     );
+    const completedKeys = new Set(
+      u.checklist
+        .filter((item) => item.status === "COMPLETED")
+        .map((item) => item.template.key)
+    );
+    const level1FollowUpDue =
+      u.profile?.enrollmentDate != null
+        ? isLevel1FollowUpDue({
+            enrollmentDate: u.profile.enrollmentDate,
+            completedTemplateKeys: completedKeys,
+          })
+        : false;
+
     return {
       id: u.id,
       name: u.name,
@@ -68,6 +82,7 @@ export default async function AdminParticipantsPage() {
       checklistTotal: progress.total,
       currentStep: progress.currentStepName,
       status: participantEngagementStatus(u.isActive),
+      level1FollowUpDue,
     };
   });
 

@@ -118,21 +118,17 @@ Stored as `ParticipantProfile.enrollmentDate`.
 **Offset stored on**: `ChecklistTemplate.dueOffsetDays` (not per-participant)
 **Calculated at**: render time in checklist page (not stored in DB)
 
-#### Level 1 — Sequential (due within 8 weeks / 56 days)
-| Step | dueOffsetDays |
-|---|---|
-| Enrolment Survey | 56 |
-| Book Appointments (Ultrasound/MRI/Blood) | 56 |
-| Pre-TVUS Survey | 56 |
-| Ultrasound Completed | 56 |
-| Post-TVUS Survey | 56 |
-| Blood Test & MRI Completed | 56 |
+#### Level 1 — Event triggers + 8-week coordinator follow-up
+| Step | Unlock trigger | Participant display |
+|---|---|---|
+| Book ultrasound → Pre-TVUS | `book_ultrasound` completed | Hint before US appointment |
+| Ultrasound done → Post-TVUS | `ultrasound_completed` completed | Recommended within **7 days** after US complete |
+| Blood / MRI confirm | `book_bloods` / `book_mri` only (not blocked by Post-TVUS) | — |
+| Coordinator follow-up | — | Admin **Follow-up due** if Level 1 incomplete **56 days** after `ParticipantProfile.enrollmentDate` |
 
-Rationale: Shae confirmed Level 1 should be completed within 1-8 weeks.
-56 days (8 weeks) used as the display due date. Level 1 must be 
-completed before Day 90 (3-month survey unlock).
+`enrollmentDate` on profile: prefer **REDCap consent/enrolment** from `RedcapParticipantSync` at magic-link enrol; fallback app signup time. Open registration still uses signup time.
 
-Level 1 is sequential/condition-based, not time-driven.
+56 days is **display-only** for coordinators (no auto-`OVERDUE`, no TVUS unlock). Level 1 must be completed before Day 90 (3-month survey unlock).
 
 #### Level 2 — Time-based
 | Step | dueOffsetDays |
@@ -446,6 +442,29 @@ CRON_SECRET=...  # never commit
 # App
 NEXT_PUBLIC_APP_URL=...
 ```
+
+## Environment Configuration
+
+### AUTH_URL / NEXTAUTH_URL
+
+These two variables must always match the origin users access the app from.
+Mixing origins (e.g. localhost + ngrok) breaks magic links and PWA installs.
+
+| Scenario | Value |
+|---|---|
+| Local dev only | `http://localhost:3000` |
+| Mobile / PWA / magic link testing | Current ngrok HTTPS URL |
+| Production | Railway or university domain |
+
+**Rules:**
+- Magic links, QR codes, and the app must all use the same origin
+- ngrok URL changes every restart (free plan) — update .env each time
+- Before production deploy: replace with real domain
+
+### TODO (Production)
+- [ ] Set AUTH_URL + NEXTAUTH_URL to production domain
+- [ ] Set CRON_SECRET to a strong random value
+- [ ] Verify REDCAP_API_URL points to production REDCap project
 
 ---
 

@@ -61,7 +61,7 @@ function buildContext(
         key: "confirm_blood_test",
         title: "Blood test completed",
         sortOrder: 7,
-        prerequisiteKeys: ["post_tvus_survey"],
+        prerequisiteKeys: ["book_bloods"],
       }),
     ],
     [
@@ -70,7 +70,7 @@ function buildContext(
         key: "confirm_mri",
         title: "MRI completed",
         sortOrder: 8,
-        prerequisiteKeys: ["post_tvus_survey"],
+        prerequisiteKeys: ["book_mri"],
       }),
     ],
     [

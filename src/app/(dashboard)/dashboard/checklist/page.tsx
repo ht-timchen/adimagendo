@@ -17,11 +17,12 @@ import { ChecklistExternalBookingFlow } from "@/components/checklist-external-bo
 import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
 import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-card";
 import { Check } from "lucide-react";
+import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
 
 const BOOK_GROUP_HEADER = {
   title: "Book appointments",
   description:
-    "Book your ultrasound, MRI, and blood test appointments. All three must be booked before you continue.",
+    "Book your ultrasound, MRI, and blood test appointments. Ultrasound booking unlocks your Pre-TVUS survey.",
 };
 
 export default async function ChecklistPage() {
@@ -66,6 +67,11 @@ export default async function ChecklistPage() {
   );
   const byTemplate = new Map(userItems.map((i) => [i.templateId, i]));
   const templateByKey = new Map(templates.map((t) => [t.key, t]));
+  const completedAtByKey = new Map(
+    userItems
+      .filter((i) => i.status === "COMPLETED" && i.completedAt)
+      .map((i) => [i.template.key, i.completedAt] as const)
+  );
   const renderedBookingGroups = new Set<string>();
 
   function stepAvailability(checklistKey: string) {
@@ -178,14 +184,10 @@ export default async function ChecklistPage() {
               ? appointmentByChecklistItemId.get(item.id)
               : undefined;
             const status = item?.status ?? "PENDING";
-            const dueDate =
-              t.dueOffsetDays != null
-                ? (() => {
-                    const d = new Date(enrollmentDate);
-                    d.setDate(d.getDate() + t.dueOffsetDays!);
-                    return d;
-                  })()
-                : null;
+            const dueDisplay = getChecklistDueDisplay({
+              templateKey: t.key,
+              completedAtByKey,
+            });
 
             const availability = stepAvailability(t.key);
 
@@ -220,11 +222,11 @@ export default async function ChecklistPage() {
                           {t.description}
                         </p>
                       )}
-                      {dueDate && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          Due: {dueDate.toLocaleDateString()}
+                      {dueDisplay.recommendedLabel ? (
+                        <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+                          {dueDisplay.recommendedLabel}
                         </p>
-                      )}
+                      ) : null}
                       {isLocked ? (
                         <ChecklistLockReasons reasons={availability.reasons} />
                       ) : null}
