@@ -29,12 +29,14 @@ export async function loadWorkflowEvaluationContext(
           prerequisiteKeys: true,
           requiredMilestoneKeys: true,
           unlockOffsetDays: true,
+          bookingPrerequisiteKey: true,
         },
       }),
       prisma.participantChecklistItem.findMany({
         where: { userId },
         select: {
           status: true,
+          bookingProgress: true,
           template: { select: { key: true } },
         },
       }),
@@ -65,8 +67,13 @@ export async function loadWorkflowEvaluationContext(
         prerequisiteKeys: parseJsonStringKeys(t.prerequisiteKeys),
         requiredMilestoneKeys: parseJsonStringKeys(t.requiredMilestoneKeys),
         unlockOffsetDays: t.unlockOffsetDays,
+        bookingPrerequisiteKey: t.bookingPrerequisiteKey,
       },
     ])
+  );
+
+  const bookingProgressByKey = new Map(
+    checklistItems.map((item) => [item.template.key, item.bookingProgress] as const)
   );
 
   const completedKeys = new Set(
@@ -91,6 +98,7 @@ export async function loadWorkflowEvaluationContext(
     now,
     templatesByKey,
     completedKeys,
+    bookingProgressByKey,
     achievedMilestoneKeys,
     milestones: workflowMilestones,
   };
@@ -111,6 +119,7 @@ export async function getStepAvailability(
       available: false,
       completed: false,
       reasons: ["Participant profile not found"],
+      reasonCodes: [],
     };
   }
 

@@ -1,8 +1,16 @@
+export type StepAvailabilityReasonCode = "BOOKING_PREREQUISITE_NOT_MET";
+
+export type WorkflowBookingProgress =
+  | "NOT_STARTED"
+  | "BOOKED_EXTERNALLY"
+  | "CONFIRMED";
+
 export type StepAvailability = {
   locked: boolean;
   available: boolean;
   completed: boolean;
   reasons: string[];
+  reasonCodes: StepAvailabilityReasonCode[];
 };
 
 export type WorkflowChecklistTemplate = {
@@ -12,6 +20,7 @@ export type WorkflowChecklistTemplate = {
   prerequisiteKeys: string[];
   requiredMilestoneKeys: string[];
   unlockOffsetDays: number | null;
+  bookingPrerequisiteKey: string | null;
 };
 
 export type WorkflowStudyMilestone = {
@@ -26,6 +35,8 @@ export type WorkflowEvaluationContext = {
   now: Date;
   templatesByKey: Map<string, WorkflowChecklistTemplate>;
   completedKeys: Set<string>;
+  /** Latest bookingProgress per checklist template key (defaults to NOT_STARTED). */
+  bookingProgressByKey: Map<string, WorkflowBookingProgress>;
   achievedMilestoneKeys: Set<string>;
   milestones: WorkflowStudyMilestone[];
 };

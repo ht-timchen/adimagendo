@@ -10,6 +10,7 @@ function template(
     prerequisiteKeys: [],
     requiredMilestoneKeys: [],
     unlockOffsetDays: 0,
+    bookingPrerequisiteKey: null,
     ...partial,
   };
 }
@@ -82,6 +83,38 @@ function buildTvusContext(
     now: new Date("2026-06-01T12:00:00Z"),
     templatesByKey,
     completedKeys,
+    bookingProgressByKey: new Map(),
+    achievedMilestoneKeys: new Set(),
+    milestones: [],
+  };
+}
+
+function buildTvusBookingContext(
+  bookingProgress: "NOT_STARTED" | "BOOKED_EXTERNALLY" | "CONFIRMED"
+): WorkflowEvaluationContext {
+  const templatesByKey = new Map<string, WorkflowChecklistTemplate>([
+    [
+      "book_ultrasound",
+      template({ key: "book_ultrasound", title: "Book ultrasound", sortOrder: 1 }),
+    ],
+    [
+      "pre_tvus_survey",
+      template({
+        key: "pre_tvus_survey",
+        title: "Pre-TVUS survey",
+        sortOrder: 4,
+        prerequisiteKeys: [],
+        bookingPrerequisiteKey: "book_ultrasound",
+      }),
+    ],
+  ]);
+
+  return {
+    enrollmentDate: new Date("2026-01-01T12:00:00Z"),
+    now: new Date("2026-06-01T12:00:00Z"),
+    templatesByKey,
+    completedKeys: new Set(),
+    bookingProgressByKey: new Map([["book_ultrasound", bookingProgress]]),
     achievedMilestoneKeys: new Set(),
     milestones: [],
   };
@@ -161,5 +194,35 @@ describe("early clinical TVUS workflow", () => {
       buildTvusContext(new Set(["book_bloods", "confirm_blood_test"]))
     );
     assert.equal(post.locked, true);
+  });
+});
+
+describe("pre_tvus_survey bookingPrerequisiteKey", () => {
+  it("locks pre_tvus_survey when book_ultrasound bookingProgress is NOT_STARTED", () => {
+    const result = evaluateStepAvailability(
+      "pre_tvus_survey",
+      buildTvusBookingContext("NOT_STARTED")
+    );
+    assert.equal(result.locked, true);
+    assert.equal(result.available, false);
+    assert.ok(result.reasonCodes.includes("BOOKING_PREREQUISITE_NOT_MET"));
+  });
+
+  it("unlocks pre_tvus_survey when book_ultrasound bookingProgress is BOOKED_EXTERNALLY", () => {
+    const result = evaluateStepAvailability(
+      "pre_tvus_survey",
+      buildTvusBookingContext("BOOKED_EXTERNALLY")
+    );
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+  });
+
+  it("unlocks pre_tvus_survey when book_ultrasound bookingProgress is CONFIRMED", () => {
+    const result = evaluateStepAvailability(
+      "pre_tvus_survey",
+      buildTvusBookingContext("CONFIRMED")
+    );
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
   });
 });

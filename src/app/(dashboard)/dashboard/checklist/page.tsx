@@ -1,10 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
-import {
-  evaluateStepAvailability,
-  loadWorkflowEvaluationContext,
-} from "@/lib/workflow";
+import type { ChecklistBookingProgress } from "@/components/checklist-external-booking-flow";
 import {
   BOOK_APPOINTMENT_ROWS,
   BOOK_APPOINTMENTS_GROUP_KEY,
@@ -25,6 +22,81 @@ const BOOK_GROUP_HEADER = {
     "Book your ultrasound, MRI, and blood test appointments. Ultrasound booking unlocks your Pre-TVUS survey.",
 };
 
+function parsePrerequisiteKeys(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((k): k is string => typeof k === "string");
+}
+
+function startOfDay(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+type ChecklistTemplateRow = Awaited<
+  ReturnType<typeof prisma.checklistTemplate.findMany>
+>[number];
+
+type ParticipantItemRow = Awaited<
+  ReturnType<typeof prisma.participantChecklistItem.findMany>
+>[number] & { template: { key: string } };
+
+function isBookingProgressUnlocked(progress: ChecklistBookingProgress): boolean {
+  return progress === "CONFIRMED" || progress === "BOOKED_EXTERNALLY";
+}
+
+function isUnlocked(
+  template: ChecklistTemplateRow,
+  ctx: {
+    enrollmentDate: Date;
+    now: Date;
+    templateByKey: Map<string, ChecklistTemplateRow>;
+    itemByTemplateId: Map<string, ParticipantItemRow>;
+  }
+): { unlocked: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+
+  if (template.unlockOffsetDays != null) {
+    const unlockAt = startOfDay(ctx.enrollmentDate);
+    unlockAt.setDate(unlockAt.getDate() + template.unlockOffsetDays);
+    if (startOfDay(ctx.now) < unlockAt) {
+      reasons.push(
+        `Available from ${unlockAt.toLocaleDateString()} (${template.unlockOffsetDays} days after enrollment)`
+      );
+    }
+  }
+
+  if (template.bookingPrerequisiteKey) {
+    const bookingTemplate = ctx.templateByKey.get(template.bookingPrerequisiteKey);
+    if (!bookingTemplate) {
+      reasons.push(
+        `Missing booking prerequisite configuration: "${template.bookingPrerequisiteKey}"`
+      );
+    } else {
+      const bookingItem = ctx.itemByTemplateId.get(bookingTemplate.id);
+      const progress = (bookingItem?.bookingProgress ??
+        "NOT_STARTED") as ChecklistBookingProgress;
+      if (!isBookingProgressUnlocked(progress)) {
+        reasons.push(`Book ${bookingTemplate.title} first`);
+      }
+    }
+  }
+
+  for (const prereqKey of parsePrerequisiteKeys(template.prerequisiteKeys)) {
+    const prereqTemplate = ctx.templateByKey.get(prereqKey);
+    if (!prereqTemplate) {
+      reasons.push(`Missing prerequisite configuration: "${prereqKey}"`);
+      continue;
+    }
+    const prereqItem = ctx.itemByTemplateId.get(prereqTemplate.id);
+    if (prereqItem?.status !== "COMPLETED") {
+      reasons.push(`Complete "${prereqTemplate.title}" first`);
+    }
+  }
+
+  return { unlocked: reasons.length === 0, reasons };
+}
+
 export default async function ChecklistPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
@@ -44,15 +116,6 @@ export default async function ChecklistPage() {
     }),
   ]);
 
-  let workflowContext: Awaited<
-    ReturnType<typeof loadWorkflowEvaluationContext>
-  > = null;
-  try {
-    workflowContext = await loadWorkflowEvaluationContext(session.user.id);
-  } catch (error) {
-    console.error("Failed to load workflow evaluation context:", error);
-  }
-
   const checklistItemIds = userItems.map((i) => i.id);
   const linkedAppointments =
     checklistItemIds.length === 0
@@ -67,28 +130,18 @@ export default async function ChecklistPage() {
   );
   const byTemplate = new Map(userItems.map((i) => [i.templateId, i]));
   const templateByKey = new Map(templates.map((t) => [t.key, t]));
+  const unlockCtx = {
+    enrollmentDate,
+    now: new Date(),
+    templateByKey,
+    itemByTemplateId: byTemplate,
+  };
   const completedAtByKey = new Map(
     userItems
       .filter((i) => i.status === "COMPLETED" && i.completedAt)
       .map((i) => [i.template.key, i.completedAt] as const)
   );
   const renderedBookingGroups = new Set<string>();
-
-  function stepAvailability(checklistKey: string) {
-    if (!workflowContext) {
-      return {
-        locked: true,
-        available: false,
-        completed: false,
-        reasons: [
-          profile
-            ? "Study progress could not be loaded. Please refresh the page."
-            : "Participant profile not found",
-        ],
-      };
-    }
-    return evaluateStepAvailability(checklistKey, workflowContext);
-  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -161,10 +214,11 @@ export default async function ChecklistPage() {
                 (r) =>
                   r.bookingProgress === "CONFIRMED" || r.status === "COMPLETED"
               );
-              const groupAvailability = stepAvailability(
-                BOOK_APPOINTMENT_ROWS[0].templateKey
-              );
-              const isLocked = !groupComplete && groupAvailability.locked;
+              const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
+              const groupUnlock = bookUltrasoundTemplate
+                ? isUnlocked(bookUltrasoundTemplate, unlockCtx)
+                : { unlocked: true, reasons: [] as string[] };
+              const isLocked = !groupComplete && !groupUnlock.unlocked;
 
               return (
                 <ChecklistBookingGroupCard
@@ -174,7 +228,7 @@ export default async function ChecklistPage() {
                   rows={rows}
                   isComplete={groupComplete}
                   isLocked={isLocked}
-                  lockReasons={groupAvailability.reasons}
+                  lockReasons={groupUnlock.reasons}
                 />
               );
             }
@@ -189,11 +243,9 @@ export default async function ChecklistPage() {
               completedAtByKey,
             });
 
-            const availability = stepAvailability(t.key);
-
-            const isComplete =
-              status === "COMPLETED" || availability.completed;
-            const isLocked = !isComplete && availability.locked;
+            const unlock = isUnlocked(t, unlockCtx);
+            const isComplete = status === "COMPLETED";
+            const isLocked = !isComplete && !unlock.unlocked;
             const surveyUrl =
               t.redcapUrl?.trim() || REDCAP_PRE_SCREENING_SURVEY_URL;
 
@@ -228,7 +280,7 @@ export default async function ChecklistPage() {
                         </p>
                       ) : null}
                       {isLocked ? (
-                        <ChecklistLockReasons reasons={availability.reasons} />
+                        <ChecklistLockReasons reasons={unlock.reasons} />
                       ) : null}
                     </div>
                   </div>

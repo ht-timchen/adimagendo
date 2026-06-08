@@ -159,6 +159,8 @@ model ChecklistTemplate {
   redcapUrl         String?
   /// ChecklistTemplate.key values that must be COMPLETED before this step unlocks.
   prerequisiteKeys  Json?
+  /// Unlocks when this booking step has bookingProgress CONFIRMED or BOOKED_EXTERNALLY.
+  bookingPrerequisiteKey String?
   /// Additional enrollment-based unlock: enrollmentDate + unlockOffsetDays.
   unlockOffsetDays  Int?
   /// Groups related steps for milestone evaluation (e.g. level_1_imaging).

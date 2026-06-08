@@ -58,7 +58,11 @@ type ChecklistSeed = {
   prerequisiteKeys?: string[];
   requiredMilestoneKeys?: string[];
   completionGroupKey?: string;
+  bookingPrerequisiteKey?: string;
 };
+
+/** Level 1 monitoring display only — not an unlock trigger. */
+const LEVEL_1_DUE_OFFSET_DAYS = 56;
 
 const DEPRECATED_CHECKLIST_KEYS = ["enrollment_survey", "book_appointment"];
 const DEPRECATED_SURVEY_KEYS = ["enrollment_survey"];
@@ -117,6 +121,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     surveyTemplateKey: "qol_baseline",
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: [],
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -126,8 +131,9 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     type: "APPOINTMENT",
     sortOrder: 1,
     externalUrl: bookExternalUrl("book_ultrasound"),
-    prerequisiteKeys: ["qol_baseline"],
+    prerequisiteKeys: [],
     completionGroupKey: "book_appointments",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -137,8 +143,9 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     type: "APPOINTMENT",
     sortOrder: 2,
     externalUrl: bookExternalUrl("book_mri"),
-    prerequisiteKeys: ["qol_baseline"],
+    prerequisiteKeys: [],
     completionGroupKey: "book_appointments",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -148,8 +155,9 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     type: "APPOINTMENT",
     sortOrder: 3,
     externalUrl: bookExternalUrl("book_bloods"),
-    prerequisiteKeys: ["qol_baseline"],
+    prerequisiteKeys: [],
     completionGroupKey: "book_appointments",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -160,7 +168,9 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 4,
     surveyTemplateKey: "pre_tvus_survey",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["book_ultrasound"],
+    prerequisiteKeys: [],
+    bookingPrerequisiteKey: "book_ultrasound",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -170,6 +180,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     type: "SCAN",
     sortOrder: 5,
     prerequisiteKeys: ["pre_tvus_survey"],
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -181,6 +192,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     surveyTemplateKey: "post_tvus_survey",
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["ultrasound_completed"],
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -191,6 +203,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 7,
     prerequisiteKeys: ["book_bloods"],
     completionGroupKey: "level_1_imaging",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -201,6 +214,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 8,
     prerequisiteKeys: ["book_mri"],
     completionGroupKey: "level_1_imaging",
+    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -356,6 +370,7 @@ async function main() {
         surveyTemplateKey: step.surveyTemplateKey,
         redcapUrl: step.redcapUrl,
         prerequisiteKeys: step.prerequisiteKeys ?? [],
+        bookingPrerequisiteKey: step.bookingPrerequisiteKey ?? null,
         requiredMilestoneKeys: step.requiredMilestoneKeys ?? [],
         completionGroupKey: step.completionGroupKey,
       },
@@ -370,6 +385,7 @@ async function main() {
         surveyTemplateKey: step.surveyTemplateKey,
         redcapUrl: step.redcapUrl,
         prerequisiteKeys: step.prerequisiteKeys ?? [],
+        bookingPrerequisiteKey: step.bookingPrerequisiteKey ?? null,
         requiredMilestoneKeys: step.requiredMilestoneKeys ?? [],
         completionGroupKey: step.completionGroupKey,
       },
