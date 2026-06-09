@@ -128,8 +128,13 @@ export function ChecklistExternalBookingFlow({
 
   useEffect(() => {
     setBookingProgress(initialProgress);
-    setAppointment(initialAppointment);
     setItemId(checklistItemId);
+    setAppointment((current) => {
+      if (initialAppointment) return initialAppointment;
+      if (initialProgress === "CONFIRMED" && current) return current;
+      if (initialProgress !== "CONFIRMED") return null;
+      return current;
+    });
   }, [initialProgress, initialAppointment, checklistItemId]);
 
   const showToast = useCallback((msg: string) => {
@@ -157,9 +162,13 @@ export function ChecklistExternalBookingFlow({
     setStep("form");
   };
 
-  const onBookNow = async () => {
+  const onBookNow = () => {
     if (actionsDisabled) return;
     window.open(externalUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const onMarkBookedExternally = async () => {
+    if (actionsDisabled) return;
     setBookingNow(true);
     try {
       const res = await fetch("/api/checklist/book-externally", {
@@ -167,7 +176,10 @@ export function ChecklistExternalBookingFlow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ templateId }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        showToast("Could not save your booking status. Please try again.");
+        return;
+      }
       const data = (await res.json().catch(() => ({}))) as {
         checklistItemId?: string;
       };
@@ -203,7 +215,9 @@ export function ChecklistExternalBookingFlow({
 
     const resolvedItemId = itemId ?? checklistItemId;
     if (!resolvedItemId) {
-      showToast("Checklist item not found. Tap Book Now again.");
+      showToast(
+        'Checklist item not found. Tap "I\'ve booked my appointment" first.'
+      );
       return;
     }
 
@@ -256,30 +270,44 @@ export function ChecklistExternalBookingFlow({
 
   const showExpandedPanel =
     bookingProgress === "BOOKED_EXTERNALLY" || bookingProgress === "CONFIRMED";
-  const apptForIcs = appointment;
+
+  const previewCombined = combineLocalDateTime(dateStr, timeStr);
+  const apptForIcs = appointment ?? initialAppointment;
   const icsStart = apptForIcs?.scheduledStartAt
     ? new Date(apptForIcs.scheduledStartAt)
     : apptForIcs?.startAt
       ? new Date(apptForIcs.startAt)
       : null;
 
-  const previewCombined = combineLocalDateTime(dateStr, timeStr);
-
   return (
     <div className="mt-3 w-full space-y-3">
-      <BookingProgressBadge progress={bookingProgress} appointment={appointment} />
+      <BookingProgressBadge
+        progress={bookingProgress}
+        appointment={apptForIcs}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {bookingProgress === "NOT_STARTED" ? (
-          <Button
-            type="button"
-            size="sm"
-            disabled={actionsDisabled || bookingNow}
-            onClick={onBookNow}
-          >
-            {bookingNow ? "Saving…" : "Book Now"}
-            <ExternalLink className="ml-1 h-4 w-4" />
-          </Button>
+          <>
+            <Button
+              type="button"
+              size="sm"
+              disabled={actionsDisabled}
+              onClick={onBookNow}
+            >
+              Book Now
+              <ExternalLink className="ml-1 h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={actionsDisabled || bookingNow}
+              onClick={onMarkBookedExternally}
+            >
+              {bookingNow ? "Saving…" : "I've booked my appointment"}
+            </Button>
+          </>
         ) : (
           <a
             href={externalUrl}
@@ -291,6 +319,13 @@ export function ChecklistExternalBookingFlow({
           </a>
         )}
       </div>
+
+      {bookingProgress === "NOT_STARTED" ? (
+        <p className="text-xs text-slate-600 dark:text-slate-400">
+          After you finish booking on the external site, tap &ldquo;I&apos;ve
+          booked my appointment&rdquo; to continue.
+        </p>
+      ) : null}
 
       {showExpandedPanel ? (
         <div className="rounded-md border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-900/50">

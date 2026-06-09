@@ -8,7 +8,6 @@ import {
   BOOK_APPOINTMENT_ROWS,
   type BookAppointmentRowConfig,
 } from "@/lib/checklist-booking-group";
-import { Check } from "lucide-react";
 import type { ChecklistStatus } from "@prisma/client";
 
 type AppointmentPayload = {
@@ -37,49 +36,28 @@ type Props = {
   title: string;
   description: string;
   rows: BookingGroupRowState[];
-  isComplete: boolean;
   isLocked: boolean;
   lockReasons: string[];
 };
-
-function rowIsDone(row: BookingGroupRowState): boolean {
-  return (
-    row.bookingProgress === "CONFIRMED" || row.status === "COMPLETED"
-  );
-}
 
 export function ChecklistBookingGroupCard({
   title,
   description,
   rows,
-  isComplete,
   isLocked,
   lockReasons,
 }: Props) {
-  const confirmedCount = rows.filter((r) => rowIsDone(r)).length;
-
   return (
-    <Card
-      className={isComplete ? "border-violet-200 dark:border-violet-800" : ""}
-    >
+    <Card>
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
-        <div
-          className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-            isComplete
-              ? "bg-violet-600 text-white"
-              : "border border-slate-300 dark:border-slate-600"
-          }`}
-        >
-          {isComplete ? <Check className="h-4 w-4" /> : null}
-        </div>
+        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600" />
         <div className="min-w-0 flex-1">
           <CardTitle className="text-base">{title}</CardTitle>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             {description}
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            {confirmedCount} of {rows.length} confirmed
-            {isComplete ? " — you can continue to the next step." : ""}
+            Appointments can be booked in any order.
           </p>
           {isLocked ? <ChecklistLockReasons reasons={lockReasons} /> : null}
         </div>

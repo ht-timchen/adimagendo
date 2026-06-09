@@ -1,3 +1,7 @@
+import {
+  isPreTvusUltrasoundBookingPrerequisiteMet,
+  preTvusUltrasoundBookingLockReason,
+} from "@/lib/checklist/pre-tvus-ultrasound-prerequisite";
 import type {
   StepAvailability,
   StepAvailabilityReasonCode,
@@ -78,8 +82,31 @@ export function evaluateStepAvailability(
       const bookingProgress = context.bookingProgressByKey.get(
         step.bookingPrerequisiteKey
       );
-      if (!isBookingPrerequisiteMet(bookingProgress)) {
-        reasons.push(`Book ${bookingTemplate.title} first`);
+      const appointmentDateTime = context.bookingAppointmentDateTimeByKey.get(
+        step.bookingPrerequisiteKey
+      );
+      const bookingPrerequisiteMet =
+        step.key === "pre_tvus_survey" &&
+        step.bookingPrerequisiteKey === "book_ultrasound"
+          ? isPreTvusUltrasoundBookingPrerequisiteMet({
+              bookingProgress,
+              appointmentDateTime,
+            })
+          : isBookingPrerequisiteMet(bookingProgress);
+      if (!bookingPrerequisiteMet) {
+        if (
+          step.key === "pre_tvus_survey" &&
+          step.bookingPrerequisiteKey === "book_ultrasound"
+        ) {
+          reasons.push(
+            preTvusUltrasoundBookingLockReason({
+              bookingProgress,
+              appointmentDateTime,
+            })
+          );
+        } else {
+          reasons.push(`Book ${bookingTemplate.title} first`);
+        }
         reasonCodes.push("BOOKING_PREREQUISITE_NOT_MET");
       }
     }

@@ -114,6 +114,7 @@ function buildContext(
     templatesByKey: defaultTemplates,
     completedKeys: new Set(),
     bookingProgressByKey: new Map(),
+    bookingAppointmentDateTimeByKey: new Map(),
     achievedMilestoneKeys: new Set(),
     milestones: [
       {
@@ -284,8 +285,11 @@ describe("evaluateStepAvailability", () => {
 });
 
 describe("bookingPrerequisiteKey", () => {
+  const SAMPLE_APPOINTMENT_AT = new Date("2026-07-15T10:00:00Z");
+
   function buildBookingContext(
-    bookingProgress: "NOT_STARTED" | "BOOKED_EXTERNALLY" | "CONFIRMED"
+    bookingProgress: "NOT_STARTED" | "BOOKED_EXTERNALLY" | "CONFIRMED",
+    appointmentDateTime: Date | null = null
   ) {
     const templatesByKey = new Map<string, WorkflowChecklistTemplate>([
       [
@@ -311,6 +315,9 @@ describe("bookingPrerequisiteKey", () => {
     return buildContext({
       templatesByKey,
       bookingProgressByKey: new Map([["book_ultrasound", bookingProgress]]),
+      bookingAppointmentDateTimeByKey: new Map([
+        ["book_ultrasound", appointmentDateTime],
+      ]),
     });
   }
 
@@ -323,13 +330,27 @@ describe("bookingPrerequisiteKey", () => {
     assert.equal(result.locked, true);
     assert.equal(result.available, false);
     assert.ok(result.reasonCodes.includes("BOOKING_PREREQUISITE_NOT_MET"));
-    assert.ok(result.reasons.some((r) => r.includes("Book ultrasound")));
+    assert.ok(result.reasons.some((r) => r.includes("Book your ultrasound first")));
   });
 
-  it("unlocks pre_tvus_survey when book_ultrasound bookingProgress is BOOKED_EXTERNALLY", () => {
+  it("locks pre_tvus_survey when book_ultrasound is BOOKED_EXTERNALLY without appointment date/time", () => {
     const result = evaluateStepAvailability(
       "pre_tvus_survey",
-      buildBookingContext("BOOKED_EXTERNALLY")
+      buildBookingContext("BOOKED_EXTERNALLY", null)
+    );
+
+    assert.equal(result.locked, true);
+    assert.equal(result.available, false);
+    assert.ok(result.reasonCodes.includes("BOOKING_PREREQUISITE_NOT_MET"));
+    assert.ok(
+      result.reasons.some((r) => r.includes("appointment date and time"))
+    );
+  });
+
+  it("unlocks pre_tvus_survey when book_ultrasound is BOOKED_EXTERNALLY with appointment date/time", () => {
+    const result = evaluateStepAvailability(
+      "pre_tvus_survey",
+      buildBookingContext("BOOKED_EXTERNALLY", SAMPLE_APPOINTMENT_AT)
     );
 
     assert.equal(result.locked, false);
@@ -337,10 +358,10 @@ describe("bookingPrerequisiteKey", () => {
     assert.deepEqual(result.reasonCodes, []);
   });
 
-  it("unlocks pre_tvus_survey when book_ultrasound bookingProgress is CONFIRMED", () => {
+  it("unlocks pre_tvus_survey when book_ultrasound bookingProgress is CONFIRMED with appointment date/time", () => {
     const result = evaluateStepAvailability(
       "pre_tvus_survey",
-      buildBookingContext("CONFIRMED")
+      buildBookingContext("CONFIRMED", SAMPLE_APPOINTMENT_AT)
     );
 
     assert.equal(result.locked, false);

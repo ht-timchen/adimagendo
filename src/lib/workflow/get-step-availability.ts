@@ -38,6 +38,9 @@ export async function loadWorkflowEvaluationContext(
           status: true,
           bookingProgress: true,
           template: { select: { key: true } },
+          appointment: {
+            select: { scheduledStartAt: true, startAt: true },
+          },
         },
       }),
       prisma.participantMilestone.findMany({
@@ -76,6 +79,18 @@ export async function loadWorkflowEvaluationContext(
     checklistItems.map((item) => [item.template.key, item.bookingProgress] as const)
   );
 
+  const bookingAppointmentDateTimeByKey = new Map(
+    checklistItems.map(
+      (item) =>
+        [
+          item.template.key,
+          item.appointment?.scheduledStartAt ??
+            item.appointment?.startAt ??
+            null,
+        ] as const
+    )
+  );
+
   const completedKeys = new Set(
     checklistItems
       .filter((item) => item.status === "COMPLETED")
@@ -99,6 +114,7 @@ export async function loadWorkflowEvaluationContext(
     templatesByKey,
     completedKeys,
     bookingProgressByKey,
+    bookingAppointmentDateTimeByKey,
     achievedMilestoneKeys,
     milestones: workflowMilestones,
   };

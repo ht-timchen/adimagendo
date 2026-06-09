@@ -15,12 +15,27 @@ import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
 import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-card";
 import { Check } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
+import {
+  getUltrasoundAppointmentDateTime,
+  isPreTvusUltrasoundBookingPrerequisiteMet,
+  preTvusUltrasoundBookingLockReason,
+} from "@/lib/checklist/pre-tvus-ultrasound-prerequisite";
 
 const BOOK_GROUP_HEADER = {
-  title: "Book appointments",
+  title: "Book your appointments",
   description:
-    "Book your ultrasound, MRI, and blood test appointments. Ultrasound booking unlocks your Pre-TVUS survey.",
+    "Book your ultrasound, MRI, and blood test appointments. These can be booked in any order. Your Pre-TVUS survey will unlock once your ultrasound appointment date and time are confirmed.",
 };
+
+const POST_TVUS_ULTRASOUND_COMPLETE_LOCK_MESSAGE =
+  "Confirm your ultrasound is complete to unlock this survey.";
+
+const ULTRASOUND_COMPLETED_UI = {
+  title: "Confirm your ultrasound is complete",
+  description:
+    "After you attend your ultrasound appointment, confirm it here. This will unlock your Post-TVUS survey.",
+  buttonLabel: "I have completed my ultrasound",
+} as const;
 
 function parsePrerequisiteKeys(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -39,7 +54,11 @@ type ChecklistTemplateRow = Awaited<
 
 type ParticipantItemRow = Awaited<
   ReturnType<typeof prisma.participantChecklistItem.findMany>
->[number] & { template: { key: string } };
+>[number] & { id: string; template: { key: string } };
+
+type LinkedAppointmentRow = Awaited<
+  ReturnType<typeof prisma.appointment.findMany>
+>[number];
 
 function isBookingProgressUnlocked(progress: ChecklistBookingProgress): boolean {
   return progress === "CONFIRMED" || progress === "BOOKED_EXTERNALLY";
@@ -52,6 +71,7 @@ function isUnlocked(
     now: Date;
     templateByKey: Map<string, ChecklistTemplateRow>;
     itemByTemplateId: Map<string, ParticipantItemRow>;
+    appointmentByChecklistItemId: Map<string, LinkedAppointmentRow>;
   }
 ): { unlocked: boolean; reasons: string[] } {
   const reasons: string[] = [];
@@ -76,8 +96,33 @@ function isUnlocked(
       const bookingItem = ctx.itemByTemplateId.get(bookingTemplate.id);
       const progress = (bookingItem?.bookingProgress ??
         "NOT_STARTED") as ChecklistBookingProgress;
-      if (!isBookingProgressUnlocked(progress)) {
-        reasons.push(`Book ${bookingTemplate.title} first`);
+      const appointmentDateTime = bookingItem
+        ? getUltrasoundAppointmentDateTime(
+            ctx.appointmentByChecklistItemId.get(bookingItem.id)
+          )
+        : null;
+      const bookingPrerequisiteMet =
+        template.key === "pre_tvus_survey" &&
+        template.bookingPrerequisiteKey === "book_ultrasound"
+          ? isPreTvusUltrasoundBookingPrerequisiteMet({
+              bookingProgress: progress,
+              appointmentDateTime,
+            })
+          : isBookingProgressUnlocked(progress);
+      if (!bookingPrerequisiteMet) {
+        if (
+          template.key === "pre_tvus_survey" &&
+          template.bookingPrerequisiteKey === "book_ultrasound"
+        ) {
+          reasons.push(
+            preTvusUltrasoundBookingLockReason({
+              bookingProgress: progress,
+              appointmentDateTime,
+            })
+          );
+        } else {
+          reasons.push(`Book ${bookingTemplate.title} first`);
+        }
       }
     }
   }
@@ -90,7 +135,14 @@ function isUnlocked(
     }
     const prereqItem = ctx.itemByTemplateId.get(prereqTemplate.id);
     if (prereqItem?.status !== "COMPLETED") {
-      reasons.push(`Complete "${prereqTemplate.title}" first`);
+      if (
+        template.key === "post_tvus_survey" &&
+        prereqKey === "ultrasound_completed"
+      ) {
+        reasons.push(POST_TVUS_ULTRASOUND_COMPLETE_LOCK_MESSAGE);
+      } else {
+        reasons.push(`Complete "${prereqTemplate.title}" first`);
+      }
     }
   }
 
@@ -135,6 +187,7 @@ export default async function ChecklistPage() {
     now: new Date(),
     templateByKey,
     itemByTemplateId: byTemplate,
+    appointmentByChecklistItemId,
   };
   const completedAtByKey = new Map(
     userItems
@@ -210,15 +263,10 @@ export default async function ChecklistPage() {
                 ];
               });
 
-              const groupComplete = rows.every(
-                (r) =>
-                  r.bookingProgress === "CONFIRMED" || r.status === "COMPLETED"
-              );
               const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
               const groupUnlock = bookUltrasoundTemplate
                 ? isUnlocked(bookUltrasoundTemplate, unlockCtx)
                 : { unlocked: true, reasons: [] as string[] };
-              const isLocked = !groupComplete && !groupUnlock.unlocked;
 
               return (
                 <ChecklistBookingGroupCard
@@ -226,8 +274,7 @@ export default async function ChecklistPage() {
                   title={BOOK_GROUP_HEADER.title}
                   description={BOOK_GROUP_HEADER.description}
                   rows={rows}
-                  isComplete={groupComplete}
-                  isLocked={isLocked}
+                  isLocked={!groupUnlock.unlocked}
                   lockReasons={groupUnlock.reasons}
                 />
               );
@@ -248,6 +295,14 @@ export default async function ChecklistPage() {
             const isLocked = !isComplete && !unlock.unlocked;
             const surveyUrl =
               t.redcapUrl?.trim() || REDCAP_PRE_SCREENING_SURVEY_URL;
+            const cardTitle =
+              t.key === "ultrasound_completed"
+                ? ULTRASOUND_COMPLETED_UI.title
+                : t.title;
+            const cardDescription =
+              t.key === "ultrasound_completed"
+                ? ULTRASOUND_COMPLETED_UI.description
+                : t.description;
 
             return (
               <Card
@@ -268,13 +323,13 @@ export default async function ChecklistPage() {
                       {isComplete ? <Check className="h-4 w-4" /> : null}
                     </div>
                     <div>
-                      <CardTitle className="text-base">{t.title}</CardTitle>
-                      {t.description && (
+                      <CardTitle className="text-base">{cardTitle}</CardTitle>
+                      {cardDescription && (
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                          {t.description}
+                          {cardDescription}
                         </p>
                       )}
-                      {dueDisplay.recommendedLabel ? (
+                      {dueDisplay.recommendedLabel && !isLocked ? (
                         <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
                           {dueDisplay.recommendedLabel}
                         </p>
@@ -286,7 +341,8 @@ export default async function ChecklistPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-2 pt-0">
-                  {!isComplete && t.externalUrl ? (
+                  {(!isComplete || item?.bookingProgress === "CONFIRMED") &&
+                  t.externalUrl ? (
                     <ChecklistExternalBookingFlow
                       templateId={t.id}
                       checklistItemId={item?.id ?? null}
@@ -325,6 +381,11 @@ export default async function ChecklistPage() {
                     <MarkCompleteButton
                       templateId={t.id}
                       disabled={isLocked}
+                      label={
+                        t.key === "ultrasound_completed"
+                          ? ULTRASOUND_COMPLETED_UI.buttonLabel
+                          : undefined
+                      }
                     />
                   ) : null}
                 </CardContent>

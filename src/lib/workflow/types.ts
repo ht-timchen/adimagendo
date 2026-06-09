@@ -37,6 +37,8 @@ export type WorkflowEvaluationContext = {
   completedKeys: Set<string>;
   /** Latest bookingProgress per checklist template key (defaults to NOT_STARTED). */
   bookingProgressByKey: Map<string, WorkflowBookingProgress>;
+  /** Participant-confirmed appointment start per booking template key, if recorded. */
+  bookingAppointmentDateTimeByKey: Map<string, Date | null>;
   achievedMilestoneKeys: Set<string>;
   milestones: WorkflowStudyMilestone[];
 };

@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 export function MarkCompleteButton({
   templateId,
   disabled: disabledProp = false,
+  label = "Mark complete",
 }: {
   templateId: string;
   disabled?: boolean;
+  label?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export function MarkCompleteButton({
       disabled={disabledProp || loading}
       className={disabledProp ? "cursor-not-allowed opacity-50" : undefined}
     >
-      {loading ? "…" : "Mark complete"}
+      {loading ? "…" : label}
     </Button>
   );
 }
