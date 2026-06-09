@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { resolveEnrollmentDateForTiming } from "@/lib/checklist/enrollment-date-for-timing";
 import { evaluateStepAvailability } from "./evaluate-step-availability";
 import { parseJsonStringKeys } from "./parse-json-keys";
 import type {
@@ -19,7 +20,12 @@ export async function loadWorkflowEvaluationContext(
     await Promise.all([
       prisma.participantProfile.findUnique({
         where: { userId },
-        select: { enrollmentDate: true },
+        select: {
+          enrollmentDate: true,
+          dataSource: true,
+          dataKind: true,
+          studyRecordId: true,
+        },
       }),
       prisma.checklistTemplate.findMany({
         select: {
@@ -108,8 +114,11 @@ export async function loadWorkflowEvaluationContext(
     requiredKeys: parseJsonStringKeys(m.requiredKeys),
   }));
 
+  const timing = await resolveEnrollmentDateForTiming(profile);
+
   return {
-    enrollmentDate: profile.enrollmentDate,
+    enrollmentDate: timing.enrollmentDate,
+    enrollmentDateMissing: timing.missing,
     now,
     templatesByKey,
     completedKeys,

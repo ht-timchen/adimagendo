@@ -31,7 +31,8 @@ export type WorkflowStudyMilestone = {
 };
 
 export type WorkflowEvaluationContext = {
-  enrollmentDate: Date;
+  enrollmentDate: Date | null;
+  enrollmentDateMissing: boolean;
   now: Date;
   templatesByKey: Map<string, WorkflowChecklistTemplate>;
   completedKeys: Set<string>;

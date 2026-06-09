@@ -82,7 +82,7 @@ function buildContext(
         sortOrder: 9,
         prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
         requiredMilestoneKeys: ["level_1_complete"],
-        unlockOffsetDays: 90,
+        unlockOffsetDays: 0,
       }),
     ],
     [
@@ -110,6 +110,7 @@ function buildContext(
 
   return {
     enrollmentDate: ENROLLMENT,
+    enrollmentDateMissing: false,
     now: new Date("2026-02-01T12:00:00Z"),
     templatesByKey: defaultTemplates,
     completedKeys: new Set(),
@@ -158,7 +159,7 @@ describe("evaluateStepAvailability", () => {
     );
   });
 
-  it("locks step until unlockOffsetDays is reached", () => {
+  it("does not lock qol_3m solely by the 90-day offset", () => {
     const result = evaluateStepAvailability(
       "qol_3m",
       buildContext({
@@ -175,11 +176,42 @@ describe("evaluateStepAvailability", () => {
       })
     );
 
-    assert.equal(result.locked, true);
-    assert.equal(result.available, false);
-    assert.ok(
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+    assert.equal(
       result.reasons.some((r) => r.includes("90 days after enrollment")),
-      `expected time lock reason, got: ${result.reasons.join("; ")}`
+      false
+    );
+  });
+
+  it("locks steps with unlockOffsetDays when enrollment date is missing", () => {
+    const templatesByKey = new Map(buildContext().templatesByKey);
+    templatesByKey.set(
+      "qol_12m",
+      template({
+        key: "qol_12m",
+        title: "12-month survey",
+        sortOrder: 12,
+        prerequisiteKeys: [],
+        unlockOffsetDays: 360,
+      })
+    );
+
+    const result = evaluateStepAvailability(
+      "qol_12m",
+      buildContext({
+        templatesByKey,
+        enrollmentDate: null,
+        enrollmentDateMissing: true,
+        completedKeys: new Set(),
+        now: new Date("2027-06-01T12:00:00Z"),
+      })
+    );
+
+    assert.equal(result.locked, true);
+    assert.ok(
+      result.reasons.some((r) => r.includes("Enrollment date is missing")),
+      `expected missing enrollment reason, got: ${result.reasons.join("; ")}`
     );
   });
 

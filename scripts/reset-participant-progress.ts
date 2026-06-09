@@ -3,6 +3,8 @@
  * Usage: npx tsx scripts/reset-participant-progress.ts <email>
  */
 import { PrismaClient } from "@prisma/client";
+import { LOCAL_TEST_PROFILE } from "../src/lib/participant/participant-data-classification";
+import { isLockedPilotClassification } from "../src/lib/participant/preserve-pilot-classification";
 
 const prisma = new PrismaClient();
 
@@ -41,18 +43,38 @@ async function main() {
     prisma.contactMessage.deleteMany({ where: { userId: user.id } }),
   ]);
 
+  const existingProfile = await prisma.participantProfile.findUnique({
+    where: { userId: user.id },
+    select: { studyRecordId: true, dataSource: true, dataKind: true },
+  });
+
+  if (existingProfile && isLockedPilotClassification(existingProfile)) {
+    console.warn(
+      "WARNING: Participant is classified as REAL pilot — classification will be preserved during this dev reset."
+    );
+  }
+
+  const profileData = existingProfile?.studyRecordId
+    ? {
+        enrollmentDate: new Date(),
+        studyPhase: "baseline" as const,
+        dataSource: existingProfile.dataSource,
+        dataKind: existingProfile.dataKind,
+      }
+    : {
+        enrollmentDate: new Date(),
+        studyPhase: "baseline" as const,
+        studyRecordId: null,
+        ...LOCAL_TEST_PROFILE,
+      };
+
   await prisma.participantProfile.upsert({
     where: { userId: user.id },
     create: {
       userId: user.id,
-      enrollmentDate: new Date(),
-      studyPhase: "baseline",
+      ...profileData,
     },
-    update: {
-      enrollmentDate: new Date(),
-      studyPhase: "baseline",
-      studyRecordId: null,
-    },
+    update: profileData,
   });
 
   console.log(`Reset participant progress for ${user.email} (${user.id})`);

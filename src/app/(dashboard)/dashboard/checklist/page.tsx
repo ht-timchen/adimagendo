@@ -16,6 +16,10 @@ import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-
 import { Check } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
 import {
+  MISSING_ENROLLMENT_DATE_MESSAGE,
+  resolveEnrollmentDateForTiming,
+} from "@/lib/checklist/enrollment-date-for-timing";
+import {
   getUltrasoundAppointmentDateTime,
   isPreTvusUltrasoundBookingPrerequisiteMet,
   preTvusUltrasoundBookingLockReason,
@@ -67,7 +71,8 @@ function isBookingProgressUnlocked(progress: ChecklistBookingProgress): boolean 
 function isUnlocked(
   template: ChecklistTemplateRow,
   ctx: {
-    enrollmentDate: Date;
+    enrollmentDate: Date | null;
+    enrollmentDateMissing: boolean;
     now: Date;
     templateByKey: Map<string, ChecklistTemplateRow>;
     itemByTemplateId: Map<string, ParticipantItemRow>;
@@ -76,13 +81,17 @@ function isUnlocked(
 ): { unlocked: boolean; reasons: string[] } {
   const reasons: string[] = [];
 
-  if (template.unlockOffsetDays != null) {
-    const unlockAt = startOfDay(ctx.enrollmentDate);
-    unlockAt.setDate(unlockAt.getDate() + template.unlockOffsetDays);
-    if (startOfDay(ctx.now) < unlockAt) {
-      reasons.push(
-        `Available from ${unlockAt.toLocaleDateString()} (${template.unlockOffsetDays} days after enrollment)`
-      );
+  if (template.unlockOffsetDays != null && template.unlockOffsetDays > 0) {
+    if (!ctx.enrollmentDate || ctx.enrollmentDateMissing) {
+      reasons.push(MISSING_ENROLLMENT_DATE_MESSAGE);
+    } else {
+      const unlockAt = startOfDay(ctx.enrollmentDate);
+      unlockAt.setDate(unlockAt.getDate() + template.unlockOffsetDays);
+      if (startOfDay(ctx.now) < unlockAt) {
+        reasons.push(
+          `Available from ${unlockAt.toLocaleDateString()} (${template.unlockOffsetDays} days after enrollment)`
+        );
+      }
     }
   }
 
@@ -155,8 +164,17 @@ export default async function ChecklistPage() {
 
   const profile = await prisma.participantProfile.findUnique({
     where: { userId: session.user.id },
+    select: {
+      enrollmentDate: true,
+      dataSource: true,
+      dataKind: true,
+      studyRecordId: true,
+    },
   });
-  const enrollmentDate = profile?.enrollmentDate ?? new Date();
+
+  const enrollmentTiming = profile
+    ? await resolveEnrollmentDateForTiming(profile)
+    : { enrollmentDate: null, missing: true };
 
   const [templates, userItems] = await Promise.all([
     prisma.checklistTemplate.findMany({
@@ -183,7 +201,8 @@ export default async function ChecklistPage() {
   const byTemplate = new Map(userItems.map((i) => [i.templateId, i]));
   const templateByKey = new Map(templates.map((t) => [t.key, t]));
   const unlockCtx = {
-    enrollmentDate,
+    enrollmentDate: enrollmentTiming.enrollmentDate,
+    enrollmentDateMissing: enrollmentTiming.missing,
     now: new Date(),
     templateByKey,
     itemByTemplateId: byTemplate,
@@ -204,6 +223,14 @@ export default async function ChecklistPage() {
           Complete each item as you progress through the study.
         </p>
       </div>
+
+      {enrollmentTiming.missing ? (
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+          <CardContent className="py-4 text-sm text-amber-950 dark:text-amber-100">
+            {MISSING_ENROLLMENT_DATE_MESSAGE}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="space-y-3">
         {templates.length === 0 ? (
@@ -288,6 +315,9 @@ export default async function ChecklistPage() {
             const dueDisplay = getChecklistDueDisplay({
               templateKey: t.key,
               completedAtByKey,
+              enrollmentDate: enrollmentTiming.enrollmentDate,
+              dueOffsetDays: t.dueOffsetDays,
+              enrollmentDateMissing: enrollmentTiming.missing,
             });
 
             const unlock = isUnlocked(t, unlockCtx);
@@ -329,7 +359,7 @@ export default async function ChecklistPage() {
                           {cardDescription}
                         </p>
                       )}
-                      {dueDisplay.recommendedLabel && !isLocked ? (
+                      {dueDisplay.recommendedLabel && !isComplete ? (
                         <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
                           {dueDisplay.recommendedLabel}
                         </p>

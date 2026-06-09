@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { classifyRedcapSyncFromStudyRecordId } from "@/lib/participant/participant-data-classification";
 
 function parseRedcapDate(val: string): Date | null {
   if (!val || val.trim() === "") return null;
@@ -161,6 +162,7 @@ export async function GET(req: Request) {
         email: email || null,
         dateOfBirth,
         enrollmentDate,
+        dataKind: classifyRedcapSyncFromStudyRecordId(recordId),
         redcapType,
         consentStatus: "complete",
       },

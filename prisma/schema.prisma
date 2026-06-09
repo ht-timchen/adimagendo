@@ -57,6 +57,19 @@ enum ChecklistBookingProgress {
   CONFIRMED
 }
 
+/// Where participant account data originated (app vs REDCap-linked enrolment).
+enum ParticipantDataSource {
+  LOCAL
+  REDCAP
+}
+
+/// Study data classification for reporting and pilot filtering.
+enum ParticipantDataKind {
+  TEST
+  REAL
+  UNKNOWN
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -133,6 +146,8 @@ model ParticipantProfile {
   enrollmentDate DateTime
   studyPhase    String?  // e.g. "baseline", "3-month", etc.
   studyRecordId String?   // External / REDCap record mapping
+  dataSource    ParticipantDataSource @default(LOCAL)
+  dataKind      ParticipantDataKind   @default(TEST)
   firstName     String?
   lastName      String?
   phone         String?
@@ -394,6 +409,7 @@ model RedcapParticipantSync {
   email          String?
   dateOfBirth    DateTime?
   enrollmentDate DateTime?
+  dataKind       ParticipantDataKind @default(UNKNOWN)
   redcapType     String?
   consentStatus  String?
   lastSyncedAt   DateTime  @updatedAt

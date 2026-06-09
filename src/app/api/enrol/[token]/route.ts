@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { resolveParticipantEnrollmentDate } from "@/lib/checklist/resolve-enrollment-date";
 import { prisma } from "@/lib/db";
+import {
+  assertValidParticipantClassification,
+  getRedcapSyncDataKind,
+  resolveRedcapProfileClassification,
+} from "@/lib/participant/participant-data-classification";
 
 export async function POST(
   req: Request,
@@ -76,9 +81,21 @@ export async function POST(
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const enrollmentDate = await resolveParticipantEnrollmentDate(
-      studyRecordId,
-      new Date()
+    const enrollmentDate = await resolveParticipantEnrollmentDate(studyRecordId);
+    if (!enrollmentDate) {
+      return NextResponse.json(
+        {
+          error:
+            "REDCap consent date is not available for this record yet. Please try again after your study team has synced REDCap data.",
+        },
+        { status: 400 }
+      );
+    }
+    const syncDataKind = await getRedcapSyncDataKind(prisma, studyRecordId);
+    const classification = resolveRedcapProfileClassification(syncDataKind);
+    assertValidParticipantClassification(
+      classification.dataSource,
+      classification.dataKind
     );
 
     await prisma.$transaction(async (tx) => {
@@ -97,6 +114,7 @@ export async function POST(
           userId: user.id,
           studyRecordId,
           enrollmentDate,
+          ...classification,
         },
       });
 

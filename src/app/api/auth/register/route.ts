@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { LOCAL_TEST_PROFILE } from "@/lib/participant/participant-data-classification";
 
 const RegisterSchema = z.object({
   email: z.string().email(),
@@ -48,6 +49,7 @@ export async function POST(req: Request) {
         userId: user.id,
         enrollmentDate: new Date(),
         studyPhase: "baseline",
+        ...LOCAL_TEST_PROFILE,
       },
     });
 

@@ -80,6 +80,7 @@ function buildTvusContext(
 
   return {
     enrollmentDate: new Date("2026-01-01T12:00:00Z"),
+    enrollmentDateMissing: false,
     now: new Date("2026-06-01T12:00:00Z"),
     templatesByKey,
     completedKeys,
@@ -115,6 +116,7 @@ function buildTvusBookingContext(
 
   return {
     enrollmentDate: new Date("2026-01-01T12:00:00Z"),
+    enrollmentDateMissing: false,
     now: new Date("2026-06-01T12:00:00Z"),
     templatesByKey,
     completedKeys: new Set(),

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Bell, ChevronDown, Copy, KeyRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, ChevronDown, Copy, KeyRound, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,9 @@ export type ParticipantRow = {
   currentStep: string | null;
   status: ParticipantStudyStatus;
   level1FollowUpDue: boolean;
+  classificationLabel: string;
+  classificationClassName: string;
+  canMarkAsPilot: boolean;
 };
 
 type CredentialsPayload = {
@@ -35,10 +39,12 @@ const MENU_WIDTH = 220;
 const MENU_GAP = 6;
 
 export function AdminParticipantsTable({ participants }: { participants: ParticipantRow[] }) {
+  const router = useRouter();
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CredentialsPayload | null>(null);
   const [notifyParticipant, setNotifyParticipant] = useState<ParticipantRow | null>(null);
+  const [markPilotParticipant, setMarkPilotParticipant] = useState<ParticipantRow | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMessage, setDraftMessage] = useState("");
 
@@ -118,6 +124,28 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
     setBusyId(null);
   }
 
+  async function submitMarkAsPilot() {
+    if (!markPilotParticipant) return;
+    setBusyId(markPilotParticipant.id);
+    try {
+      const res = await fetch(
+        `/api/admin/participants/${markPilotParticipant.id}/mark-pilot`,
+        { method: "POST" }
+      );
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        showToast("error", data.error ?? "Failed to mark as pilot participant");
+        return;
+      }
+      showToast("success", "Participant marked as pilot");
+      setMarkPilotParticipant(null);
+      router.refresh();
+    } catch {
+      showToast("error", "Network error");
+    }
+    setBusyId(null);
+  }
+
   return (
     <div className="relative">
       {toast ? (
@@ -135,10 +163,11 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
       ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-md shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950/40">
-        <table className="min-w-[1280px] w-full text-left text-sm">
+        <table className="min-w-[1380px] w-full text-left text-sm">
           <thead className="bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-900/40">
             <tr>
               <th className="px-4 py-3">Record ID</th>
+              <th className="px-4 py-3">Classification</th>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">
@@ -155,7 +184,7 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
           <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
             {participants.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={11} className="px-4 py-10 text-center text-slate-500">
                   No participants found.
                 </td>
               </tr>
@@ -172,6 +201,16 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                 >
                   <td className="px-4 py-3 font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
                     {p.recordId}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
+                        p.classificationClassName
+                      )}
+                    >
+                      {p.classificationLabel}
+                    </span>
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
                     {p.name?.trim() || "—"}
@@ -214,12 +253,14 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                   <td className="px-4 py-3 text-right">
                     <ParticipantRowActions
                       busy={busyId === p.id}
+                      canMarkAsPilot={p.canMarkAsPilot}
                       onResetPassword={() => resetPassword(p)}
                       onSendNotification={() => {
                         setNotifyParticipant(p);
                         setDraftTitle("");
                         setDraftMessage("");
                       }}
+                      onMarkAsPilot={() => setMarkPilotParticipant(p)}
                     />
                   </td>
                 </tr>
@@ -251,18 +292,34 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
           onSubmit={submitNotification}
         />
       ) : null}
+
+      {markPilotParticipant ? (
+        <MarkPilotModal
+          participant={markPilotParticipant}
+          busy={busyId === markPilotParticipant.id}
+          onClose={() => {
+            if (busyId === markPilotParticipant.id) return;
+            setMarkPilotParticipant(null);
+          }}
+          onConfirm={submitMarkAsPilot}
+        />
+      ) : null}
     </div>
   );
 }
 
 function ParticipantRowActions({
   busy,
+  canMarkAsPilot,
   onResetPassword,
   onSendNotification,
+  onMarkAsPilot,
 }: {
   busy: boolean;
+  canMarkAsPilot: boolean;
   onResetPassword: () => void;
   onSendNotification: () => void;
+  onMarkAsPilot: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -331,6 +388,19 @@ function ParticipantRowActions({
   }, [open]);
 
   const items = [
+    ...(canMarkAsPilot
+      ? [
+          {
+            key: "mark-pilot",
+            label: "Mark as pilot participant",
+            icon: <UserCheck className="h-4 w-4" />,
+            onClick: () => {
+              setOpen(false);
+              onMarkAsPilot();
+            },
+          },
+        ]
+      : []),
     {
       key: "reset",
       label: "Reset password",
@@ -452,6 +522,49 @@ function CredentialsModal({
         </Button>
         <Button type="button" className="rounded-xl bg-violet-600" onClick={onClose}>
           Done
+        </Button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function MarkPilotModal({
+  participant,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  participant: ParticipantRow;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const displayName = participant.name?.trim() || participant.email;
+
+  return (
+    <ModalShell title="Mark as pilot participant" onClose={onClose}>
+      <p className="text-sm text-slate-600">
+        Classify{" "}
+        <span className="font-medium text-slate-900">{displayName}</span>{" "}
+        <span className="font-mono text-slate-800">({participant.recordId})</span>{" "}
+        as a real pilot participant?
+      </p>
+      <p className="mt-3 text-sm text-amber-900/90">
+        This affects pilot reporting. The participant will appear on the Pilot tab
+        and become eligible for Level 1 follow-up tracking. This action is manual
+        and cannot be undone from this screen.
+      </p>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button type="button" variant="outline" className="rounded-xl" onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
+          disabled={busy}
+          onClick={onConfirm}
+        >
+          {busy ? "Saving…" : "Mark as pilot participant"}
         </Button>
       </div>
     </ModalShell>

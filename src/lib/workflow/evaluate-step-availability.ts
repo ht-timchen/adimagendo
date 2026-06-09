@@ -2,6 +2,7 @@ import {
   isPreTvusUltrasoundBookingPrerequisiteMet,
   preTvusUltrasoundBookingLockReason,
 } from "@/lib/checklist/pre-tvus-ultrasound-prerequisite";
+import { MISSING_ENROLLMENT_DATE_MESSAGE } from "@/lib/checklist/enrollment-date-for-timing";
 import type {
   StepAvailability,
   StepAvailabilityReasonCode,
@@ -61,12 +62,16 @@ export function evaluateStepAvailability(
     context.milestones.map((m) => [m.key, m] as const)
   );
 
-  if (step.unlockOffsetDays != null) {
-    const unlockAt = unlockDate(context.enrollmentDate, step.unlockOffsetDays);
-    if (context.now < unlockAt) {
-      reasons.push(
-        `Available from ${unlockAt.toLocaleDateString()} (${step.unlockOffsetDays} days after enrollment)`
-      );
+  if (step.unlockOffsetDays != null && step.unlockOffsetDays > 0) {
+    if (!context.enrollmentDate || context.enrollmentDateMissing) {
+      reasons.push(MISSING_ENROLLMENT_DATE_MESSAGE);
+    } else {
+      const unlockAt = unlockDate(context.enrollmentDate, step.unlockOffsetDays);
+      if (context.now < unlockAt) {
+        reasons.push(
+          `Available from ${unlockAt.toLocaleDateString()} (${step.unlockOffsetDays} days after enrollment)`
+        );
+      }
     }
   }
 

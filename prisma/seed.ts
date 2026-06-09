@@ -228,7 +228,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
     requiredMilestoneKeys: ["level_1_complete"],
     dueOffsetDays: 90,
-    unlockOffsetDays: 90,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_6m",
@@ -240,7 +240,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["qol_3m"],
     dueOffsetDays: 180,
-    unlockOffsetDays: 180,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_9m",
@@ -252,7 +252,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["qol_6m"],
     dueOffsetDays: 270,
-    unlockOffsetDays: 270,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_12m",
@@ -264,7 +264,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["qol_9m"],
     dueOffsetDays: 360,
-    unlockOffsetDays: 360,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_24m",
@@ -277,7 +277,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     prerequisiteKeys: ["qol_12m"],
     requiredMilestoneKeys: ["level_2_complete"],
     dueOffsetDays: 730,
-    unlockOffsetDays: 730,
+    unlockOffsetDays: 0,
   },
   {
     key: "mri_3y_completed",
@@ -300,7 +300,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["mri_3y_completed"],
     dueOffsetDays: 1095,
-    unlockOffsetDays: 1095,
+    unlockOffsetDays: 0,
   },
 ];
 
@@ -427,8 +427,13 @@ async function main() {
       userId: admin.id,
       enrollmentDate: new Date(),
       studyPhase: "admin",
+      dataSource: "LOCAL",
+      dataKind: "TEST",
     },
-    update: {},
+    update: {
+      dataSource: "LOCAL",
+      dataKind: "TEST",
+    },
   });
 
   await prisma.checklistTemplate.deleteMany({

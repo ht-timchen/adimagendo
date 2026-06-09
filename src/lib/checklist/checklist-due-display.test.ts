@@ -21,3 +21,32 @@ describe("Post-TVUS recommended due display", () => {
     assert.ok(display.recommendedLabel?.includes("7 days"));
   });
 });
+
+describe("Enrollment-based due-by display", () => {
+  const enrollmentDate = new Date("2026-01-01T12:00:00Z");
+
+  it("shows due-by date for qol_3m using dueOffsetDays", () => {
+    const display = getChecklistDueDisplay({
+      templateKey: "qol_3m",
+      completedAtByKey: new Map(),
+      enrollmentDate,
+      dueOffsetDays: 90,
+    });
+    assert.ok(display.recommendedLabel?.startsWith("Due by"));
+    assert.ok(!display.recommendedLabel?.includes("Available from"));
+  });
+
+  it("shows missing enrollment message instead of inventing today", () => {
+    const display = getChecklistDueDisplay({
+      templateKey: "qol_3m",
+      completedAtByKey: new Map(),
+      enrollmentDate: null,
+      dueOffsetDays: 90,
+      enrollmentDateMissing: true,
+    });
+    assert.equal(
+      display.recommendedLabel,
+      "Enrollment date is missing. Checklist timing cannot be calculated."
+    );
+  });
+});

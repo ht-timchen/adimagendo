@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAdminSession } from "@/lib/admin-api-auth";
+import {
+  assertValidParticipantClassification,
+  getRedcapSyncDataKind,
+  resolveRedcapProfileClassification,
+} from "@/lib/participant/participant-data-classification";
+import { getRedcapConsentEnrollmentDate } from "@/lib/checklist/resolve-enrollment-date";
+import { resolveAutomaticParticipantClassification } from "@/lib/participant/preserve-pilot-classification";
 
 function parseCsvLine(line: string): string[] {
   const out: string[] = [];
@@ -86,7 +93,11 @@ export async function POST(req: Request) {
     }
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, role: true, profile: { select: { id: true } } },
+      select: {
+        id: true,
+        role: true,
+        profile: { select: { id: true, dataSource: true, dataKind: true } },
+      },
     });
     if (!user || user.role !== "PARTICIPANT") {
       skipped += 1;
@@ -94,18 +105,38 @@ export async function POST(req: Request) {
       continue;
     }
     try {
+      const syncDataKind = await getRedcapSyncDataKind(prisma, recordId);
+      const classification = resolveAutomaticParticipantClassification(
+        user.profile,
+        resolveRedcapProfileClassification(syncDataKind)
+      );
+      assertValidParticipantClassification(
+        classification.dataSource,
+        classification.dataKind
+      );
+
       if (user.profile) {
         await prisma.participantProfile.update({
           where: { userId: user.id },
-          data: { studyRecordId: recordId },
+          data: {
+            studyRecordId: recordId,
+            ...classification,
+          },
         });
       } else {
+        const consentEnrollmentDate = await getRedcapConsentEnrollmentDate(recordId);
+        if (!consentEnrollmentDate) {
+          throw new Error(
+            `No REDCap consent date for record ${recordId}; sync REDCap before linking new participants.`
+          );
+        }
         await prisma.participantProfile.create({
           data: {
             userId: user.id,
-            enrollmentDate: new Date(),
+            enrollmentDate: consentEnrollmentDate,
             studyRecordId: recordId,
             studyPhase: "baseline",
+            ...classification,
           },
         });
       }
