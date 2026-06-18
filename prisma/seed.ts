@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { ChecklistItemType, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { assertProtocolValid, validateProtocol } from "./validate-protocol";
 import { deleteOrphanedParticipantChecklistItems } from "../src/lib/valid-checklist-items";
@@ -48,7 +48,7 @@ type ChecklistSeed = {
   key: string;
   title: string;
   description: string;
-  type: Prisma.ChecklistItemType;
+  type: ChecklistItemType;
   sortOrder: number;
   externalUrl?: string;
   dueOffsetDays?: number;
