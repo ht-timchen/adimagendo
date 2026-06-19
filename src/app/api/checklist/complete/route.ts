@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "@/lib/checklist/early-clinical-protocol";
+import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
 import { getStepCompletionBlock } from "@/lib/workflow/assert-step-available";
 import {
   alreadyCompletedResponse,
@@ -81,6 +83,43 @@ export async function POST(req: Request) {
         completedAt: new Date(),
       },
     });
+
+    const level1KeySet = new Set<string>(LEVEL_1_REQUIRED_TEMPLATE_KEYS);
+    if (level1KeySet.has(template.key)) {
+      const checklistItems = await prisma.participantChecklistItem.findMany({
+        where: { userId: session.user.id },
+        select: {
+          status: true,
+          template: { select: { key: true } },
+        },
+      });
+      const completedKeys = new Set(
+        checklistItems
+          .filter((item) => item.status === "COMPLETED")
+          .map((item) => item.template.key)
+      );
+      if (isLevel1Complete(completedKeys)) {
+        const existingCongrats = await prisma.notification.findFirst({
+          where: {
+            userId: session.user.id,
+            type: "level_1_complete",
+          },
+          select: { id: true },
+        });
+        if (!existingCongrats) {
+          await prisma.notification.create({
+            data: {
+              userId: session.user.id,
+              title: "Congratulations, you've completed Level 1!",
+              body: null,
+              type: "level_1_complete",
+              read: false,
+            },
+          });
+        }
+      }
+    }
+
     return completionOkResponse();
   } catch (e) {
     console.error("Checklist complete error:", e);

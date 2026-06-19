@@ -38,6 +38,7 @@ type Props = {
   rows: BookingGroupRowState[];
   isLocked: boolean;
   lockReasons: string[];
+  dueLabel?: string | null;
 };
 
 export function ChecklistBookingGroupCard({
@@ -46,6 +47,7 @@ export function ChecklistBookingGroupCard({
   rows,
   isLocked,
   lockReasons,
+  dueLabel,
 }: Props) {
   return (
     <Card>
@@ -56,6 +58,11 @@ export function ChecklistBookingGroupCard({
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             {description}
           </p>
+          {dueLabel ? (
+            <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+              {dueLabel}
+            </p>
+          ) : null}
           <p className="mt-2 text-xs text-slate-500">
             Appointments can be booked in any order.
           </p>

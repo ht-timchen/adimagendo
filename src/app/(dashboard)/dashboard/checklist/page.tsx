@@ -13,8 +13,20 @@ import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
 import { ChecklistExternalBookingFlow } from "@/components/checklist-external-booking-flow";
 import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
 import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-card";
-import { Check } from "lucide-react";
+import { ChecklistLevel1Section } from "@/components/checklist/checklist-level-1-section";
+import { ChecklistLevel2Section } from "@/components/checklist/checklist-level-2-section";
+import { ChecklistLevel3Section } from "@/components/checklist/checklist-level-3-section";
+import { Level1CompleteBanner } from "@/components/checklist/level-1-complete-banner";
+import { getLevel1EnrollmentDueLabel, getTemplateEnrollmentDueLabel } from "@/components/checklist/level-1-enrollment-due-label";
+import { Check, Lock } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
+import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "@/lib/checklist/early-clinical-protocol";
+import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
+import {
+  isLevel2Complete,
+  LEVEL_2_REQUIRED_TEMPLATE_KEYS,
+  LEVEL_3_REQUIRED_TEMPLATE_KEYS,
+} from "@/lib/checklist/level2-follow-up";
 import {
   MISSING_ENROLLMENT_DATE_MESSAGE,
   resolveEnrollmentDateForTiming,
@@ -24,6 +36,11 @@ import {
   isPreTvusUltrasoundBookingPrerequisiteMet,
   preTvusUltrasoundBookingLockReason,
 } from "@/lib/checklist/pre-tvus-ultrasound-prerequisite";
+import type { ReactNode } from "react";
+
+const LEVEL_1_KEY_SET = new Set<string>(LEVEL_1_REQUIRED_TEMPLATE_KEYS);
+const LEVEL_2_KEY_SET = new Set<string>(LEVEL_2_REQUIRED_TEMPLATE_KEYS);
+const LEVEL_3_KEY_SET = new Set<string>(LEVEL_3_REQUIRED_TEMPLATE_KEYS);
 
 const BOOK_GROUP_HEADER = {
   title: "Book your appointments",
@@ -176,13 +193,21 @@ export default async function ChecklistPage() {
     ? await resolveEnrollmentDateForTiming(profile)
     : { enrollmentDate: null, missing: true };
 
-  const [templates, userItems] = await Promise.all([
+  const [templates, userItems, level1CongratsNotification] = await Promise.all([
     prisma.checklistTemplate.findMany({
       orderBy: { sortOrder: "asc" },
     }),
     prisma.participantChecklistItem.findMany({
       where: { userId: session.user.id },
       include: { template: true },
+    }),
+    prisma.notification.findFirst({
+      where: {
+        userId: session.user.id,
+        type: "level_1_complete",
+        read: false,
+      },
+      select: { id: true },
     }),
   ]);
 
@@ -213,7 +238,244 @@ export default async function ChecklistPage() {
       .filter((i) => i.status === "COMPLETED" && i.completedAt)
       .map((i) => [i.template.key, i.completedAt] as const)
   );
-  const renderedBookingGroups = new Set<string>();
+  const completedTemplateKeys = new Set(
+    userItems
+      .filter((i) => i.status === "COMPLETED")
+      .map((i) => i.template.key)
+  );
+  const level1CompletedCount = LEVEL_1_REQUIRED_TEMPLATE_KEYS.filter((key) =>
+    completedTemplateKeys.has(key)
+  ).length;
+  const level2CompletedCount = LEVEL_2_REQUIRED_TEMPLATE_KEYS.filter((key) =>
+    completedTemplateKeys.has(key)
+  ).length;
+  const level3CompletedCount = LEVEL_3_REQUIRED_TEMPLATE_KEYS.filter((key) =>
+    completedTemplateKeys.has(key)
+  ).length;
+  const level1Complete = isLevel1Complete(completedTemplateKeys);
+  const level2Complete = isLevel2Complete(completedTemplateKeys);
+  const level1Templates = templates.filter((t) => LEVEL_1_KEY_SET.has(t.key));
+  const level2Templates = templates.filter((t) => LEVEL_2_KEY_SET.has(t.key));
+  const level3Templates = templates.filter((t) => LEVEL_3_KEY_SET.has(t.key));
+  const showLevel1CongratsBanner =
+    isLevel1Complete(completedTemplateKeys) && level1CongratsNotification != null;
+
+  function renderChecklistItem(
+    t: ChecklistTemplateRow,
+    options: {
+      useLevel1Due: boolean;
+      sectionLocked?: boolean;
+      renderedBookingGroups: Set<string>;
+    }
+  ): ReactNode {
+    if (
+      isBookAppointmentsGroupKey(t.completionGroupKey) &&
+      options.renderedBookingGroups.has(BOOK_APPOINTMENTS_GROUP_KEY)
+    ) {
+      return null;
+    }
+
+    if (isBookAppointmentsGroupKey(t.completionGroupKey)) {
+      options.renderedBookingGroups.add(BOOK_APPOINTMENTS_GROUP_KEY);
+
+      const rows = BOOK_APPOINTMENT_ROWS.flatMap((config) => {
+        const tmpl = templateByKey.get(config.templateKey);
+        if (!tmpl) return [];
+        const item = byTemplate.get(tmpl.id);
+        const linkedAppointment = item
+          ? appointmentByChecklistItemId.get(item.id)
+          : undefined;
+        return [
+          {
+            config,
+            templateId: tmpl.id,
+            checklistItemId: item?.id ?? null,
+            templateTitle: tmpl.title,
+            templateDescription: tmpl.description ?? null,
+            status: item?.status ?? "PENDING",
+            bookingProgress: item?.bookingProgress ?? "NOT_STARTED",
+            appointment: linkedAppointment
+              ? {
+                  id: linkedAppointment.id,
+                  title: linkedAppointment.title,
+                  description: linkedAppointment.description,
+                  scheduledStartAt:
+                    linkedAppointment.scheduledStartAt?.toISOString() ?? null,
+                  scheduledLocation: linkedAppointment.scheduledLocation,
+                  location: linkedAppointment.location,
+                  startAt: linkedAppointment.startAt.toISOString(),
+                  externalUrl: linkedAppointment.externalUrl,
+                }
+              : null,
+          },
+        ];
+      });
+
+      const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
+      const groupUnlock = bookUltrasoundTemplate
+        ? isUnlocked(bookUltrasoundTemplate, unlockCtx)
+        : { unlocked: true, reasons: [] as string[] };
+      const allBookingRowsComplete =
+        rows.length > 0 && rows.every((row) => row.status === "COMPLETED");
+      const groupDueLabel =
+        options.useLevel1Due && !allBookingRowsComplete
+          ? getLevel1EnrollmentDueLabel({
+              enrollmentDate: enrollmentTiming.enrollmentDate,
+              dueOffsetDays: bookUltrasoundTemplate?.dueOffsetDays,
+              enrollmentDateMissing: enrollmentTiming.missing,
+            })
+          : null;
+
+      return (
+        <ChecklistBookingGroupCard
+          key={BOOK_APPOINTMENTS_GROUP_KEY}
+          title={BOOK_GROUP_HEADER.title}
+          description={BOOK_GROUP_HEADER.description}
+          rows={rows}
+          isLocked={!groupUnlock.unlocked}
+          lockReasons={groupUnlock.reasons}
+          dueLabel={groupDueLabel}
+        />
+      );
+    }
+
+    const item = byTemplate.get(t.id);
+    const linkedAppointment = item
+      ? appointmentByChecklistItemId.get(item.id)
+      : undefined;
+    const status = item?.status ?? "PENDING";
+    const dueDisplay = getChecklistDueDisplay({
+      templateKey: t.key,
+      completedAtByKey,
+      enrollmentDate: enrollmentTiming.enrollmentDate,
+      dueOffsetDays: t.dueOffsetDays,
+      enrollmentDateMissing: enrollmentTiming.missing,
+    });
+    const dueLabel = options.useLevel1Due
+      ? getLevel1EnrollmentDueLabel({
+          enrollmentDate: enrollmentTiming.enrollmentDate,
+          dueOffsetDays: t.dueOffsetDays,
+          enrollmentDateMissing: enrollmentTiming.missing,
+        })
+      : dueDisplay.recommendedLabel ??
+        getTemplateEnrollmentDueLabel({
+          enrollmentDate: enrollmentTiming.enrollmentDate,
+          dueOffsetDays: t.dueOffsetDays,
+          unlockOffsetDays: t.unlockOffsetDays,
+          enrollmentDateMissing: enrollmentTiming.missing,
+        });
+
+    const unlock = isUnlocked(t, unlockCtx);
+    const isComplete = status === "COMPLETED";
+    const isLocked = !isComplete && !unlock.unlocked;
+    const sectionLocked = options.sectionLocked ?? false;
+    const actionsDisabled = sectionLocked || isLocked;
+    const surveyUrl = t.redcapUrl?.trim() || REDCAP_PRE_SCREENING_SURVEY_URL;
+    const cardTitle =
+      t.key === "ultrasound_completed"
+        ? ULTRASOUND_COMPLETED_UI.title
+        : t.title;
+    const cardDescription =
+      t.key === "ultrasound_completed"
+        ? ULTRASOUND_COMPLETED_UI.description
+        : t.description;
+
+    return (
+      <Card
+        key={t.id}
+        className={
+          isComplete ? "border-violet-200 dark:border-violet-800" : ""
+        }
+      >
+        <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
+          <div className="flex gap-3">
+            <div
+              className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                isComplete
+                  ? "bg-violet-600 text-white"
+                  : "border border-slate-300 dark:border-slate-600"
+              }`}
+            >
+              {isComplete ? <Check className="h-4 w-4" /> : null}
+            </div>
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                {sectionLocked && !isComplete ? (
+                  <Lock className="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                ) : null}
+                {cardTitle}
+              </CardTitle>
+              {cardDescription && (
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  {cardDescription}
+                </p>
+              )}
+              {dueLabel && !isComplete && !sectionLocked ? (
+                <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+                  {dueLabel}
+                </p>
+              ) : null}
+              {isLocked && !sectionLocked ? (
+                <ChecklistLockReasons reasons={unlock.reasons} />
+              ) : null}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2 pt-0">
+          {(!isComplete || item?.bookingProgress === "CONFIRMED") &&
+          t.externalUrl ? (
+            <ChecklistExternalBookingFlow
+              templateId={t.id}
+              checklistItemId={item?.id ?? null}
+              templateTitle={t.title}
+              templateDescription={t.description ?? null}
+              externalUrl={t.externalUrl}
+              bookingProgress={item?.bookingProgress ?? "NOT_STARTED"}
+              actionsDisabled={actionsDisabled}
+              appointment={
+                linkedAppointment
+                  ? {
+                      id: linkedAppointment.id,
+                      title: linkedAppointment.title,
+                      description: linkedAppointment.description,
+                      scheduledStartAt:
+                        linkedAppointment.scheduledStartAt?.toISOString() ??
+                        null,
+                      scheduledLocation: linkedAppointment.scheduledLocation,
+                      location: linkedAppointment.location,
+                      startAt: linkedAppointment.startAt.toISOString(),
+                      externalUrl: linkedAppointment.externalUrl,
+                    }
+                  : null
+              }
+            />
+          ) : null}
+          {!isComplete && t.type === "SURVEY" ? (
+            <ChecklistSurveySheet
+              templateId={t.id}
+              surveyUrl={surveyUrl}
+              disabled={actionsDisabled}
+            />
+          ) : null}
+          {!isComplete && !t.externalUrl && t.type !== "SURVEY" ? (
+            <MarkCompleteButton
+              templateId={t.id}
+              disabled={actionsDisabled}
+              label={
+                t.key === "ultrasound_completed"
+                  ? ULTRASOUND_COMPLETED_UI.buttonLabel
+                  : undefined
+              }
+            />
+          ) : null}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const level1RenderedBookingGroups = new Set<string>();
+  const level2RenderedBookingGroups = new Set<string>();
+  const level3RenderedBookingGroups = new Set<string>();
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -243,185 +505,64 @@ export default async function ChecklistPage() {
             </CardContent>
           </Card>
         ) : (
-          templates.map((t) => {
-            if (
-              isBookAppointmentsGroupKey(t.completionGroupKey) &&
-              renderedBookingGroups.has(BOOK_APPOINTMENTS_GROUP_KEY)
-            ) {
-              return null;
-            }
-
-            if (isBookAppointmentsGroupKey(t.completionGroupKey)) {
-              renderedBookingGroups.add(BOOK_APPOINTMENTS_GROUP_KEY);
-
-              const rows = BOOK_APPOINTMENT_ROWS.flatMap((config) => {
-                const tmpl = templateByKey.get(config.templateKey);
-                if (!tmpl) return [];
-                const item = byTemplate.get(tmpl.id);
-                const linkedAppointment = item
-                  ? appointmentByChecklistItemId.get(item.id)
-                  : undefined;
-                return [
-                  {
-                    config,
-                    templateId: tmpl.id,
-                    checklistItemId: item?.id ?? null,
-                    templateTitle: tmpl.title,
-                    templateDescription: tmpl.description ?? null,
-                    status: item?.status ?? "PENDING",
-                    bookingProgress:
-                      item?.bookingProgress ?? "NOT_STARTED",
-                    appointment: linkedAppointment
-                      ? {
-                          id: linkedAppointment.id,
-                          title: linkedAppointment.title,
-                          description: linkedAppointment.description,
-                          scheduledStartAt:
-                            linkedAppointment.scheduledStartAt?.toISOString() ??
-                            null,
-                          scheduledLocation:
-                            linkedAppointment.scheduledLocation,
-                          location: linkedAppointment.location,
-                          startAt: linkedAppointment.startAt.toISOString(),
-                          externalUrl: linkedAppointment.externalUrl,
-                        }
-                      : null,
-                  },
-                ];
-              });
-
-              const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
-              const groupUnlock = bookUltrasoundTemplate
-                ? isUnlocked(bookUltrasoundTemplate, unlockCtx)
-                : { unlocked: true, reasons: [] as string[] };
-
-              return (
-                <ChecklistBookingGroupCard
-                  key={BOOK_APPOINTMENTS_GROUP_KEY}
-                  title={BOOK_GROUP_HEADER.title}
-                  description={BOOK_GROUP_HEADER.description}
-                  rows={rows}
-                  isLocked={!groupUnlock.unlocked}
-                  lockReasons={groupUnlock.reasons}
-                />
-              );
-            }
-
-            const item = byTemplate.get(t.id);
-            const linkedAppointment = item
-              ? appointmentByChecklistItemId.get(item.id)
-              : undefined;
-            const status = item?.status ?? "PENDING";
-            const dueDisplay = getChecklistDueDisplay({
-              templateKey: t.key,
-              completedAtByKey,
-              enrollmentDate: enrollmentTiming.enrollmentDate,
-              dueOffsetDays: t.dueOffsetDays,
-              enrollmentDateMissing: enrollmentTiming.missing,
-            });
-
-            const unlock = isUnlocked(t, unlockCtx);
-            const isComplete = status === "COMPLETED";
-            const isLocked = !isComplete && !unlock.unlocked;
-            const surveyUrl =
-              t.redcapUrl?.trim() || REDCAP_PRE_SCREENING_SURVEY_URL;
-            const cardTitle =
-              t.key === "ultrasound_completed"
-                ? ULTRASOUND_COMPLETED_UI.title
-                : t.title;
-            const cardDescription =
-              t.key === "ultrasound_completed"
-                ? ULTRASOUND_COMPLETED_UI.description
-                : t.description;
-
-            return (
-              <Card
-                key={t.id}
-                className={
-                  isComplete ? "border-violet-200 dark:border-violet-800" : ""
-                }
+          <>
+            {level1Templates.length > 0 ? (
+              <div className="space-y-3">
+                {showLevel1CongratsBanner ? (
+                  <Level1CompleteBanner
+                    notificationId={level1CongratsNotification!.id}
+                  />
+                ) : null}
+                <ChecklistLevel1Section
+                  completedCount={level1CompletedCount}
+                  totalCount={LEVEL_1_REQUIRED_TEMPLATE_KEYS.length}
+                  enrollmentDate={enrollmentTiming.enrollmentDate}
+                  enrollmentDateMissing={enrollmentTiming.missing}
+                >
+                  {level1Templates.map((t) =>
+                    renderChecklistItem(t, {
+                      useLevel1Due: true,
+                      renderedBookingGroups: level1RenderedBookingGroups,
+                    })
+                  )}
+                </ChecklistLevel1Section>
+              </div>
+            ) : null}
+            {level2Templates.length > 0 ? (
+              <ChecklistLevel2Section
+                unlocked={level1Complete}
+                completedCount={level2CompletedCount}
+                totalCount={LEVEL_2_REQUIRED_TEMPLATE_KEYS.length}
+                enrollmentDate={enrollmentTiming.enrollmentDate}
+                enrollmentDateMissing={enrollmentTiming.missing}
               >
-                <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
-                  <div className="flex gap-3">
-                    <div
-                      className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                        isComplete
-                          ? "bg-violet-600 text-white"
-                          : "border border-slate-300 dark:border-slate-600"
-                      }`}
-                    >
-                      {isComplete ? <Check className="h-4 w-4" /> : null}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{cardTitle}</CardTitle>
-                      {cardDescription && (
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                          {cardDescription}
-                        </p>
-                      )}
-                      {dueDisplay.recommendedLabel && !isComplete ? (
-                        <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
-                          {dueDisplay.recommendedLabel}
-                        </p>
-                      ) : null}
-                      {isLocked ? (
-                        <ChecklistLockReasons reasons={unlock.reasons} />
-                      ) : null}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2 pt-0">
-                  {(!isComplete || item?.bookingProgress === "CONFIRMED") &&
-                  t.externalUrl ? (
-                    <ChecklistExternalBookingFlow
-                      templateId={t.id}
-                      checklistItemId={item?.id ?? null}
-                      templateTitle={t.title}
-                      templateDescription={t.description ?? null}
-                      externalUrl={t.externalUrl}
-                      bookingProgress={item?.bookingProgress ?? "NOT_STARTED"}
-                      actionsDisabled={isLocked}
-                      appointment={
-                        linkedAppointment
-                          ? {
-                              id: linkedAppointment.id,
-                              title: linkedAppointment.title,
-                              description: linkedAppointment.description,
-                              scheduledStartAt:
-                                linkedAppointment.scheduledStartAt?.toISOString() ??
-                                null,
-                              scheduledLocation:
-                                linkedAppointment.scheduledLocation,
-                              location: linkedAppointment.location,
-                              startAt: linkedAppointment.startAt.toISOString(),
-                              externalUrl: linkedAppointment.externalUrl,
-                            }
-                          : null
-                      }
-                    />
-                  ) : null}
-                  {!isComplete && t.type === "SURVEY" ? (
-                    <ChecklistSurveySheet
-                      templateId={t.id}
-                      surveyUrl={surveyUrl}
-                      disabled={isLocked}
-                    />
-                  ) : null}
-                  {!isComplete && !t.externalUrl && t.type !== "SURVEY" ? (
-                    <MarkCompleteButton
-                      templateId={t.id}
-                      disabled={isLocked}
-                      label={
-                        t.key === "ultrasound_completed"
-                          ? ULTRASOUND_COMPLETED_UI.buttonLabel
-                          : undefined
-                      }
-                    />
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })
+                {level2Templates.map((t) =>
+                  renderChecklistItem(t, {
+                    useLevel1Due: false,
+                    sectionLocked: !level1Complete,
+                    renderedBookingGroups: level2RenderedBookingGroups,
+                  })
+                )}
+              </ChecklistLevel2Section>
+            ) : null}
+            {level3Templates.length > 0 ? (
+              <ChecklistLevel3Section
+                unlocked={level2Complete}
+                completedCount={level3CompletedCount}
+                totalCount={LEVEL_3_REQUIRED_TEMPLATE_KEYS.length}
+                enrollmentDate={enrollmentTiming.enrollmentDate}
+                enrollmentDateMissing={enrollmentTiming.missing}
+              >
+                {level3Templates.map((t) =>
+                  renderChecklistItem(t, {
+                    useLevel1Due: false,
+                    sectionLocked: !level2Complete,
+                    renderedBookingGroups: level3RenderedBookingGroups,
+                  })
+                )}
+              </ChecklistLevel3Section>
+            ) : null}
+          </>
         )}
       </div>
     </div>
