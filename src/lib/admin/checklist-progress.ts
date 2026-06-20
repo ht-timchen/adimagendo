@@ -122,8 +122,10 @@ function resolveNextStepName(completedKeys: Set<string>): string | null {
 
 /**
  * Computes admin display progress from checklist items (template key + status).
- * completed/total use 1:1 template counts (same as checklist-completion page).
- * currentStepName uses ordered logical steps for human-readable "Next: …" hints.
+ * completed counts COMPLETED rows only; total is always ADMIN_CHECKLIST_STEP_TOTAL
+ * (must stay in sync with ChecklistTemplate count in prisma/seed.ts). Templates
+ * with no ParticipantChecklistItem row count as incomplete. currentStepName uses
+ * ADMIN_LOGICAL_CHECKLIST_STEPS for human-readable "Next: …" hints.
  */
 export function computeAdminChecklistProgress(
   items: AdminChecklistProgressItem[]
@@ -133,10 +135,10 @@ export function computeAdminChecklistProgress(
   );
 
   const completed = items.filter((i) => i.status === "COMPLETED").length;
-  const total = items.length;
+  const total = ADMIN_CHECKLIST_STEP_TOTAL;
 
   const currentStepName =
-    total > 0 && completed >= total
+    completed >= ADMIN_CHECKLIST_STEP_TOTAL
       ? null
       : resolveNextStepName(completedKeys);
 
