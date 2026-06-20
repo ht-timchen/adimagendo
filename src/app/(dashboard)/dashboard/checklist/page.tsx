@@ -3,9 +3,10 @@ import { prisma } from "@/lib/db";
 import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import type { ChecklistBookingProgress } from "@/components/checklist-external-booking-flow";
 import {
-  BOOK_APPOINTMENT_ROWS,
   BOOK_APPOINTMENTS_GROUP_KEY,
-  isBookAppointmentsGroupKey,
+  BOOK_APPOINTMENTS_3Y_GROUP_KEY,
+  getBookingGroupDefinition,
+  isKnownBookingGroupKey,
 } from "@/lib/checklist-booking-group";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MarkCompleteButton } from "@/components/checklist-mark-complete";
@@ -16,14 +17,17 @@ import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-
 import { ChecklistLevel1Section } from "@/components/checklist/checklist-level-1-section";
 import { ChecklistLevel2Section } from "@/components/checklist/checklist-level-2-section";
 import { ChecklistLevel3Section } from "@/components/checklist/checklist-level-3-section";
-import { Level1CompleteBanner } from "@/components/checklist/level-1-complete-banner";
+import { ChecklistCelebrationRoot } from "@/components/checklist/level-complete-celebration";
+import { LevelCompleteBanner } from "@/components/checklist/level-complete-banner";
 import { getLevel1EnrollmentDueLabel, getTemplateEnrollmentDueLabel } from "@/components/checklist/level-1-enrollment-due-label";
 import { Check, Lock } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
+import { LEVEL_COMPLETE_NOTIFICATION_COPY } from "@/lib/checklist/level-complete-notifications";
 import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "@/lib/checklist/early-clinical-protocol";
 import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
 import {
   isLevel2Complete,
+  isLevel3Complete,
   LEVEL_2_REQUIRED_TEMPLATE_KEYS,
   LEVEL_3_REQUIRED_TEMPLATE_KEYS,
 } from "@/lib/checklist/level2-follow-up";
@@ -46,6 +50,20 @@ const BOOK_GROUP_HEADER = {
   title: "Book your appointments",
   description:
     "Book your ultrasound, MRI, and blood test appointments. These can be booked in any order. Your Pre-TVUS survey will unlock once your ultrasound appointment date and time are confirmed.",
+};
+
+const BOOK_GROUP_3Y_HEADER = {
+  title: "Book your 2.5-year appointments",
+  description:
+    "Book your ultrasound and MRI appointments for the long-term follow-up window. These can be booked in any order.",
+};
+
+const BOOK_GROUP_HEADERS: Record<
+  string,
+  { title: string; description: string }
+> = {
+  [BOOK_APPOINTMENTS_GROUP_KEY]: BOOK_GROUP_HEADER,
+  [BOOK_APPOINTMENTS_3Y_GROUP_KEY]: BOOK_GROUP_3Y_HEADER,
 };
 
 const POST_TVUS_ULTRASOUND_COMPLETE_LOCK_MESSAGE =
@@ -193,7 +211,7 @@ export default async function ChecklistPage() {
     ? await resolveEnrollmentDateForTiming(profile)
     : { enrollmentDate: null, missing: true };
 
-  const [templates, userItems, level1CongratsNotification] = await Promise.all([
+  const [templates, userItems, levelCompleteNotifications] = await Promise.all([
     prisma.checklistTemplate.findMany({
       orderBy: { sortOrder: "asc" },
     }),
@@ -201,15 +219,29 @@ export default async function ChecklistPage() {
       where: { userId: session.user.id },
       include: { template: true },
     }),
-    prisma.notification.findFirst({
+    prisma.notification.findMany({
       where: {
         userId: session.user.id,
-        type: "level_1_complete",
+        type: {
+          in: ["level_1_complete", "level_2_complete", "level_3_complete"],
+        },
         read: false,
       },
-      select: { id: true },
+      select: { id: true, type: true },
     }),
   ]);
+
+  const unreadLevelCompleteNotificationByType = new Map(
+    levelCompleteNotifications
+      .filter(
+        (n): n is { id: string; type: string } =>
+          n.type != null &&
+          (n.type === "level_1_complete" ||
+            n.type === "level_2_complete" ||
+            n.type === "level_3_complete")
+      )
+      .map((n) => [n.type, n.id] as const)
+  );
 
   const checklistItemIds = userItems.map((i) => i.id);
   const linkedAppointments =
@@ -254,11 +286,19 @@ export default async function ChecklistPage() {
   ).length;
   const level1Complete = isLevel1Complete(completedTemplateKeys);
   const level2Complete = isLevel2Complete(completedTemplateKeys);
+  const level3Complete = isLevel3Complete(completedTemplateKeys);
   const level1Templates = templates.filter((t) => LEVEL_1_KEY_SET.has(t.key));
   const level2Templates = templates.filter((t) => LEVEL_2_KEY_SET.has(t.key));
   const level3Templates = templates.filter((t) => LEVEL_3_KEY_SET.has(t.key));
   const showLevel1CongratsBanner =
-    isLevel1Complete(completedTemplateKeys) && level1CongratsNotification != null;
+    level1Complete &&
+    unreadLevelCompleteNotificationByType.has("level_1_complete");
+  const showLevel2CongratsBanner =
+    level2Complete &&
+    unreadLevelCompleteNotificationByType.has("level_2_complete");
+  const showLevel3CongratsBanner =
+    level3Complete &&
+    unreadLevelCompleteNotificationByType.has("level_3_complete");
 
   function renderChecklistItem(
     t: ChecklistTemplateRow,
@@ -268,17 +308,18 @@ export default async function ChecklistPage() {
       renderedBookingGroups: Set<string>;
     }
   ): ReactNode {
-    if (
-      isBookAppointmentsGroupKey(t.completionGroupKey) &&
-      options.renderedBookingGroups.has(BOOK_APPOINTMENTS_GROUP_KEY)
-    ) {
-      return null;
-    }
+    const groupKey = t.completionGroupKey;
+    if (isKnownBookingGroupKey(groupKey)) {
+      if (options.renderedBookingGroups.has(groupKey)) {
+        return null;
+      }
 
-    if (isBookAppointmentsGroupKey(t.completionGroupKey)) {
-      options.renderedBookingGroups.add(BOOK_APPOINTMENTS_GROUP_KEY);
+      options.renderedBookingGroups.add(groupKey);
 
-      const rows = BOOK_APPOINTMENT_ROWS.flatMap((config) => {
+      const groupDef = getBookingGroupDefinition(groupKey);
+      if (!groupDef) return null;
+
+      const rows = groupDef.rows.flatMap((config) => {
         const tmpl = templateByKey.get(config.templateKey);
         if (!tmpl) return [];
         const item = byTemplate.get(tmpl.id);
@@ -311,29 +352,39 @@ export default async function ChecklistPage() {
         ];
       });
 
-      const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
-      const groupUnlock = bookUltrasoundTemplate
-        ? isUnlocked(bookUltrasoundTemplate, unlockCtx)
+      const unlockTemplate = templateByKey.get(groupDef.unlockTemplateKey);
+      const groupUnlock = unlockTemplate
+        ? isUnlocked(unlockTemplate, unlockCtx)
         : { unlocked: true, reasons: [] as string[] };
+      const sectionLocked = options.sectionLocked ?? false;
       const allBookingRowsComplete =
         rows.length > 0 && rows.every((row) => row.status === "COMPLETED");
       const groupDueLabel =
-        options.useLevel1Due && !allBookingRowsComplete
-          ? getLevel1EnrollmentDueLabel({
-              enrollmentDate: enrollmentTiming.enrollmentDate,
-              dueOffsetDays: bookUltrasoundTemplate?.dueOffsetDays,
-              enrollmentDateMissing: enrollmentTiming.missing,
-            })
+        !sectionLocked && !allBookingRowsComplete && unlockTemplate
+          ? options.useLevel1Due
+            ? getLevel1EnrollmentDueLabel({
+                enrollmentDate: enrollmentTiming.enrollmentDate,
+                dueOffsetDays: unlockTemplate.dueOffsetDays,
+                enrollmentDateMissing: enrollmentTiming.missing,
+              })
+            : getTemplateEnrollmentDueLabel({
+                enrollmentDate: enrollmentTiming.enrollmentDate,
+                dueOffsetDays: unlockTemplate.dueOffsetDays,
+                unlockOffsetDays: unlockTemplate.unlockOffsetDays,
+                enrollmentDateMissing: enrollmentTiming.missing,
+              })
           : null;
+
+      const header = BOOK_GROUP_HEADERS[groupKey];
 
       return (
         <ChecklistBookingGroupCard
-          key={BOOK_APPOINTMENTS_GROUP_KEY}
-          title={BOOK_GROUP_HEADER.title}
-          description={BOOK_GROUP_HEADER.description}
+          key={groupKey}
+          title={header.title}
+          description={header.description}
           rows={rows}
-          isLocked={!groupUnlock.unlocked}
-          lockReasons={groupUnlock.reasons}
+          isLocked={sectionLocked || !groupUnlock.unlocked}
+          lockReasons={sectionLocked ? [] : groupUnlock.reasons}
           dueLabel={groupDueLabel}
         />
       );
@@ -478,6 +529,7 @@ export default async function ChecklistPage() {
   const level3RenderedBookingGroups = new Set<string>();
 
   return (
+    <ChecklistCelebrationRoot>
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Your checklist</h1>
@@ -509,8 +561,13 @@ export default async function ChecklistPage() {
             {level1Templates.length > 0 ? (
               <div className="space-y-3">
                 {showLevel1CongratsBanner ? (
-                  <Level1CompleteBanner
-                    notificationId={level1CongratsNotification!.id}
+                  <LevelCompleteBanner
+                    notificationId={
+                      unreadLevelCompleteNotificationByType.get(
+                        "level_1_complete"
+                      )!
+                    }
+                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_1_complete}
                   />
                 ) : null}
                 <ChecklistLevel1Section
@@ -529,42 +586,67 @@ export default async function ChecklistPage() {
               </div>
             ) : null}
             {level2Templates.length > 0 ? (
-              <ChecklistLevel2Section
-                unlocked={level1Complete}
-                completedCount={level2CompletedCount}
-                totalCount={LEVEL_2_REQUIRED_TEMPLATE_KEYS.length}
-                enrollmentDate={enrollmentTiming.enrollmentDate}
-                enrollmentDateMissing={enrollmentTiming.missing}
-              >
-                {level2Templates.map((t) =>
-                  renderChecklistItem(t, {
-                    useLevel1Due: false,
-                    sectionLocked: !level1Complete,
-                    renderedBookingGroups: level2RenderedBookingGroups,
-                  })
-                )}
-              </ChecklistLevel2Section>
+              <div className="space-y-3">
+                {showLevel2CongratsBanner ? (
+                  <LevelCompleteBanner
+                    notificationId={
+                      unreadLevelCompleteNotificationByType.get(
+                        "level_2_complete"
+                      )!
+                    }
+                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_2_complete}
+                  />
+                ) : null}
+                <ChecklistLevel2Section
+                  unlocked={level1Complete}
+                  completedCount={level2CompletedCount}
+                  totalCount={LEVEL_2_REQUIRED_TEMPLATE_KEYS.length}
+                  enrollmentDate={enrollmentTiming.enrollmentDate}
+                  enrollmentDateMissing={enrollmentTiming.missing}
+                >
+                  {level2Templates.map((t) =>
+                    renderChecklistItem(t, {
+                      useLevel1Due: false,
+                      sectionLocked: !level1Complete,
+                      renderedBookingGroups: level2RenderedBookingGroups,
+                    })
+                  )}
+                </ChecklistLevel2Section>
+              </div>
             ) : null}
             {level3Templates.length > 0 ? (
-              <ChecklistLevel3Section
-                unlocked={level2Complete}
-                completedCount={level3CompletedCount}
-                totalCount={LEVEL_3_REQUIRED_TEMPLATE_KEYS.length}
-                enrollmentDate={enrollmentTiming.enrollmentDate}
-                enrollmentDateMissing={enrollmentTiming.missing}
-              >
-                {level3Templates.map((t) =>
-                  renderChecklistItem(t, {
-                    useLevel1Due: false,
-                    sectionLocked: !level2Complete,
-                    renderedBookingGroups: level3RenderedBookingGroups,
-                  })
-                )}
-              </ChecklistLevel3Section>
+              <div className="space-y-3">
+                {showLevel3CongratsBanner ? (
+                  <LevelCompleteBanner
+                    notificationId={
+                      unreadLevelCompleteNotificationByType.get(
+                        "level_3_complete"
+                      )!
+                    }
+                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_3_complete}
+                  />
+                ) : null}
+                <ChecklistLevel3Section
+                  unlocked={level2Complete}
+                  completedCount={level3CompletedCount}
+                  totalCount={LEVEL_3_REQUIRED_TEMPLATE_KEYS.length}
+                  enrollmentDate={enrollmentTiming.enrollmentDate}
+                  enrollmentDateMissing={enrollmentTiming.missing}
+                >
+                  {level3Templates.map((t) =>
+                    renderChecklistItem(t, {
+                      useLevel1Due: false,
+                      sectionLocked: !level2Complete,
+                      renderedBookingGroups: level3RenderedBookingGroups,
+                    })
+                  )}
+                </ChecklistLevel3Section>
+              </div>
             ) : null}
           </>
         )}
       </div>
     </div>
+    </ChecklistCelebrationRoot>
   );
 }

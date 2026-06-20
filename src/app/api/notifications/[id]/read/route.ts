@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { isLevelCompleteNotificationType } from "@/lib/checklist/level-complete-notifications";
 
 export async function POST(
   _req: Request,
@@ -16,12 +17,15 @@ export async function POST(
     where: {
       id,
       userId: session.user.id,
-      type: "level_1_complete",
     },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
-  if (!notification) {
+  if (
+    !notification ||
+    !notification.type ||
+    !isLevelCompleteNotificationType(notification.type)
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

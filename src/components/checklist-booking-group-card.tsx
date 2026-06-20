@@ -4,10 +4,7 @@ import {
   ChecklistExternalBookingFlow,
   type ChecklistBookingProgress,
 } from "@/components/checklist-external-booking-flow";
-import {
-  BOOK_APPOINTMENT_ROWS,
-  type BookAppointmentRowConfig,
-} from "@/lib/checklist-booking-group";
+import type { BookAppointmentRowConfig } from "@/lib/checklist-booking-group";
 import type { ChecklistStatus } from "@prisma/client";
 
 type AppointmentPayload = {
@@ -70,31 +67,26 @@ export function ChecklistBookingGroupCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
-        {BOOK_APPOINTMENT_ROWS.map((config) => {
-          const row = rows.find((r) => r.config.templateKey === config.templateKey);
-          if (!row) return null;
-
-          return (
-            <div
-              key={config.templateKey}
-              className="rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40"
-            >
-              <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                {config.label}
-              </p>
-              <ChecklistExternalBookingFlow
-                templateId={row.templateId}
-                checklistItemId={row.checklistItemId}
-                templateTitle={row.templateTitle}
-                templateDescription={row.templateDescription}
-                externalUrl={config.externalUrl}
-                bookingProgress={row.bookingProgress}
-                appointment={row.appointment}
-                actionsDisabled={isLocked}
-              />
-            </div>
-          );
-        })}
+        {rows.map((row) => (
+          <div
+            key={row.config.templateKey}
+            className="rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40"
+          >
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {row.config.label}
+            </p>
+            <ChecklistExternalBookingFlow
+              templateId={row.templateId}
+              checklistItemId={row.checklistItemId}
+              templateTitle={row.templateTitle}
+              templateDescription={row.templateDescription}
+              externalUrl={row.config.externalUrl}
+              bookingProgress={row.bookingProgress}
+              appointment={row.appointment}
+              actionsDisabled={isLocked}
+            />
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

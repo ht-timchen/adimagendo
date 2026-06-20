@@ -1,18 +1,35 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "@/lib/checklist/early-clinical-protocol";
+import { ensureLevelCompleteNotification } from "@/lib/checklist/ensure-level-complete-notification";
 import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
-import { getStepCompletionBlock } from "@/lib/workflow/assert-step-available";
 import {
-  alreadyCompletedResponse,
-  completionOkResponse,
-} from "@/lib/workflow/completion-response";
+  isLevel2Complete,
+  isLevel3Complete,
+} from "@/lib/checklist/level2-follow-up";
+import { getStepCompletionBlock } from "@/lib/workflow/assert-step-available";
+import { alreadyCompletedResponse } from "@/lib/workflow/completion-response";
 import { z } from "zod";
 
 const BodySchema = z.object({
   templateId: z.string(),
 });
+
+function resolveLevelJustCompleted(
+  completedKeysBefore: Set<string>,
+  completedKeysAfter: Set<string>
+): 1 | 2 | 3 | null {
+  if (!isLevel1Complete(completedKeysBefore) && isLevel1Complete(completedKeysAfter)) {
+    return 1;
+  }
+  if (!isLevel2Complete(completedKeysBefore) && isLevel2Complete(completedKeysAfter)) {
+    return 2;
+  }
+  if (!isLevel3Complete(completedKeysBefore) && isLevel3Complete(completedKeysAfter)) {
+    return 3;
+  }
+  return null;
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -65,6 +82,19 @@ export async function POST(req: Request) {
       }
     }
 
+    const checklistItemsBefore = await prisma.participantChecklistItem.findMany({
+      where: { userId: session.user.id },
+      select: {
+        status: true,
+        template: { select: { key: true } },
+      },
+    });
+    const completedKeysBefore = new Set(
+      checklistItemsBefore
+        .filter((item) => item.status === "COMPLETED")
+        .map((item) => item.template.key)
+    );
+
     await prisma.participantChecklistItem.upsert({
       where: {
         userId_templateId: {
@@ -84,43 +114,25 @@ export async function POST(req: Request) {
       },
     });
 
-    const level1KeySet = new Set<string>(LEVEL_1_REQUIRED_TEMPLATE_KEYS);
-    if (level1KeySet.has(template.key)) {
-      const checklistItems = await prisma.participantChecklistItem.findMany({
-        where: { userId: session.user.id },
-        select: {
-          status: true,
-          template: { select: { key: true } },
-        },
-      });
-      const completedKeys = new Set(
-        checklistItems
-          .filter((item) => item.status === "COMPLETED")
-          .map((item) => item.template.key)
-      );
-      if (isLevel1Complete(completedKeys)) {
-        const existingCongrats = await prisma.notification.findFirst({
-          where: {
-            userId: session.user.id,
-            type: "level_1_complete",
-          },
-          select: { id: true },
-        });
-        if (!existingCongrats) {
-          await prisma.notification.create({
-            data: {
-              userId: session.user.id,
-              title: "Congratulations, you've completed Level 1!",
-              body: null,
-              type: "level_1_complete",
-              read: false,
-            },
-          });
-        }
-      }
+    const completedKeysAfter = new Set(completedKeysBefore);
+    completedKeysAfter.add(template.key);
+
+    const levelJustCompleted = resolveLevelJustCompleted(
+      completedKeysBefore,
+      completedKeysAfter
+    );
+
+    if (isLevel1Complete(completedKeysAfter)) {
+      await ensureLevelCompleteNotification(session.user.id, "level_1_complete");
+    }
+    if (isLevel2Complete(completedKeysAfter)) {
+      await ensureLevelCompleteNotification(session.user.id, "level_2_complete");
+    }
+    if (isLevel3Complete(completedKeysAfter)) {
+      await ensureLevelCompleteNotification(session.user.id, "level_3_complete");
     }
 
-    return completionOkResponse();
+    return NextResponse.json({ ok: true, levelJustCompleted });
   } catch (e) {
     console.error("Checklist complete error:", e);
     return NextResponse.json({ error: "Failed to update" }, { status: 500 });

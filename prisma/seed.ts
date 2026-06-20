@@ -2,11 +2,15 @@ import { ChecklistItemType, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { assertProtocolValid, validateProtocol } from "./validate-protocol";
 import { deleteOrphanedParticipantChecklistItems } from "../src/lib/valid-checklist-items";
-import { BOOK_APPOINTMENT_ROWS } from "../src/lib/checklist-booking-group";
+import { BOOK_APPOINTMENT_ROWS, BOOK_APPOINTMENT_3Y_ROWS } from "../src/lib/checklist-booking-group";
 
 function bookExternalUrl(templateKey: string): string | undefined {
-  return BOOK_APPOINTMENT_ROWS.find((r) => r.templateKey === templateKey)
-    ?.externalUrl;
+  return (
+    BOOK_APPOINTMENT_ROWS.find((r) => r.templateKey === templateKey)
+      ?.externalUrl ??
+    BOOK_APPOINTMENT_3Y_ROWS.find((r) => r.templateKey === templateKey)
+      ?.externalUrl
+  );
 }
 
 const prisma = new PrismaClient();
@@ -226,7 +230,6 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     surveyTemplateKey: "qol_3m",
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
-    requiredMilestoneKeys: ["level_1_complete"],
     dueOffsetDays: 90,
     unlockOffsetDays: 0,
   },
@@ -238,7 +241,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 10,
     surveyTemplateKey: "qol_6m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["qol_3m"],
+    prerequisiteKeys: [],
     dueOffsetDays: 180,
     unlockOffsetDays: 0,
   },
@@ -250,7 +253,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 11,
     surveyTemplateKey: "qol_9m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["qol_6m"],
+    prerequisiteKeys: [],
     dueOffsetDays: 270,
     unlockOffsetDays: 0,
   },
@@ -262,21 +265,54 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 12,
     surveyTemplateKey: "qol_12m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["qol_9m"],
+    prerequisiteKeys: [],
     dueOffsetDays: 360,
     unlockOffsetDays: 0,
+  },
+  {
+    key: "book_ultrasound_3y",
+    title: "Ultrasound (3-year)",
+    description:
+      "Book your ultrasound appointment for the 2.5-year follow-up window.",
+    type: "APPOINTMENT",
+    sortOrder: 13,
+    externalUrl: bookExternalUrl("book_ultrasound_3y"),
+    prerequisiteKeys: [],
+    completionGroupKey: "book_appointments_3y",
+    dueOffsetDays: 912,
+  },
+  {
+    key: "book_mri_3y",
+    title: "MRI (3-year)",
+    description: "Book your MRI appointment for the 2.5-year follow-up window.",
+    type: "APPOINTMENT",
+    sortOrder: 14,
+    externalUrl: bookExternalUrl("book_mri_3y"),
+    prerequisiteKeys: [],
+    completionGroupKey: "book_appointments_3y",
+    dueOffsetDays: 912,
   },
   {
     key: "qol_24m",
     title: "24-month survey",
     description: "Complete your 24-month follow-up survey.",
     type: "SURVEY",
-    sortOrder: 13,
+    sortOrder: 15,
     surveyTemplateKey: "qol_24m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["qol_12m"],
-    requiredMilestoneKeys: ["level_2_complete"],
+    prerequisiteKeys: [],
     dueOffsetDays: 730,
+    unlockOffsetDays: 0,
+  },
+  {
+    key: "ultrasound_3y_completed",
+    title: "3-year Ultrasound completed",
+    description: "Confirm your 3-year ultrasound is complete.",
+    type: "SCAN",
+    sortOrder: 16,
+    prerequisiteKeys: [],
+    bookingPrerequisiteKey: "book_ultrasound_3y",
+    dueOffsetDays: 1095,
     unlockOffsetDays: 0,
   },
   {
@@ -284,21 +320,21 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     title: "3-year MRI completed",
     description: "Confirm your 3-year MRI is complete.",
     type: "SCAN",
-    sortOrder: 14,
-    prerequisiteKeys: ["qol_24m"],
-    requiredMilestoneKeys: ["level_2_complete"],
+    sortOrder: 17,
+    prerequisiteKeys: [],
+    bookingPrerequisiteKey: "book_mri_3y",
     dueOffsetDays: 1095,
-    unlockOffsetDays: 1095,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_36m",
     title: "36-month survey",
     description: "Complete your 36-month follow-up survey.",
     type: "SURVEY",
-    sortOrder: 15,
+    sortOrder: 18,
     surveyTemplateKey: "qol_36m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["mri_3y_completed"],
+    prerequisiteKeys: [],
     dueOffsetDays: 1095,
     unlockOffsetDays: 0,
   },
@@ -328,7 +364,12 @@ const STUDY_MILESTONES = [
   {
     key: "long_term_complete",
     title: "Long-term follow-up complete",
-    requiredKeys: ["qol_24m", "mri_3y_completed", "qol_36m"],
+    requiredKeys: [
+      "qol_24m",
+      "ultrasound_3y_completed",
+      "mri_3y_completed",
+      "qol_36m",
+    ],
     sortOrder: 2,
   },
 ];

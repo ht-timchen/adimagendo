@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 
 type Props = {
   notificationId: string;
+  message: string;
 };
 
-export function Level1CompleteBanner({ notificationId }: Props) {
+export function LevelCompleteBanner({ notificationId, message }: Props) {
   const router = useRouter();
   const [dismissing, setDismissing] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -32,7 +33,7 @@ export function Level1CompleteBanner({ notificationId }: Props) {
 
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-      <p className="font-medium">🎉 Congratulations, you&apos;ve completed Level 1!</p>
+      <p className="font-medium">🎉 {message}</p>
       <Button
         type="button"
         variant="ghost"

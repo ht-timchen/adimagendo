@@ -81,7 +81,6 @@ function buildContext(
         title: "3-month survey",
         sortOrder: 9,
         prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
-        requiredMilestoneKeys: ["level_1_complete"],
         unlockOffsetDays: 0,
       }),
     ],
@@ -91,8 +90,8 @@ function buildContext(
         key: "qol_12m",
         title: "12-month survey",
         sortOrder: 12,
-        prerequisiteKeys: ["qol_9m"],
-        unlockOffsetDays: 360,
+        prerequisiteKeys: [],
+        unlockOffsetDays: 0,
       }),
     ],
     [
@@ -100,10 +99,9 @@ function buildContext(
       template({
         key: "qol_24m",
         title: "24-month survey",
-        sortOrder: 13,
-        prerequisiteKeys: ["qol_12m"],
-        requiredMilestoneKeys: ["level_2_complete"],
-        unlockOffsetDays: 730,
+        sortOrder: 15,
+        prerequisiteKeys: [],
+        unlockOffsetDays: 0,
       }),
     ],
   ]);
@@ -171,7 +169,7 @@ describe("evaluateStepAvailability", () => {
           "confirm_blood_test",
           "confirm_mri",
         ]),
-        achievedMilestoneKeys: new Set(["level_1_complete"]),
+        achievedMilestoneKeys: new Set(),
         now: new Date("2026-02-01T12:00:00Z"),
       })
     );
@@ -216,9 +214,23 @@ describe("evaluateStepAvailability", () => {
   });
 
   it("locks step when an explicit required milestone is not achieved", () => {
+    const templatesByKey = new Map(buildContext().templatesByKey);
+    templatesByKey.set(
+      "qol_24m",
+      template({
+        key: "qol_24m",
+        title: "24-month survey",
+        sortOrder: 15,
+        prerequisiteKeys: [],
+        requiredMilestoneKeys: ["level_2_complete"],
+        unlockOffsetDays: 0,
+      })
+    );
+
     const result = evaluateStepAvailability(
       "qol_24m",
       buildContext({
+        templatesByKey,
         completedKeys: new Set([
           "qol_baseline",
           "book_ultrasound",
@@ -246,17 +258,33 @@ describe("evaluateStepAvailability", () => {
     const result = evaluateStepAvailability(
       "qol_12m",
       buildContext({
-        completedKeys: new Set(["qol_9m"]),
+        completedKeys: new Set(),
         achievedMilestoneKeys: new Set(),
         now: new Date("2027-06-01T12:00:00Z"),
       })
     );
 
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
     assert.equal(
       result.reasons.some((r) => r.includes("milestone")),
       false,
       `should not mention milestones, got: ${result.reasons.join("; ")}`
     );
+  });
+
+  it("allows qol_12m without completing earlier Level 2 surveys", () => {
+    const result = evaluateStepAvailability(
+      "qol_12m",
+      buildContext({
+        completedKeys: new Set(),
+        now: new Date("2027-06-01T12:00:00Z"),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+    assert.deepEqual(result.reasons, []);
   });
 
   it("marks completed step as completed and not available", () => {
@@ -282,7 +310,7 @@ describe("evaluateStepAvailability", () => {
           "book_bloods",
           "confirm_blood_test",
         ]),
-        achievedMilestoneKeys: new Set(["level_1_complete"]),
+        achievedMilestoneKeys: new Set(),
         now: new Date("2026-05-15T12:00:00Z"),
       })
     );
@@ -304,7 +332,7 @@ describe("evaluateStepAvailability", () => {
           "confirm_blood_test",
           "confirm_mri",
         ]),
-        achievedMilestoneKeys: new Set(["level_1_complete"]),
+        achievedMilestoneKeys: new Set(),
         now: new Date("2026-05-15T12:00:00Z"),
       })
     );
@@ -313,6 +341,189 @@ describe("evaluateStepAvailability", () => {
     assert.equal(allMet.locked, false);
     assert.equal(allMet.available, true);
     assert.deepEqual(allMet.reasons, []);
+  });
+});
+
+describe("Level 3 step availability", () => {
+  const LEVEL_3_NOW = new Date("2029-06-01T12:00:00Z");
+
+  function buildLevel3Context(
+    overrides: Partial<WorkflowEvaluationContext> = {}
+  ): WorkflowEvaluationContext {
+    const level3Templates = new Map<string, WorkflowChecklistTemplate>([
+      [
+        "book_ultrasound_3y",
+        template({
+          key: "book_ultrasound_3y",
+          title: "Ultrasound (3-year)",
+          sortOrder: 13,
+        }),
+      ],
+      [
+        "book_mri_3y",
+        template({
+          key: "book_mri_3y",
+          title: "MRI (3-year)",
+          sortOrder: 14,
+        }),
+      ],
+      [
+        "qol_24m",
+        template({
+          key: "qol_24m",
+          title: "24-month survey",
+          sortOrder: 15,
+          prerequisiteKeys: [],
+          unlockOffsetDays: 0,
+        }),
+      ],
+      [
+        "ultrasound_3y_completed",
+        template({
+          key: "ultrasound_3y_completed",
+          title: "3-year Ultrasound completed",
+          sortOrder: 16,
+          prerequisiteKeys: [],
+          bookingPrerequisiteKey: "book_ultrasound_3y",
+          unlockOffsetDays: 0,
+        }),
+      ],
+      [
+        "mri_3y_completed",
+        template({
+          key: "mri_3y_completed",
+          title: "3-year MRI completed",
+          sortOrder: 17,
+          prerequisiteKeys: [],
+          bookingPrerequisiteKey: "book_mri_3y",
+          unlockOffsetDays: 0,
+        }),
+      ],
+      [
+        "qol_36m",
+        template({
+          key: "qol_36m",
+          title: "36-month survey",
+          sortOrder: 18,
+          prerequisiteKeys: [],
+          unlockOffsetDays: 0,
+        }),
+      ],
+    ]);
+
+    return buildContext({
+      now: LEVEL_3_NOW,
+      templatesByKey: level3Templates,
+      completedKeys: new Set(),
+      bookingProgressByKey: new Map(),
+      ...overrides,
+      templatesByKey: overrides.templatesByKey ?? level3Templates,
+    });
+  }
+
+  it("allows qol_24m, mri_3y_completed, and qol_36m without sibling prerequisites", () => {
+    for (const key of ["qol_24m", "mri_3y_completed", "qol_36m"] as const) {
+      const result = evaluateStepAvailability(
+        key,
+        buildLevel3Context({
+          bookingProgressByKey: new Map([
+            ["book_ultrasound_3y", "CONFIRMED"],
+            ["book_mri_3y", "CONFIRMED"],
+          ]),
+        })
+      );
+
+      assert.equal(
+        result.locked,
+        false,
+        `${key} should not be locked by sibling items, got: ${result.reasons.join("; ")}`
+      );
+      assert.equal(result.available, true, key);
+    }
+  });
+
+  it("locks mri_3y_completed when book_mri_3y is not booked", () => {
+    const result = evaluateStepAvailability(
+      "mri_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([["book_mri_3y", "NOT_STARTED"]]),
+      })
+    );
+
+    assert.equal(result.locked, true);
+    assert.ok(result.reasonCodes.includes("BOOKING_PREREQUISITE_NOT_MET"));
+    assert.ok(result.reasons.some((r) => r.includes("Book MRI (3-year)")));
+  });
+
+  it("unlocks mri_3y_completed when book_mri_3y is CONFIRMED", () => {
+    const result = evaluateStepAvailability(
+      "mri_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([["book_mri_3y", "CONFIRMED"]]),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+  });
+
+  it("locks ultrasound_3y_completed when book_ultrasound_3y is not booked", () => {
+    const result = evaluateStepAvailability(
+      "ultrasound_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([["book_ultrasound_3y", "NOT_STARTED"]]),
+      })
+    );
+
+    assert.equal(result.locked, true);
+    assert.ok(result.reasonCodes.includes("BOOKING_PREREQUISITE_NOT_MET"));
+    assert.ok(
+      result.reasons.some((r) => r.includes("Book Ultrasound (3-year)"))
+    );
+  });
+
+  it("unlocks ultrasound_3y_completed when book_ultrasound_3y is BOOKED_EXTERNALLY", () => {
+    const result = evaluateStepAvailability(
+      "ultrasound_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([
+          ["book_ultrasound_3y", "BOOKED_EXTERNALLY"],
+        ]),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+  });
+
+  it("does not block ultrasound_3y_completed when mri_3y_completed is incomplete", () => {
+    const result = evaluateStepAvailability(
+      "ultrasound_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([
+          ["book_ultrasound_3y", "CONFIRMED"],
+          ["book_mri_3y", "NOT_STARTED"],
+        ]),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+  });
+
+  it("does not block mri_3y_completed when ultrasound_3y_completed is incomplete", () => {
+    const result = evaluateStepAvailability(
+      "mri_3y_completed",
+      buildLevel3Context({
+        bookingProgressByKey: new Map([
+          ["book_mri_3y", "CONFIRMED"],
+          ["book_ultrasound_3y", "NOT_STARTED"],
+        ]),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
   });
 });
 

@@ -56,6 +56,22 @@ export function ChecklistSurveySheet({
             }),
           });
       if (!res.ok) {
+        let responseBody: unknown = null;
+        try {
+          responseBody = await res.json();
+        } catch {
+          try {
+            responseBody = await res.text();
+          } catch {
+            responseBody = "(unreadable body)";
+          }
+        }
+        console.error("[checklist/complete] mark failed", {
+          status: res.status,
+          statusText: res.statusText,
+          body: responseBody,
+          templateId,
+        });
         setError("Could not mark complete. Please try again.");
         return;
       }

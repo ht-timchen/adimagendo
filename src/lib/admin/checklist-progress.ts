@@ -2,8 +2,8 @@ import type { ChecklistStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 
-/** Display-only protocol length for admin monitoring (not DB row count). */
-export const ADMIN_CHECKLIST_STEP_TOTAL = 15;
+/** Study protocol template count (matches seeded ChecklistTemplate rows). */
+export const ADMIN_CHECKLIST_STEP_TOTAL = 19;
 
 export const ADMIN_CHECKLIST_ALL_COMPLETE_LABEL = "Complete 🎉";
 
@@ -14,13 +14,13 @@ export type AdminChecklistProgressItem = {
 
 export type AdminChecklistProgress = {
   completed: number;
-  total: typeof ADMIN_CHECKLIST_STEP_TOTAL;
+  total: number;
   currentStepName: string | null;
 };
 
 /**
- * 15 logical admin steps. Multi-key steps count as one when every listed key is COMPLETED.
- * Keys without a matching ParticipantChecklistItem are treated as not completed.
+ * Ordered logical steps for "Next: …" hints. Multi-key steps advance when every
+ * listed key is COMPLETED. All 19 seed template keys appear exactly once below.
  */
 const ADMIN_LOGICAL_CHECKLIST_STEPS: {
   displayName: string;
@@ -42,8 +42,11 @@ const ADMIN_LOGICAL_CHECKLIST_STEPS: {
   { displayName: "6 Month Survey", templateKeys: ["qol_6m"] },
   { displayName: "9 Month Survey", templateKeys: ["qol_9m"] },
   { displayName: "12 Month Survey", templateKeys: ["qol_12m"] },
+  {
+    displayName: "2.5yr Book Appointment",
+    templateKeys: ["book_ultrasound_3y", "book_mri_3y"],
+  },
   { displayName: "24 Month Survey", templateKeys: ["qol_24m"] },
-  { displayName: "2.5yr Book Appointment", templateKeys: ["book_2_5y"] },
   { displayName: "3yr Ultrasound Completed", templateKeys: ["ultrasound_3y_completed"] },
   { displayName: "3yr MRI Completed", templateKeys: ["mri_3y_completed"] },
   { displayName: "36 Month Survey", templateKeys: ["qol_36m"] },
@@ -105,12 +108,22 @@ function resolveCurrentStepName(
     return resolveMultiKeyCurrentStepName(BLOOD_MRI_SUB_STEPS, completedKeys);
   }
 
-  const firstIncomplete = step.templateKeys.find((key) => !completedKeys.has(key));
-  return firstIncomplete ? step.displayName : step.displayName;
+  return step.displayName;
+}
+
+function resolveNextStepName(completedKeys: Set<string>): string | null {
+  for (const step of ADMIN_LOGICAL_CHECKLIST_STEPS) {
+    if (!isLogicalStepComplete(step.templateKeys, completedKeys)) {
+      return resolveCurrentStepName(step, completedKeys);
+    }
+  }
+  return null;
 }
 
 /**
  * Computes admin display progress from checklist items (template key + status).
+ * completed/total use 1:1 template counts (same as checklist-completion page).
+ * currentStepName uses ordered logical steps for human-readable "Next: …" hints.
  */
 export function computeAdminChecklistProgress(
   items: AdminChecklistProgressItem[]
@@ -119,36 +132,24 @@ export function computeAdminChecklistProgress(
     items.filter((i) => i.status === "COMPLETED").map((i) => i.templateKey)
   );
 
-  let completed = 0;
-  let currentStepName: string | null = ADMIN_LOGICAL_CHECKLIST_STEPS[0]?.displayName ?? null;
+  const completed = items.filter((i) => i.status === "COMPLETED").length;
+  const total = items.length;
 
-  for (const step of ADMIN_LOGICAL_CHECKLIST_STEPS) {
-    if (isLogicalStepComplete(step.templateKeys, completedKeys)) {
-      completed += 1;
-      continue;
-    }
-    currentStepName = resolveCurrentStepName(step, completedKeys);
-    break;
-  }
-
-  if (completed >= ADMIN_CHECKLIST_STEP_TOTAL) {
-    return {
-      completed: ADMIN_CHECKLIST_STEP_TOTAL,
-      total: ADMIN_CHECKLIST_STEP_TOTAL,
-      currentStepName: null,
-    };
-  }
+  const currentStepName =
+    total > 0 && completed >= total
+      ? null
+      : resolveNextStepName(completedKeys);
 
   return {
     completed,
-    total: ADMIN_CHECKLIST_STEP_TOTAL,
+    total,
     currentStepName,
   };
 }
 
 /**
- * Cohort-wide checklist completion: sum of logical steps completed across
- * enrolled participants, divided by (participants × 15 study steps).
+ * Cohort-wide checklist completion: sum of completed templates across
+ * enrolled participants, divided by (participants × ADMIN_CHECKLIST_STEP_TOTAL).
  */
 export function computeCohortChecklistCompletionPct(
   participantsChecklists: AdminChecklistProgressItem[][]
