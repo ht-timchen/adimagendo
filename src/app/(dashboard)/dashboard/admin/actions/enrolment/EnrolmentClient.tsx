@@ -26,6 +26,8 @@ export type RedcapParticipantRow = {
   lastName: string | null;
   email: string | null;
   dateOfBirth: string | null;
+  participantConsentDate: string | null;
+  parentConsentDate: string | null;
   enrollmentDate: string | null;
   redcapType: string | null;
   consentStatus: string | null;
@@ -71,6 +73,19 @@ function formatImportedAt(iso: string | null | undefined): string {
   const hours = String(d.getHours()).padStart(2, "0");
   const minutes = String(d.getMinutes()).padStart(2, "0");
   return `${day}/${month}/${year} ${hours}:${minutes}`;
+}
+
+function formatConsentDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return formatImportedAt(iso);
+}
+
+function formatParentConsentDate(
+  redcapType: string | null,
+  iso: string | null | undefined
+): string {
+  if (redcapType !== "u18") return "—";
+  return formatConsentDateTime(iso);
 }
 
 function tokenStatusBadgeClass(status: EnrolmentTokenRow["status"]): string {
@@ -318,15 +333,18 @@ export function EnrolmentClient({
               </Button>
             </div>
           ) : (
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1200px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th className="px-4 py-3">REDCap Record ID</th>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Date of Birth</th>
-                  <th className="px-4 py-3">Enrollment Date</th>
-                  <th className="px-4 py-3">Imported</th>
                   <th className="px-4 py-3">REDCap Type</th>
+                  <th className="px-4 py-3">Participant Consent Date</th>
+                  <th className="px-4 py-3">Parent Consent Date</th>
+                  <th className="px-4 py-3">Enrolment Date</th>
+                  <th className="px-4 py-3">Imported</th>
                   <th
                     ref={linkStatusLegendRef}
                     className="relative px-4 py-3"
@@ -392,13 +410,10 @@ export function EnrolmentClient({
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3 font-mono text-slate-900">{p.studyRecordId}</td>
                       <td className="px-4 py-3 font-medium text-slate-900">{name}</td>
                       <td className="px-4 py-3 text-slate-700">{p.email ?? "—"}</td>
                       <td className="px-4 py-3 text-slate-700">{formatDMY(p.dateOfBirth)}</td>
-                      <td className="px-4 py-3 text-slate-700">{formatDMY(p.enrollmentDate)}</td>
-                      <td className="px-4 py-3 text-slate-700">
-                        {formatImportedAt(p.createdAt)}
-                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={cn(
@@ -408,6 +423,18 @@ export function EnrolmentClient({
                         >
                           {typeBadge.label}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {formatConsentDateTime(p.participantConsentDate)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {formatParentConsentDate(p.redcapType, p.parentConsentDate)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {formatConsentDateTime(p.enrollmentDate)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">
+                        {formatImportedAt(p.createdAt)}
                       </td>
                       <td className="px-4 py-3">
                         {linkKind === "none" ? (

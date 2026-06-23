@@ -99,6 +99,7 @@ model User {
   contactMessages  ContactMessage[]
   pushSubscriptions PushSubscription[]
   milestones        ParticipantMilestone[]
+  schoolAttendanceReminderCycles SchoolAttendanceReminderCycle[]
 }
 
 model PushSubscription {
@@ -333,6 +334,43 @@ model Document {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// Weekly school-attendance diary check-in cycle (in-app banner reminders).
+enum SchoolAttendanceReminderOutcome {
+  AWAITING_RESPONSE
+  RESPONDED_NO
+  RESPONDED_YES_CONFIRMED
+  RESPONDED_YES_ROUTED
+  EXPIRED_NO_RESPONSE
+}
+
+enum SchoolAttendanceReminderStage {
+  INITIAL
+  FIRST_FOLLOWUP
+  SECOND_FOLLOWUP
+}
+
+model SchoolAttendanceReminderCycle {
+  id                 String                          @id @default(cuid())
+  userId             String
+  /// Start of this reminder cycle (ISO week start in production; test cycle anchor).
+  cycleStartAt       DateTime
+  outcome            SchoolAttendanceReminderOutcome @default(AWAITING_RESPONSE)
+  stage              SchoolAttendanceReminderStage   @default(INITIAL)
+  initialDueAt       DateTime
+  firstFollowUpDueAt DateTime
+  secondFollowUpDueAt DateTime
+  /// Set when participant dismisses without Yes/No; cleared when stage advances.
+  dismissedAt        DateTime?
+  respondedAt        DateTime?
+  createdAt          DateTime                        @default(now())
+  updatedAt          DateTime                        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, outcome])
+  @@index([userId, cycleStartAt])
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -402,18 +440,23 @@ model EnrolmentToken {
 }
 
 model RedcapParticipantSync {
-  id             String    @id @default(cuid())
-  studyRecordId  String    @unique
-  firstName      String?
-  lastName       String?
-  email          String?
-  dateOfBirth    DateTime?
-  enrollmentDate DateTime?
-  dataKind       ParticipantDataKind @default(UNKNOWN)
-  redcapType     String?
-  consentStatus  String?
-  lastSyncedAt   DateTime  @updatedAt
-  createdAt      DateTime  @default(now())
+  id                     String    @id @default(cuid())
+  studyRecordId          String    @unique
+  firstName              String?
+  lastName               String?
+  email                  String?
+  dateOfBirth            DateTime?
+  /// Participant's own consent signature (consent_sigdatetime_u18 / consent_sigdatetime_over18).
+  participantConsentDate DateTime?
+  /// Parent consent signature (u18 only); null for over18 and when REDCap field unavailable.
+  parentConsentDate      DateTime?
+  /// Eligibility date for app enrolment: over18 = participantConsentDate; u18 = max(participant, parent).
+  enrollmentDate         DateTime?
+  dataKind               ParticipantDataKind @default(UNKNOWN)
+  redcapType             String?
+  consentStatus          String?
+  lastSyncedAt           DateTime  @updatedAt
+  createdAt              DateTime  @default(now())
 
   @@map("redcap_participant_sync")
 }

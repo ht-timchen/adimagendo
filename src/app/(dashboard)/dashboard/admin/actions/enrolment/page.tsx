@@ -54,6 +54,8 @@ export default async function AdminEnrolmentPage() {
     lastName: p.lastName,
     email: p.email,
     dateOfBirth: p.dateOfBirth?.toISOString() ?? null,
+    participantConsentDate: p.participantConsentDate?.toISOString() ?? null,
+    parentConsentDate: p.parentConsentDate?.toISOString() ?? null,
     enrollmentDate: p.enrollmentDate?.toISOString() ?? null,
     redcapType: p.redcapType,
     consentStatus: p.consentStatus,
@@ -61,7 +63,7 @@ export default async function AdminEnrolmentPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-[90rem] space-y-8">
       <div>
         <Link
           href="/dashboard/admin"

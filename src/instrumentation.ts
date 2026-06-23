@@ -35,4 +35,45 @@ export async function register() {
   });
 
   console.log("[CRON] REDCap nightly sync scheduled (2:00 AM Adelaide)");
+
+  // TEST ONLY — every 30s so short REMINDER_TEST_INTERVALS (1m/2m/1m) are picked up.
+  // Replace with a production cadence (e.g. hourly) when switching to Fri/Sat/Sun schedule.
+  cron.schedule("*/30 * * * * *", async () => {
+    try {
+      const res = await fetch(
+        `${appBaseUrl()}/api/cron/school-attendance-reminders`,
+        { headers: { "x-cron-secret": process.env.CRON_SECRET! } }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        console.error(
+          "[CRON] School attendance reminders HTTP",
+          res.status,
+          body
+        );
+        return;
+      }
+      const data = (await res.json()) as {
+        processed?: number;
+        pushesSent?: number;
+        completedFromDiary?: number;
+      };
+      if (
+        (data.pushesSent ?? 0) > 0 ||
+        (data.completedFromDiary ?? 0) > 0
+      ) {
+        console.log(
+          "[CRON] School attendance reminders:",
+          new Date().toISOString(),
+          data
+        );
+      }
+    } catch (err) {
+      console.error("[CRON] School attendance reminders failed:", err);
+    }
+  });
+
+  console.log(
+    "[CRON] School attendance reminders scheduled (TEST ONLY: every 30s)"
+  );
 }

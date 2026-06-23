@@ -24,8 +24,28 @@ export function ChecklistSurveySheet({
   const router = useRouter();
   const [openSurvey, setOpenSurvey] = useState(false);
   const [openConfirm, setOpenConfirm] = useState(false);
+  const [externalSurveyOpened, setExternalSurveyOpened] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function isStandaloneMode(): boolean {
+    if (typeof window === "undefined") return false;
+    const nav = window.navigator as Navigator & { standalone?: boolean };
+    return (
+      (typeof window.matchMedia === "function" &&
+        window.matchMedia("(display-mode: standalone)").matches) ||
+      nav.standalone === true
+    );
+  }
+
+  function openSurveyExternally(): boolean {
+    const opened = window.open(surveyUrl, "_blank", "noopener,noreferrer");
+    if (opened) {
+      setExternalSurveyOpened(true);
+      return true;
+    }
+    return false;
+  }
 
   const onCloseSurvey = () => {
     setOpenSurvey(false);
@@ -128,6 +148,25 @@ export function ChecklistSurveySheet({
         <p className="font-medium text-slate-900 dark:text-slate-100">
           Did you complete the survey?
         </p>
+        {isStandaloneMode() ? (
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            After finishing in your browser, tap &ldquo;Yes, mark complete&rdquo;
+            to save your progress here.
+          </p>
+        ) : null}
+        {!externalSurveyOpened ? (
+          <p className="mt-2 text-sm">
+            <a
+              href={surveyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
+              onClick={() => setExternalSurveyOpened(true)}
+            >
+              Open survey
+            </a>
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <Button
             type="button"
@@ -165,13 +204,14 @@ export function ChecklistSurveySheet({
         disabled={disabledProp}
         onClick={() => {
           if (disabledProp) return;
-          const nav = window.navigator as Navigator & { standalone?: boolean };
-          const isStandaloneMode =
-            (typeof window.matchMedia === "function" &&
-              window.matchMedia("(display-mode: standalone)").matches) ||
-            nav.standalone === true;
-          if (isStandaloneMode) {
-            window.location.assign(surveyUrl);
+          if (isStandaloneMode()) {
+            // Keep the installed app on the checklist page; navigating away
+            // prevented the confirmation step from ever running.
+            if (!externalSurveyOpened) {
+              openSurveyExternally();
+            }
+            setOpenConfirm(true);
+            setError(null);
             return;
           }
           setOpenSurvey(true);
