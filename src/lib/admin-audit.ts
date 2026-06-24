@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export const ADMIN_AUDIT_ACTIONS = {
@@ -55,7 +56,10 @@ export async function recordAdminAuditEvent(input: {
         targetType: input.targetType,
         targetId: input.targetId ?? null,
         targetName: input.targetName ?? null,
-        metadata: input.metadata ?? undefined,
+        metadata:
+          input.metadata != null
+            ? (input.metadata as Prisma.InputJsonValue)
+            : undefined,
       },
     });
   } catch (error) {
