@@ -29,6 +29,12 @@ export type ClinicalAdminShellUser = {
   image?: string | null;
   role: string;
   superAdmin?: boolean;
+  canViewStaffList: boolean;
+  canViewSettings: boolean;
+  canViewImport: boolean;
+  canViewExport: boolean;
+  canViewNotifications: boolean;
+  canViewEnrolment: boolean;
 };
 
 const mainNav = [
@@ -72,16 +78,31 @@ function SidebarNav({
   pathname,
   actionsOpen,
   setActionsOpen,
+  user,
   compact,
 }: {
   pathname: string;
   actionsOpen: boolean;
   setActionsOpen: (v: boolean) => void;
+  user: ClinicalAdminShellUser;
   compact?: boolean;
 }) {
+  const allowedMainNav = mainNav.filter((item) => {
+    if (item.href === "/dashboard/admin/people") return user.canViewStaffList;
+    if (item.href === "/dashboard/admin/settings") return user.canViewSettings;
+    return true;
+  });
+  const allowedActionNav = actionNav.filter((item) => {
+    if (item.href === "/dashboard/admin/actions/import") return user.canViewImport;
+    if (item.href === "/dashboard/admin/actions/export") return user.canViewExport;
+    if (item.href === "/dashboard/admin/actions/notify") return user.canViewNotifications;
+    if (item.href === "/dashboard/admin/actions/enrolment") return user.canViewEnrolment;
+    return true;
+  });
+
   return (
     <div className={cn("flex flex-col gap-1", compact && "max-h-[42vh] overflow-y-auto")}>
-      {mainNav.map((item) => {
+      {allowedMainNav.map((item) => {
         const Icon = item.icon;
         const active = navItemActive(pathname, item.href);
         return (
@@ -101,6 +122,7 @@ function SidebarNav({
         );
       })}
 
+      {allowedActionNav.length > 0 ? (
       <div className="mt-2 border-t border-slate-100 pt-2 dark:border-slate-800">
         <button
           type="button"
@@ -115,7 +137,7 @@ function SidebarNav({
         </button>
         {actionsOpen ? (
           <div className="mt-1 flex flex-col gap-1 pl-1">
-            {actionNav.map((item) => {
+            {allowedActionNav.map((item) => {
               const Icon = item.icon;
               const active = navItemActive(pathname, item.href);
               return (
@@ -137,6 +159,7 @@ function SidebarNav({
           </div>
         ) : null}
       </div>
+      ) : null}
     </div>
   );
 }
@@ -162,6 +185,7 @@ export function ClinicalAdminShell({
             pathname={pathname}
             actionsOpen={actionsOpen}
             setActionsOpen={setActionsOpen}
+            user={user}
           />
         </nav>
         <div className="border-t border-slate-100 p-3 dark:border-slate-800">
@@ -200,7 +224,14 @@ export function ClinicalAdminShell({
           aria-label="Main navigation"
         >
           <div className="flex w-full justify-around py-2">
-            {adminMobileTabs.map((item) => {
+            {adminMobileTabs
+              .filter((item) => {
+                if (item.href === "/dashboard/admin/actions/notify") {
+                  return user.canViewNotifications;
+                }
+                return true;
+              })
+              .map((item) => {
               const Icon = item.icon;
               const active = adminMobileTabActive(pathname, item.href);
               return (

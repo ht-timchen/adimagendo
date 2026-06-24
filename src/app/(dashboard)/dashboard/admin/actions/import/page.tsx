@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileUp } from "lucide-react";
 import { ParticipantMapImportForm } from "@/components/admin/participant-map-import-form";
+import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 
-export default function AdminImportPage() {
+export default async function AdminImportPage() {
+  await requirePermissionOrRedirect("import:manage");
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>

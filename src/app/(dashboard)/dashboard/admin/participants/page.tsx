@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { displayStudyRecordId, participantEngagementStatus } from "@/lib/admin-display";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
@@ -18,6 +19,7 @@ import {
   AdminParticipantsTable,
   type ParticipantRow,
 } from "@/components/admin-participants-table";
+import { hasPermission } from "@/lib/admin-rbac";
 
 function formatDate(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -40,6 +42,7 @@ export default async function AdminParticipantsPage({
 }: {
   searchParams: Promise<{ classification?: string }>;
 }) {
+  const session = await auth();
   const { classification: classificationParam } = await searchParams;
   const classificationFilter = parseParticipantClassificationFilter(
     classificationParam
@@ -160,7 +163,12 @@ export default async function AdminParticipantsPage({
         counts={filterCounts}
       />
 
-      <AdminParticipantsTable participants={participants} />
+      <AdminParticipantsTable
+        participants={participants}
+        canResetPassword={hasPermission(session, "participant:reset_password")}
+        canSendNotification={hasPermission(session, "notification:send")}
+        canMarkPilot={hasPermission(session, "participant:mark_pilot")}
+      />
     </div>
   );
 }

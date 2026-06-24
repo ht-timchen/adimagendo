@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import {
   assertValidParticipantClassification,
   getRedcapSyncDataKind,
@@ -44,7 +44,7 @@ function detectColumns(header: string[]): { emailIdx: number; recordIdx: number 
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("import:manage");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const ct = req.headers.get("content-type") ?? "";

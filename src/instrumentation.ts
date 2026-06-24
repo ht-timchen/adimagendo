@@ -7,7 +7,10 @@ function appBaseUrl(): string {
   const raw =
     process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
   if (!/^https?:\/\//i.test(raw)) {
-    return `https://${raw.replace(/^\/+/, "")}`;
+    const trimmed = raw.replace(/^\/+/, "");
+    const isLocalhost =
+      /^localhost(?::\d+)?$/i.test(trimmed) || /^127\.0\.0\.1(?::\d+)?$/.test(trimmed);
+    return `${isLocalhost ? "http" : "https"}://${trimmed}`;
   }
   return raw.replace(/\/$/, "");
 }
@@ -17,7 +20,10 @@ export async function register() {
 
   const url = process.env.AUTH_URL;
   if (url && !/^https?:\/\//i.test(url)) {
-    process.env.AUTH_URL = `https://${url.replace(/^\/+/, "")}`;
+    const trimmed = url.replace(/^\/+/, "");
+    const isLocalhost =
+      /^localhost(?::\d+)?$/i.test(trimmed) || /^127\.0\.0\.1(?::\d+)?$/.test(trimmed);
+    process.env.AUTH_URL = `${isLocalhost ? "http" : "https"}://${trimmed}`;
   }
 
   const { default: cron } = await import("node-cron");

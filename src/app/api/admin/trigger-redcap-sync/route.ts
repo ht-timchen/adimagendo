@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
-
-function canTriggerRedcapSync(role: string | undefined): boolean {
-  return role === "ADMIN" || role === "SUPER_ADMIN" || role === "COORDINATOR";
-}
+import { requirePermission } from "@/lib/admin-api-auth";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 function appBaseUrl(): string {
   const raw =
@@ -15,9 +12,9 @@ function appBaseUrl(): string {
 }
 
 export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id || !canTriggerRedcapSync(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await requirePermission("redcap:sync");
+  if (!session) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (!process.env.CRON_SECRET) {
@@ -29,5 +26,19 @@ export async function POST() {
   });
 
   const data = await result.json().catch(() => ({}));
+
+  if (result.ok) {
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.REDCAP_SYNC_TRIGGERED,
+      targetType: "redcap",
+      targetName: "REDCap sync",
+      metadata:
+        typeof data === "object" && data !== null
+          ? (data as Record<string, unknown>)
+          : undefined,
+    });
+  }
+
   return NextResponse.json(data, { status: result.ok ? 200 : result.status });
 }

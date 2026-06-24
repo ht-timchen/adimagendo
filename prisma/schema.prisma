@@ -82,6 +82,7 @@ model User {
   superAdmin        Boolean   @default(false)
   inviteToken       String?
   inviteTokenExpiry DateTime?
+  lastLoginAt       DateTime?
   dateOfBirth       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -100,6 +101,27 @@ model User {
   pushSubscriptions PushSubscription[]
   milestones        ParticipantMilestone[]
   schoolAttendanceReminderCycles SchoolAttendanceReminderCycle[]
+  adminAuditEvents  AdminAuditEvent[] @relation("AdminAuditActor")
+}
+
+model AdminAuditEvent {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorName   String
+  actorRole   String
+  action      String
+  targetType  String
+  targetId    String?
+  targetName  String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AdminAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }
 
 model PushSubscription {

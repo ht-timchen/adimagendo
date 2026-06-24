@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/admin-api-auth";
-import { parsePeopleRoleInput, isStaffUser, PROTECTED_ADMIN_EMAIL } from "@/lib/admin-people";
-import { canAssignStaffRoles } from "@/lib/people-admin-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
+import { parsePeopleRoleInput, isStaffUser, PROTECTED_ADMIN_EMAIL, displayPeopleRole } from "@/lib/admin-people";
+import { hasPermission } from "@/lib/admin-rbac";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 const PatchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -15,7 +16,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("admin_user:update");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -23,7 +24,7 @@ export async function PATCH(
   const { id } = await params;
   const target = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, role: true },
+    select: { id: true, role: true, superAdmin: true, name: true, email: true },
   });
   if (!target || !isStaffUser(target.role)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -47,7 +48,7 @@ export async function PATCH(
     }
 
     if (parsed.data.role !== undefined) {
-      if (!(await canAssignStaffRoles(session.user.id, session.user.email, session.user.role))) {
+      if (!hasPermission(session, "role:manage")) {
         return NextResponse.json(
           { error: "Only super admins can change roles" },
           { status: 403 }
@@ -76,6 +77,20 @@ export async function PATCH(
       },
     });
 
+    if (parsed.data.role !== undefined) {
+      await recordAdminAuditEvent({
+        session,
+        action: ADMIN_AUDIT_ACTIONS.STAFF_ROLE_CHANGED,
+        targetType: "staff",
+        targetId: id,
+        targetName: updated.name?.trim() || updated.email,
+        metadata: {
+          previousRole: displayPeopleRole(target),
+          newRole: displayPeopleRole(updated),
+        },
+      });
+    }
+
     return NextResponse.json(updated);
   } catch (e) {
     console.error("PATCH /api/admin/people/[id]:", e);
@@ -87,7 +102,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("admin_user:delete");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -100,7 +115,7 @@ export async function DELETE(
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, role: true },
+    select: { id: true, email: true, name: true, role: true },
   });
 
   if (!user || !isStaffUser(user.role)) {
@@ -116,6 +131,14 @@ export async function DELETE(
 
   try {
     await prisma.user.delete({ where: { id } });
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.STAFF_DELETED,
+      targetType: "staff",
+      targetId: id,
+      targetName: user.name?.trim() || user.email,
+      metadata: { email: user.email },
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("DELETE /api/admin/people/[id]:", e);

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileDown } from "lucide-react";
 import { SymptomDiaryExportButton } from "@/components/admin/symptom-diary-export-button";
+import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 
-export default function AdminExportPage() {
+export default async function AdminExportPage() {
+  await requirePermissionOrRedirect("symptom_diary:export");
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>

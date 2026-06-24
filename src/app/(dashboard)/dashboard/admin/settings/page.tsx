@@ -1,10 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOrCreateProjectSettings } from "@/lib/project-settings";
 import { ProjectSettingsForm } from "@/components/admin/project-settings-form";
+import { hasPermission } from "@/lib/admin-rbac";
 import { Settings } from "lucide-react";
 
 export default async function AdminSettingsPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  if (!hasPermission(session, "settings:read")) redirect("/dashboard/admin");
   const s = await getOrCreateProjectSettings();
 
   return (

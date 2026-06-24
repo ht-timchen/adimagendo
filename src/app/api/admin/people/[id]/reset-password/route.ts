@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import {
   generateInviteToken,
   generateTemporaryPassword,
@@ -9,12 +9,13 @@ import {
   PROTECTED_ADMIN_EMAIL,
 } from "@/lib/admin-people";
 import { isSmtpConfigured, sendInviteEmail, SMTP_NOT_CONFIGURED_MSG } from "@/lib/mail";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("admin_user:reset_password");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -54,6 +55,15 @@ export async function POST(
         },
       });
 
+      await recordAdminAuditEvent({
+        session,
+        action: ADMIN_AUDIT_ACTIONS.STAFF_PASSWORD_RESET,
+        targetType: "staff",
+        targetId: id,
+        targetName: user.name?.trim() || user.email,
+        metadata: { delivery: "manual" },
+      });
+
       return NextResponse.json({
         ok: true,
         delivery: "manual",
@@ -76,6 +86,15 @@ export async function POST(
       name: user.name?.trim() || user.email,
       token,
       subject: "ADIMAGENDO — reset your password",
+    });
+
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.STAFF_PASSWORD_RESET,
+      targetType: "staff",
+      targetId: id,
+      targetName: user.name?.trim() || user.email,
+      metadata: { delivery: "email", emailSent: mail.sent },
     });
 
     return NextResponse.json({

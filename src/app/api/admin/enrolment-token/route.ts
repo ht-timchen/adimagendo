@@ -1,11 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/db";
-
-function canManageEnrolmentTokens(role: string | undefined): boolean {
-  return role === "ADMIN" || role === "SUPER_ADMIN" || role === "COORDINATOR";
-}
 
 function deriveTokenStatus(usedAt: Date | null, expiresAt: Date): "used" | "expired" | "active" {
   if (usedAt) return "used";
@@ -33,9 +29,9 @@ function serializeToken(row: {
 }
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id || !canManageEnrolmentTokens(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await requirePermission("enrolment:manage");
+  if (!session) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const studyRecordId = new URL(req.url).searchParams.get("studyRecordId")?.trim();
@@ -58,9 +54,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id || !canManageEnrolmentTokens(session.user.role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await requirePermission("enrolment:manage");
+  if (!session) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: unknown;

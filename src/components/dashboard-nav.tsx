@@ -20,6 +20,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { Button } from "@/components/ui/button";
 
 const participantPrimaryTabs = [
@@ -98,7 +99,7 @@ export function DashboardNav({
   mobile?: boolean;
 }) {
   const pathname = usePathname() ?? "";
-  const isAdminUser = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  const isAdminUser = isAdminDashboardRole(user.role);
   const [moreOpen, setMoreOpen] = useState(false);
   const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { hasPermission } from "@/lib/admin-rbac";
 import {
   EnrolmentClient,
   type EnrolmentTokenRow,
@@ -18,6 +19,9 @@ export default async function AdminEnrolmentPage() {
   const session = await auth();
   if (!session?.user) {
     redirect("/login");
+  }
+  if (!hasPermission(session, "enrolment:manage")) {
+    redirect("/dashboard/admin");
   }
 
   const rows = await prisma.enrolmentToken.findMany({

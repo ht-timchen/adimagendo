@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import { displayStudyRecordId } from "@/lib/admin-display";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 function csvEscape(v: string): string {
   if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
@@ -9,7 +10,7 @@ function csvEscape(v: string): string {
 }
 
 export async function GET() {
-  const session = await requireAdminSession();
+  const session = await requirePermission("symptom_diary:export");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const entries = await prisma.symptomEntry.findMany({
@@ -58,6 +59,14 @@ export async function GET() {
 
   const body = lines.join("\r\n");
   const filename = `symptom-diary-export-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  await recordAdminAuditEvent({
+    session,
+    action: ADMIN_AUDIT_ACTIONS.SYMPTOM_DIARY_EXPORTED,
+    targetType: "export",
+    targetName: filename,
+    metadata: { rowCount: entries.length },
+  });
 
   return new NextResponse(body, {
     status: 200,

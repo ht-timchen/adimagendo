@@ -15,13 +15,13 @@ import { SchoolAttendanceReminderBanner } from "@/components/school-attendance-r
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { getSchoolAttendanceBannerState } from "@/lib/school-attendance-reminder/cycle";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
+import { isAdminDashboardRole } from "@/lib/admin-rbac";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const role = session.user.role;
-  if (role === "ADMIN" || role === "SUPER_ADMIN") {
+  if (isAdminDashboardRole(session)) {
     redirect("/dashboard/admin");
   }
 

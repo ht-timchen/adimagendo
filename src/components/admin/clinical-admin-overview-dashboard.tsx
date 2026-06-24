@@ -364,15 +364,21 @@ export function ClinicalAdminOverviewDashboard({
   adminInitial,
   rangeOptions,
   sendParticipantPushAction,
+  canViewImportAction,
+  canViewExportAction,
+  canViewBroadcastAction,
 }: {
   data: AdminOverviewDashboardData;
   adminName: string;
   adminInitial: string;
   rangeOptions: { key: RangeKey; label: string }[];
-  sendParticipantPushAction: (
+  sendParticipantPushAction?: (
     prev: { ok: boolean; error?: string } | null,
     formData: FormData
   ) => Promise<{ ok: boolean; error?: string }>;
+  canViewImportAction: boolean;
+  canViewExportAction: boolean;
+  canViewBroadcastAction: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -423,7 +429,12 @@ export function ClinicalAdminOverviewDashboard({
     { href: "/dashboard/admin/actions/export", label: "Export CSV", icon: FileDown },
     { href: "/dashboard/admin/actions/notify", label: "Send notifications", icon: Send },
     { href: "/dashboard/admin/news", label: "News Post", icon: Newspaper },
-  ];
+  ].filter((link) => {
+    if (link.href === "/dashboard/admin/actions/import") return canViewImportAction;
+    if (link.href === "/dashboard/admin/actions/export") return canViewExportAction;
+    if (link.href === "/dashboard/admin/actions/notify") return canViewBroadcastAction;
+    return true;
+  });
 
   return (
     <div className="min-h-full bg-[#f7f8fc] pb-10">
@@ -682,8 +693,18 @@ export function ClinicalAdminOverviewDashboard({
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50"
-                            onClick={() => setPushTarget({ userId: row.userId, label: row.name })}
+                            className="rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50 disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-transparent"
+                            disabled={!sendParticipantPushAction}
+                            title={
+                              sendParticipantPushAction
+                                ? undefined
+                                : "You do not have permission to send notifications"
+                            }
+                            onClick={
+                              sendParticipantPushAction
+                                ? () => setPushTarget({ userId: row.userId, label: row.name })
+                                : undefined
+                            }
                           >
                             Send Notification
                           </Button>
@@ -757,7 +778,7 @@ export function ClinicalAdminOverviewDashboard({
         </aside>
       </div>
 
-      {pushTarget ? (
+      {pushTarget && sendParticipantPushAction ? (
         <PushModal
           userId={pushTarget.userId}
           participantLabel={pushTarget.label}

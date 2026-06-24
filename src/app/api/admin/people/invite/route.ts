@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import {
   generateInviteToken,
   generateTemporaryPassword,
   parsePeopleRoleInput,
 } from "@/lib/admin-people";
-import { canAssignStaffRoles } from "@/lib/people-admin-auth";
+import { hasPermission } from "@/lib/admin-rbac";
 import { isSmtpConfigured, sendInviteEmail, SMTP_NOT_CONFIGURED_MSG } from "@/lib/mail";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 const BodySchema = z.object({
   name: z.string().min(1),
@@ -20,7 +21,7 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("admin_user:create");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -34,11 +35,7 @@ export async function POST(req: Request) {
 
     const name = parsed.data.name.trim();
     const email = parsed.data.email.trim().toLowerCase();
-    const requesterIsSuper = await canAssignStaffRoles(
-      session.user.id,
-      session.user.email,
-      session.user.role
-    );
+    const requesterIsSuper = hasPermission(session, "role:manage");
 
     let roleInput = parsed.data.role ?? "USER";
     if (!requesterIsSuper) {
@@ -69,7 +66,7 @@ export async function POST(req: Request) {
       const token = generateInviteToken();
       const inviteTokenExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-      await prisma.user.create({
+      const created = await prisma.user.create({
         data: {
           email,
           name,
@@ -84,6 +81,15 @@ export async function POST(req: Request) {
 
       const mail = await sendInviteEmail({ to: email, name, token });
 
+      await recordAdminAuditEvent({
+        session,
+        action: ADMIN_AUDIT_ACTIONS.STAFF_CREATED,
+        targetType: "staff",
+        targetId: created.id,
+        targetName: name,
+        metadata: { email, role: roleInput, delivery: "email" },
+      });
+
       return NextResponse.json({
         ok: true,
         delivery: "email",
@@ -95,7 +101,7 @@ export async function POST(req: Request) {
     const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email,
         name,
@@ -106,6 +112,15 @@ export async function POST(req: Request) {
         inviteToken: null,
         inviteTokenExpiry: null,
       },
+    });
+
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.STAFF_CREATED,
+      targetType: "staff",
+      targetId: created.id,
+      targetName: name,
+      metadata: { email, role: roleInput, delivery: "manual" },
     });
 
     return NextResponse.json({

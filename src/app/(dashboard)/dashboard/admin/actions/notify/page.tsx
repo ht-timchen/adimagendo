@@ -3,12 +3,14 @@ import { Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { notifyAllParticipantsAction } from "../../_actions";
+import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 
 export default async function AdminNotifyPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  await requirePermissionOrRedirect("notification:broadcast");
   const sp = await searchParams;
 
   return (

@@ -38,7 +38,17 @@ type CredentialsPayload = {
 const MENU_WIDTH = 220;
 const MENU_GAP = 6;
 
-export function AdminParticipantsTable({ participants }: { participants: ParticipantRow[] }) {
+export function AdminParticipantsTable({
+  participants,
+  canResetPassword,
+  canSendNotification,
+  canMarkPilot,
+}: {
+  participants: ParticipantRow[];
+  canResetPassword: boolean;
+  canSendNotification: boolean;
+  canMarkPilot: boolean;
+}) {
   const router = useRouter();
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -253,7 +263,9 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
                   <td className="px-4 py-3 text-right">
                     <ParticipantRowActions
                       busy={busyId === p.id}
-                      canMarkAsPilot={p.canMarkAsPilot}
+                      canResetPassword={canResetPassword}
+                      canSendNotification={canSendNotification}
+                      canMarkAsPilot={canMarkPilot && p.canMarkAsPilot}
                       onResetPassword={() => resetPassword(p)}
                       onSendNotification={() => {
                         setNotifyParticipant(p);
@@ -310,12 +322,16 @@ export function AdminParticipantsTable({ participants }: { participants: Partici
 
 function ParticipantRowActions({
   busy,
+  canResetPassword,
+  canSendNotification,
   canMarkAsPilot,
   onResetPassword,
   onSendNotification,
   onMarkAsPilot,
 }: {
   busy: boolean;
+  canResetPassword: boolean;
+  canSendNotification: boolean;
   canMarkAsPilot: boolean;
   onResetPassword: () => void;
   onSendNotification: () => void;
@@ -401,7 +417,8 @@ function ParticipantRowActions({
           },
         ]
       : []),
-    {
+    ...(canResetPassword
+      ? [{
       key: "reset",
       label: "Reset password",
       icon: <KeyRound className="h-4 w-4" />,
@@ -409,8 +426,10 @@ function ParticipantRowActions({
         setOpen(false);
         onResetPassword();
       },
-    },
-    {
+    }]
+      : []),
+    ...(canSendNotification
+      ? [{
       key: "notify",
       label: "Send notification",
       icon: <Bell className="h-4 w-4" />,
@@ -418,24 +437,29 @@ function ParticipantRowActions({
         setOpen(false);
         onSendNotification();
       },
-    },
+    }]
+      : []),
   ];
 
   return (
     <div ref={triggerRef} className="inline-block text-left">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className={cn("rounded-xl", open && "border-violet-300 bg-violet-50")}
-        disabled={busy}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
-      >
-        Actions
-        <ChevronDown className={cn("ml-1.5 h-4 w-4 transition-transform", open && "rotate-180")} />
-      </Button>
+      {items.length > 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className={cn("rounded-xl", open && "border-violet-300 bg-violet-50")}
+          disabled={busy}
+          aria-expanded={open}
+          aria-haspopup="menu"
+          onClick={() => setOpen((v) => !v)}
+        >
+          Actions
+          <ChevronDown className={cn("ml-1.5 h-4 w-4 transition-transform", open && "rotate-180")} />
+        </Button>
+      ) : (
+        <span className="text-xs text-slate-400">Read only</span>
+      )}
       {mounted && open
         ? createPortal(
             <div

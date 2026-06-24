@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { lastActiveTimestamp } from "@/lib/admin-display";
 import { displayPeopleRole } from "@/lib/admin-people";
-import { canAssignStaffRoles, ensureAdmin } from "@/lib/people-admin-auth";
+import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
+import { hasPermission } from "@/lib/admin-rbac";
 import { isSmtpConfigured } from "@/lib/mail";
 import { PeopleManagement, type PeopleRow } from "@/components/admin/people-management";
 
 export default async function AdminPeoplePage() {
-  const session = await ensureAdmin();
-  const isSuperAdmin =
-    session?.user?.id && session.user.email
-      ? await canAssignStaffRoles(session.user.id, session.user.email, session.user.role)
-      : false;
+  const session = await requirePermissionOrRedirect("admin_user:read");
+  const canManageStaff = hasPermission(session, "admin_user:update");
+  const canManageRoles = hasPermission(session, "role:manage");
 
   const users = await prisma.user.findMany({
     where: { role: { in: [Role.USER, Role.ADMIN] } },
@@ -24,19 +22,18 @@ export default async function AdminPeoplePage() {
       role: true,
       superAdmin: true,
       isActive: true,
+      lastLoginAt: true,
     },
   });
 
-  const people: PeopleRow[] = await Promise.all(
-    users.map(async (u) => ({
+  const people: PeopleRow[] = users.map((u) => ({
       id: u.id,
       email: u.email,
       name: u.name,
       role: displayPeopleRole(u),
       isActive: u.isActive,
-      lastActive: (await lastActiveTimestamp(u.id))?.toISOString() ?? null,
-    }))
-  );
+      lastActive: u.lastLoginAt?.toISOString() ?? null,
+    }));
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -54,12 +51,49 @@ export default async function AdminPeoplePage() {
         </p>
       </div>
 
-      <PeopleManagement
-        people={people}
-        isSuperAdmin={isSuperAdmin}
-        currentUserId={session?.user?.id ?? ""}
-        emailDeliveryAvailable={isSmtpConfigured()}
-      />
+      {canManageStaff ? (
+        <PeopleManagement
+          people={people}
+          isSuperAdmin={canManageRoles}
+          currentUserId={session?.user?.id ?? ""}
+          emailDeliveryAvailable={isSmtpConfigured()}
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Last active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((person) => (
+                <tr key={person.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">{person.name ?? "—"}</td>
+                  <td className="px-4 py-3">{person.email}</td>
+                  <td className="px-4 py-3">{person.role}</td>
+                  <td className="px-4 py-3">
+                    {person.isActive ? "Active" : "Inactive"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {person.lastActive
+                      ? new Date(person.lastActive).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "Never"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

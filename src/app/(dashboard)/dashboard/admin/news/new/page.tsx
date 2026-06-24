@@ -1,8 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { AdminNewsForm } from "@/components/admin-news-form";
 import { ArrowLeft } from "lucide-react";
+import { hasPermission } from "@/lib/admin-rbac";
 
-export default function AdminNewsNewPage() {
+export default async function AdminNewsNewPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  if (!hasPermission(session, "post:update")) redirect("/dashboard/admin/news");
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link

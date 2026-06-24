@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 import {
   markParticipantAsPilot,
   markPilotParticipantErrorMessage,
@@ -10,7 +10,7 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("participant:mark_pilot");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

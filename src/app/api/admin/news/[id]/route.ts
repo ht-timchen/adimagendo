@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 
 const UpdateSchema = z.object({
   title: z.string().min(1).optional(),
@@ -15,7 +15,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("post:read");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
@@ -28,7 +28,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("post:update");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;

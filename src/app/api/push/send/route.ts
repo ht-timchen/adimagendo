@@ -6,6 +6,8 @@ import {
 } from "@/lib/push/send-to-user";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { hasPermission } from "@/lib/admin-rbac";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 const BodySchema = z.object({
   userId: z.string().min(1).optional(),
@@ -17,13 +19,23 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const json = await req.json().catch(() => null);
+  const isBroadcastRequest =
+    json != null &&
+    typeof json === "object" &&
+    (!("userId" in json) || !(json as { userId?: unknown }).userId);
+  const allowed = isBroadcastRequest
+    ? hasPermission(session, "notification:broadcast")
+    : hasPermission(session, "notification:send");
+  if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let parsed: z.infer<typeof BodySchema>;
   try {
-    const json = await req.json();
     const result = BodySchema.safeParse(json);
     if (!result.success) {
       return NextResponse.json(
@@ -72,6 +84,16 @@ export async function POST(req: Request) {
         ? "Notification could not be delivered. The participant may have disabled notifications or their subscription may have expired."
         : "No notifications were delivered.";
       return NextResponse.json({ error }, { status: 502 });
+    }
+
+    if (isBroadcastRequest) {
+      await recordAdminAuditEvent({
+        session,
+        action: ADMIN_AUDIT_ACTIONS.NOTIFICATION_BROADCAST_SENT,
+        targetType: "notification",
+        targetName: "All push subscribers",
+        metadata: { title: finalTitle, body: finalBody, sent: result.sent },
+      });
     }
 
     const subscriptions = userId

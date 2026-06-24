@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AdminNewsForm } from "@/components/admin-news-form";
 import { ArrowLeft } from "lucide-react";
+import { auth } from "@/auth";
+import { hasPermission } from "@/lib/admin-rbac";
 
 export default async function AdminNewsEditPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  if (!hasPermission(session, "post:update")) redirect("/dashboard/admin/news");
   const { id } = await params;
   const post = await prisma.newsPost.findUnique({ where: { id } });
   if (!post) notFound();

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { requireAdminSession } from "@/lib/admin-api-auth";
+import { requirePermission } from "@/lib/admin-api-auth";
 
 const CreateSchema = z.object({
   title: z.string().min(1),
@@ -12,7 +12,7 @@ const CreateSchema = z.object({
 });
 
 export async function GET() {
-  const session = await requireAdminSession();
+  const session = await requirePermission("post:read");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const posts = await prisma.newsPost.findMany({
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdminSession();
+  const session = await requirePermission("post:update");
   if (!session) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {

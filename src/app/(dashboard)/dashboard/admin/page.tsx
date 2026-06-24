@@ -21,6 +21,7 @@ import {
 } from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { sendParticipantPushAction } from "./_actions";
+import { hasPermission, isAdminDashboardRole } from "@/lib/admin-rbac";
 
 const COHORT_TARGET = Number(process.env.NEXT_PUBLIC_COHORT_TARGET ?? "400") || 400;
 
@@ -116,12 +117,46 @@ async function loadDashboardData(
   const pageSize = 10;
   const tableFilter = parseOverviewTableFilter(sp.filter);
   const tableSearch = sp.q?.trim() ?? "";
-  const tableWhere = participantOverviewTableWhere(tableFilter, tableSearch);
   const validTemplateIds = await getValidChecklistTemplateIds();
+  let tableWhere = participantOverviewTableWhere(tableFilter, tableSearch);
   const checklistScope =
     validTemplateIds.length > 0
       ? { templateId: { in: validTemplateIds } }
       : { templateId: { in: [] as string[] } };
+
+  if (
+    tableFilter === "checklist-complete" ||
+    tableFilter === "checklist-incomplete"
+  ) {
+    const completedRows =
+      validTemplateIds.length === 0
+        ? []
+        : await prisma.participantChecklistItem.findMany({
+            where: {
+              templateId: { in: validTemplateIds },
+              status: "COMPLETED",
+            },
+            select: { userId: true },
+          });
+
+    const completedCountByUser = new Map<string, number>();
+    for (const row of completedRows) {
+      completedCountByUser.set(
+        row.userId,
+        (completedCountByUser.get(row.userId) ?? 0) + 1
+      );
+    }
+
+    const completedUserIds = Array.from(completedCountByUser.entries())
+      .filter(([, count]) => count >= ADMIN_CHECKLIST_STEP_TOTAL)
+      .map(([userId]) => userId);
+    const baseWhere = participantOverviewTableWhere("all", tableSearch);
+
+    tableWhere =
+      tableFilter === "checklist-complete"
+        ? { AND: [baseWhere, { id: { in: completedUserIds } }] }
+        : { AND: [baseWhere, { id: { notIn: completedUserIds } }] };
+  }
 
   const enrolledWhere = { role: "PARTICIPANT" as const, isActive: true };
 
@@ -325,8 +360,7 @@ export default async function AdminOverviewPage({
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const r = session.user.role;
-  if (r !== "ADMIN" && r !== "SUPER_ADMIN") redirect("/dashboard");
+  if (!isAdminDashboardRole(session)) redirect("/dashboard");
 
   const sp = await searchParams;
   const data = await loadDashboardData(sp, new Date());
@@ -340,7 +374,12 @@ export default async function AdminOverviewPage({
       adminName={adminName}
       adminInitial={adminInitial}
       rangeOptions={RANGE_OPTIONS}
-      sendParticipantPushAction={sendParticipantPushAction}
+      sendParticipantPushAction={
+        hasPermission(session, "notification:send") ? sendParticipantPushAction : undefined
+      }
+      canViewImportAction={hasPermission(session, "import:manage")}
+      canViewExportAction={hasPermission(session, "symptom_diary:export")}
+      canViewBroadcastAction={hasPermission(session, "notification:broadcast")}
     />
   );
 }

@@ -6,7 +6,10 @@ import { prisma } from "@/lib/db";
 
 const authUrl = process.env.AUTH_URL;
 if (authUrl && !/^https?:\/\//i.test(authUrl)) {
-  process.env.AUTH_URL = `https://${authUrl.replace(/^\/+/, "")}`;
+  const trimmed = authUrl.replace(/^\/+/, "");
+  const isLocalhost =
+    /^localhost(?::\d+)?$/i.test(trimmed) || /^127\.0\.0\.1(?::\d+)?$/.test(trimmed);
+  process.env.AUTH_URL = `${isLocalhost ? "http" : "https"}://${trimmed}`;
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -43,6 +46,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!user.isActive) return null;
         const ok = await bcrypt.compare(String(credentials.password), user.passwordHash);
         if (!ok) return null;
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
         const sessionRole = user.superAdmin ? "SUPER_ADMIN" : user.role;
         return {
           id: user.id,

@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { deleteNewsPostAction } from "../_actions";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { hasPermission } from "@/lib/admin-rbac";
 
 export default async function AdminNewsPage() {
+  const session = await auth();
+  const canEditPosts = hasPermission(session, "post:update");
   const posts = await prisma.newsPost.findMany({
     orderBy: { updatedAt: "desc" },
   });
@@ -26,13 +30,15 @@ export default async function AdminNewsPage() {
             Manage study news. Only published posts appear on the participant News tab.
           </p>
         </div>
-        <Link
-          href="/dashboard/admin/news/new"
-          className={cn(buttonVariants(), "inline-flex shrink-0 items-center gap-2 rounded-xl")}
-        >
-          <Plus className="h-4 w-4" />
-          New post
-        </Link>
+        {canEditPosts ? (
+          <Link
+            href="/dashboard/admin/news/new"
+            className={cn(buttonVariants(), "inline-flex shrink-0 items-center gap-2 rounded-xl")}
+          >
+            <Plus className="h-4 w-4" />
+            New post
+          </Link>
+        ) : null}
       </div>
 
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
@@ -92,27 +98,31 @@ export default async function AdminNewsPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          href={`/dashboard/admin/news/${post.id}`}
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl")}
-                        >
-                          <Pencil className="mr-1 inline h-3.5 w-3.5" />
-                          Edit
-                        </Link>
-                        <form action={deleteNewsPostAction} className="inline">
-                          <input type="hidden" name="id" value={post.id} />
-                          <Button
-                            type="submit"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50"
+                      {canEditPosts ? (
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/dashboard/admin/news/${post.id}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl")}
                           >
-                            <Trash2 className="mr-1 inline h-3.5 w-3.5" />
-                            Delete
-                          </Button>
-                        </form>
-                      </div>
+                            <Pencil className="mr-1 inline h-3.5 w-3.5" />
+                            Edit
+                          </Link>
+                          <form action={deleteNewsPostAction} className="inline">
+                            <input type="hidden" name="id" value={post.id} />
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50"
+                            >
+                              <Trash2 className="mr-1 inline h-3.5 w-3.5" />
+                              Delete
+                            </Button>
+                          </form>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">Read only</span>
+                      )}
                     </td>
                   </tr>
                 ))}
