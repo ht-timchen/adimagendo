@@ -9,7 +9,15 @@ import {
   parsePeopleRoleInput,
 } from "@/lib/admin-people";
 import { hasPermission } from "@/lib/admin-rbac";
-import { isSmtpConfigured, sendInviteEmail, SMTP_NOT_CONFIGURED_MSG } from "@/lib/mail";
+import {
+  buildStaffEmailDeliveryResponse,
+  buildStaffManualCredentialsResponse,
+  formatMailDeliveryError,
+  formatStaffActionUserError,
+  resolveStaffInviteDelivery,
+  sendInviteEmail,
+  STAFF_EMAIL_UNAVAILABLE_USER_MSG,
+} from "@/lib/mail";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 const BodySchema = z.object({
@@ -49,20 +57,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email already in use" }, { status: 409 });
     }
 
-    const useEmail =
-      parsed.data.delivery === "email" || (parsed.data.delivery !== "manual" && isSmtpConfigured());
+    const deliveryPath = resolveStaffInviteDelivery(parsed.data.delivery);
 
-    if (useEmail && !isSmtpConfigured()) {
-      return NextResponse.json(
-        {
-          error:
-            "Email delivery is not available. Configure SMTP in .env or choose manual password delivery.",
-        },
-        { status: 400 }
-      );
+    if (deliveryPath === "unavailable") {
+      return NextResponse.json({ error: STAFF_EMAIL_UNAVAILABLE_USER_MSG }, { status: 400 });
     }
 
-    if (useEmail) {
+    if (deliveryPath === "email") {
       const token = generateInviteToken();
       const inviteTokenExpiry = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
@@ -80,6 +81,14 @@ export async function POST(req: Request) {
       });
 
       const mail = await sendInviteEmail({ to: email, name, token });
+      if (!mail.sent) {
+        console.warn("[mail] Staff invite email was not sent", {
+          email,
+          detail: formatMailDeliveryError(
+            new Error("SMTP not configured or dev preview only")
+          ),
+        });
+      }
 
       await recordAdminAuditEvent({
         session,
@@ -87,15 +96,10 @@ export async function POST(req: Request) {
         targetType: "staff",
         targetId: created.id,
         targetName: name,
-        metadata: { email, role: roleInput, delivery: "email" },
+        metadata: { email, role: roleInput, delivery: "email", emailSent: mail.sent },
       });
 
-      return NextResponse.json({
-        ok: true,
-        delivery: "email",
-        emailSent: mail.sent,
-        warning: mail.sent ? undefined : SMTP_NOT_CONFIGURED_MSG,
-      });
+      return NextResponse.json(buildStaffEmailDeliveryResponse());
     }
 
     const temporaryPassword = generateTemporaryPassword();
@@ -123,15 +127,15 @@ export async function POST(req: Request) {
       metadata: { email, role: roleInput, delivery: "manual" },
     });
 
-    return NextResponse.json({
-      ok: true,
-      delivery: "manual",
-      emailSent: false,
-      email,
-      temporaryPassword,
-    });
+    return NextResponse.json(buildStaffManualCredentialsResponse(email, temporaryPassword));
   } catch (e) {
-    console.error("POST /api/admin/people/invite:", e);
-    return NextResponse.json({ error: "Failed to send invite" }, { status: 500 });
+    console.error("POST /api/admin/people/invite:", {
+      detail: formatMailDeliveryError(e),
+      err: e,
+    });
+    return NextResponse.json(
+      { error: formatStaffActionUserError(e, "invite") },
+      { status: 500 }
+    );
   }
 }

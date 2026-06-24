@@ -40,9 +40,7 @@ type CredentialsPayload = {
 
 type PeopleApiResponse = {
   error?: string;
-  warning?: string;
   delivery?: "email" | "manual";
-  emailSent?: boolean;
   temporaryPassword?: string;
   email?: string;
 };
@@ -91,7 +89,7 @@ export function PeopleManagement({
       });
       const data = (await res.json()) as PeopleApiResponse;
       if (!res.ok) {
-        showToast(data.error ?? "Failed to add person", "warning");
+        showToast(data.error ?? "Unable to add person. Please try again.", "warning");
         setBusy(false);
         return;
       }
@@ -103,8 +101,6 @@ export function PeopleManagement({
           title: "Share these login details",
         });
         showToast(`Account created for ${data.email}. Copy the temporary password below.`);
-      } else if (data.warning || data.emailSent === false) {
-        showToast(data.warning ?? `Invite created but email was not sent to ${body.email}.`, "warning");
       } else {
         showToast(`Invite email sent to ${body.email}`);
       }
@@ -148,7 +144,10 @@ export function PeopleManagement({
   }
 
   async function resetPassword(person: PeopleRow) {
-    if (!confirm(`Send password reset email to ${person.email}?`)) return;
+    const resetConfirm = emailDeliveryAvailable
+      ? `Send password reset email to ${person.email}?`
+      : `Generate a temporary password for ${person.email}?`;
+    if (!confirm(resetConfirm)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/people/${person.id}/reset-password`, {
@@ -156,7 +155,7 @@ export function PeopleManagement({
       });
       const data = (await res.json()) as PeopleApiResponse;
       if (!res.ok) {
-        showToast(data.error ?? "Failed to reset password", "warning");
+        showToast(data.error ?? "Unable to reset password. Please try again.", "warning");
       } else if (data.delivery === "manual" && data.temporaryPassword) {
         setCredentials({
           email: person.email,
@@ -164,8 +163,6 @@ export function PeopleManagement({
           title: "New temporary password",
         });
         showToast(`Temporary password generated for ${person.email}`);
-      } else if (data.warning || data.emailSent === false) {
-        showToast(data.warning ?? `Password reset email was not sent to ${person.email}.`, "warning");
       } else {
         showToast(`Password reset email sent to ${person.email}`);
       }
@@ -674,7 +671,7 @@ function DeliveryMethodField({ emailDeliveryAvailable }: { emailDeliveryAvailabl
       <div className="space-y-1.5">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access</p>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          No mail server configured. A temporary password will be shown for you to share manually
+          Email invite delivery is not enabled. A temporary password will be shown for you to share manually
           (Gmail, Slack, in person, etc.).
         </p>
         <input type="hidden" name="delivery" value="manual" />
@@ -701,7 +698,7 @@ function DeliveryMethodField({ emailDeliveryAvailable }: { emailDeliveryAvailabl
         <span>
           <span className="font-medium text-slate-900">Temporary password</span>
           <span className="mt-0.5 block text-xs text-slate-500">
-            Shows a one-time password here — you share it yourself. No email server needed.
+            Shows a one-time password here for you to share securely with the user.
           </span>
         </span>
       </label>
@@ -733,8 +730,8 @@ function CredentialsModal({
   return (
     <Modal title={credentials.title} onClose={onClose}>
       <p className="text-sm text-slate-600">
-        This password is shown once. Share it with the user yourself — the app cannot put messages in
-        Gmail without a mail server.
+        This password is only shown once. Copy it and share it securely with the user (for example by
+        phone or in person).
       </p>
       <div className="mt-4 space-y-3">
         <CredentialRow

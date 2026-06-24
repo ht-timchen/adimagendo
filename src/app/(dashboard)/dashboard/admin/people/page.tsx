@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { displayPeopleRole } from "@/lib/admin-people";
 import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 import { hasPermission } from "@/lib/admin-rbac";
-import { isSmtpConfigured } from "@/lib/mail";
+import { usesSmtpEmailDelivery } from "@/lib/mail";
 import { PeopleManagement, type PeopleRow } from "@/components/admin/people-management";
 
 export default async function AdminPeoplePage() {
@@ -56,7 +56,7 @@ export default async function AdminPeoplePage() {
           people={people}
           isSuperAdmin={canManageRoles}
           currentUserId={session?.user?.id ?? ""}
-          emailDeliveryAvailable={isSmtpConfigured()}
+          emailDeliveryAvailable={usesSmtpEmailDelivery()}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">

@@ -82,4 +82,7 @@ export async function register() {
   console.log(
     "[CRON] School attendance reminders scheduled (TEST ONLY: every 30s)"
   );
+
+  const { logMailConfigOnce } = await import("@/lib/mail");
+  logMailConfigOnce();
 }

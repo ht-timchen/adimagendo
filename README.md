@@ -34,9 +34,10 @@ The example `.env` uses **SQLite** (`DATABASE_URL="file:./dev.db"`), so no datab
 - **AUTH_SECRET** – Random string for session encryption, e.g. `openssl rand -base64 32`.
 - **AUTH_URL** – App URL, e.g. `http://localhost:3000` (dev) or your Vercel URL (prod).
 
-Optional (for later):
+Optional:
 
-- **EMAIL_*** – For notifications and contact form
+- **EMAIL_DELIVERY_MODE** – Staff invite/reset: `manual` (temporary password in admin UI) or `smtp` (email when SMTP is configured). If unset: SMTP vars present ⇒ email; otherwise ⇒ manual. **Railway pilot:** use `manual`.
+- **EMAIL_SERVER_*** – SMTP settings; only used when `EMAIL_DELIVERY_MODE=smtp`
 - **GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET** – For “Add to Google Calendar”
 
 ### 3. Database

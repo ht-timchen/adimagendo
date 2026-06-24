@@ -8,7 +8,15 @@ import {
   isStaffUser,
   PROTECTED_ADMIN_EMAIL,
 } from "@/lib/admin-people";
-import { isSmtpConfigured, sendInviteEmail, SMTP_NOT_CONFIGURED_MSG } from "@/lib/mail";
+import {
+  buildStaffEmailDeliveryResponse,
+  buildStaffManualCredentialsResponse,
+  formatMailDeliveryError,
+  formatStaffActionUserError,
+  resolveStaffResetDelivery,
+  sendInviteEmail,
+  STAFF_EMAIL_UNAVAILABLE_USER_MSG,
+} from "@/lib/mail";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
 export async function POST(
@@ -42,7 +50,13 @@ export async function POST(
   }
 
   try {
-    if (!isSmtpConfigured()) {
+    const deliveryPath = resolveStaffResetDelivery();
+
+    if (deliveryPath === "unavailable") {
+      return NextResponse.json({ error: STAFF_EMAIL_UNAVAILABLE_USER_MSG }, { status: 400 });
+    }
+
+    if (deliveryPath === "manual") {
       const temporaryPassword = generateTemporaryPassword();
       const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 
@@ -64,13 +78,9 @@ export async function POST(
         metadata: { delivery: "manual" },
       });
 
-      return NextResponse.json({
-        ok: true,
-        delivery: "manual",
-        emailSent: false,
-        email: user.email,
-        temporaryPassword,
-      });
+      return NextResponse.json(
+        buildStaffManualCredentialsResponse(user.email, temporaryPassword)
+      );
     }
 
     const token = generateInviteToken();
@@ -88,6 +98,15 @@ export async function POST(
       subject: "ADIMAGENDO — reset your password",
     });
 
+    if (!mail.sent) {
+      console.warn("[mail] Staff password reset email was not sent", {
+        email: user.email,
+        detail: formatMailDeliveryError(
+          new Error("SMTP not configured or dev preview only")
+        ),
+      });
+    }
+
     await recordAdminAuditEvent({
       session,
       action: ADMIN_AUDIT_ACTIONS.STAFF_PASSWORD_RESET,
@@ -97,14 +116,15 @@ export async function POST(
       metadata: { delivery: "email", emailSent: mail.sent },
     });
 
-    return NextResponse.json({
-      ok: true,
-      delivery: "email",
-      emailSent: mail.sent,
-      warning: mail.sent ? undefined : SMTP_NOT_CONFIGURED_MSG,
-    });
+    return NextResponse.json(buildStaffEmailDeliveryResponse());
   } catch (e) {
-    console.error("POST reset-password:", e);
-    return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 });
+    console.error("POST reset-password:", {
+      detail: formatMailDeliveryError(e),
+      err: e,
+    });
+    return NextResponse.json(
+      { error: formatStaffActionUserError(e, "reset_password") },
+      { status: 500 }
+    );
   }
 }
