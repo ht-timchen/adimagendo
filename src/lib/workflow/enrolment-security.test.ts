@@ -19,6 +19,7 @@ const VALID_DOB = "2000-01-15";
 
 const VALID_PAYLOAD = {
   name: "Ada",
+  email: "participant@example.com",
   password: "password1",
   dateOfBirth: VALID_DOB,
 };
@@ -187,15 +188,36 @@ describe("enrolment security", () => {
     assert.equal(res.status, 403);
   });
 
-  it("rejects client-submitted email", () => {
+  it("accepts a valid client-submitted email", () => {
+    const parsed = parseEnrolmentClientPayload({
+      ...VALID_PAYLOAD,
+      email: "Custom@Example.com",
+    });
+    assert.equal(parsed.email, "custom@example.com");
+  });
+
+  it("rejects missing email in payload", () => {
     assert.throws(
       () =>
         parseEnrolmentClientPayload({
-          email: "evil@example.com",
-          ...VALID_PAYLOAD,
+          name: "Ada",
+          password: "password1",
+          dateOfBirth: VALID_DOB,
         }),
       (e: unknown) =>
-        e instanceof EnrolmentRegistrationError && e.code === "FORBIDDEN_FIELDS"
+        e instanceof EnrolmentRegistrationError && e.code === "MISSING_FIELDS"
+    );
+  });
+
+  it("rejects invalid email in payload", () => {
+    assert.throws(
+      () =>
+        parseEnrolmentClientPayload({
+          ...VALID_PAYLOAD,
+          email: "not-an-email",
+        }),
+      (e: unknown) =>
+        e instanceof EnrolmentRegistrationError && e.code === "MISSING_FIELDS"
     );
   });
 
@@ -368,7 +390,7 @@ describe("enrolment security", () => {
     );
   });
 
-  it("registers with server-side email from REDCap sync", async () => {
+  it("registers with client-submitted email for account creation", async () => {
     const state: MockState = {
       tokens: new Map(),
       syncs: new Map(),
@@ -378,9 +400,15 @@ describe("enrolment security", () => {
     };
     seedValidEnrolment(state);
 
+    const submittedEmail = "custom@example.com";
     const result = await registerParticipantViaToken(
       "valid-token",
-      { name: "Ada Lovelace", password: "password1", dateOfBirth: VALID_DOB },
+      {
+        name: "Ada Lovelace",
+        email: submittedEmail,
+        password: "password1",
+        dateOfBirth: VALID_DOB,
+      },
       {
         db: createMockDb(state) as never,
         now: NOW,
@@ -389,7 +417,8 @@ describe("enrolment security", () => {
       }
     );
 
-    assert.equal(result.email, "participant@example.com");
+    assert.equal(result.email, submittedEmail);
+    assert.equal([...state.users.values()][0]?.email, submittedEmail);
     assert.equal(state.users.size, 1);
     assert.equal([...state.users.values()][0]?.role, "PARTICIPANT");
     assert.equal(state.profiles.length, 1);
@@ -440,17 +469,17 @@ describe("enrolment security", () => {
       resolveEnrollmentDate: async () => ENROLLMENT,
     };
 
-    await registerParticipantViaToken(
-      "valid-token",
-      { name: "First", password: "password1", dateOfBirth: VALID_DOB },
-      opts
-    );
+    await registerParticipantViaToken("valid-token", VALID_PAYLOAD, opts);
 
     await assert.rejects(
       () =>
         registerParticipantViaToken(
           "valid-token",
-          { name: "Second", password: "password1", dateOfBirth: VALID_DOB },
+          {
+            ...VALID_PAYLOAD,
+            name: "Second",
+            email: "second@example.com",
+          },
           opts
         ),
       (e: unknown) =>
@@ -484,7 +513,10 @@ describe("enrolment security", () => {
       () =>
         registerParticipantViaToken(
           "valid-token",
-          { name: "Race", password: "password1", dateOfBirth: VALID_DOB },
+          {
+            ...VALID_PAYLOAD,
+            name: "Race",
+          },
           {
             db: db as never,
             now: NOW,
@@ -502,6 +534,7 @@ describe("enrolment security", () => {
       () =>
         parseEnrolmentClientPayload({
           name: "Ada",
+          email: "ada@example.com",
           password: "password1",
         }),
       (e: unknown) =>
@@ -529,7 +562,7 @@ describe("enrolment security", () => {
       () =>
         registerParticipantViaToken(
           "valid-token",
-          { name: "Ada", password: "password1", dateOfBirth: "1999-12-31" },
+          { ...VALID_PAYLOAD, dateOfBirth: "1999-12-31" },
           opts
         ),
       (e: unknown) =>
