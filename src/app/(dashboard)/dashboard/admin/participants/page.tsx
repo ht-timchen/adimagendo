@@ -30,22 +30,24 @@ function formatDate(d: Date | null | undefined): string | null {
 }
 
 const CLASSIFICATION_FILTERS: ParticipantClassificationFilter[] = [
-  "pilot",
-  "test",
-  "unknown",
   "all",
+  "test",
+  "pilot",
+  "unknown",
 ];
 
 export default async function AdminParticipantsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ classification?: string }>;
+  searchParams: Promise<{ classification?: string; q?: string }>;
 }) {
   const session = await auth();
-  const { classification: classificationParam } = await searchParams;
-  const classificationFilter = parseParticipantClassificationFilter(
-    classificationParam
-  );
+  const { classification: classificationParam, q: searchQuery } = await searchParams;
+  const classificationFilter: ParticipantClassificationFilter =
+    classificationParam == null || classificationParam === ""
+      ? "all"
+      : parseParticipantClassificationFilter(classificationParam);
+  const recordIdQuery = searchQuery?.trim().toLowerCase() ?? "";
 
   const validTemplateIds = await getValidChecklistTemplateIds();
   const checklistScope =
@@ -136,6 +138,12 @@ export default async function AdminParticipantsPage({
         classificationLabel: badge.label,
         classificationClassName: badge.className,
       };
+    })
+    .filter((p) => {
+      if (!recordIdQuery) return true;
+      const recordId = p.recordId.toLowerCase();
+      const studyRecordId = p.studyRecordId?.toLowerCase() ?? "";
+      return recordId.includes(recordIdQuery) || studyRecordId.includes(recordIdQuery);
     });
 
   return (
@@ -152,8 +160,7 @@ export default async function AdminParticipantsPage({
             Participants
           </h1>
           <p className="text-slate-600 dark:text-slate-400">
-            View enrollment, study status, and checklist progress. Level 1
-            follow-up applies to pilot participants only.
+            Browse enrolled participants. Click a record ID to open full details.
           </p>
         </div>
       </div>
@@ -161,10 +168,13 @@ export default async function AdminParticipantsPage({
       <ParticipantClassificationTabs
         current={classificationFilter}
         counts={filterCounts}
+        recordIdQuery={searchQuery?.trim() ?? ""}
       />
 
       <AdminParticipantsTable
         participants={participants}
+        classificationFilter={classificationFilter}
+        recordIdQuery={searchQuery?.trim() ?? ""}
         permissions={{
           canResetPassword: hasPermission(session, "participant:reset_password"),
           canSendNotification: hasPermission(session, "notification:send"),
