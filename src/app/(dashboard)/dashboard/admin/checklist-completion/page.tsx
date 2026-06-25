@@ -41,7 +41,7 @@ export default async function ChecklistCompletionPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Checklist completion</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Participant Progress</h1>
         <p className="mt-1 text-sm text-slate-600">
           Per-participant checklist progress across all template items.
         </p>
@@ -88,7 +88,7 @@ export default async function ChecklistCompletionPage() {
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <ClipboardCheck className="h-5 w-5 text-violet-600" />
+            <ClipboardCheck className="h-5 w-5 text-brand" />
             By participant
           </CardTitle>
           <CardDescription>Total items, completion breakdown, and completion rate.</CardDescription>
@@ -123,7 +123,7 @@ export default async function ChecklistCompletionPage() {
                       <div className="ml-auto flex max-w-[120px] items-center justify-end gap-2">
                         <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <div
-                            className="h-full rounded-full bg-violet-500"
+                            className="h-full rounded-full bg-brand"
                             style={{ width: `${Math.min(100, r.pct)}%` }}
                           />
                         </div>
@@ -139,7 +139,7 @@ export default async function ChecklistCompletionPage() {
       </Card>
 
       <p className="text-center text-sm text-slate-500">
-        <Link href="/dashboard/admin" className="text-violet-700 hover:underline">
+        <Link href="/dashboard/admin" className="text-brand hover:text-brand-hover hover:underline">
           ← Back to overview
         </Link>
       </p>
