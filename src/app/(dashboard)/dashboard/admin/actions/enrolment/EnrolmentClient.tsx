@@ -376,28 +376,26 @@ export function EnrolmentClient({
                           <li className="flex items-start gap-2">
                             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                             <span>
-                              <span className="font-medium">active</span> — Link generated, not
-                              yet used
+                              <span className="font-medium">active</span> — Awaiting registration
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />
                             <span>
-                              <span className="font-medium">activated</span> — Participant has
-                              registered
+                              <span className="font-medium">activated</span> — Registered
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-400" />
                             <span>
-                              <span className="font-medium">expired</span> — Link expired,
-                              regenerate needed
+                              <span className="font-medium">expired</span> — Link expired (valid for
+                              30 days)
                             </span>
                           </li>
                           <li className="flex items-start gap-2 border-t border-slate-100 pt-2">
                             <span className="mt-1.5 text-slate-400">—</span>
                             <span>
-                              <span className="font-medium">none</span> — No link generated yet
+                              <span className="font-medium">—</span> — Not sent
                             </span>
                           </li>
                         </ul>
