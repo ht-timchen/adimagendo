@@ -75,24 +75,39 @@ export class EnrolmentRegistrationError extends Error {
 
 export type ParsedEnrolmentClientPayload = {
   name: string;
+  email: string;
   password: string;
   dateOfBirth: string;
 };
 
-/** Reject client-supplied email, studyRecordId, or role. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseSubmittedEmail(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new EnrolmentRegistrationError(
+      "MISSING_FIELDS",
+      "A valid email address is required.",
+      400
+    );
+  }
+  const email = value.trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    throw new EnrolmentRegistrationError(
+      "MISSING_FIELDS",
+      "A valid email address is required.",
+      400
+    );
+  }
+  return email;
+}
+
+/** Reject client-supplied studyRecordId or role. */
 export function parseEnrolmentClientPayload(body: unknown): ParsedEnrolmentClientPayload {
   if (!body || typeof body !== "object") {
     throw new EnrolmentRegistrationError("INVALID_BODY", "Invalid request body.", 400);
   }
 
   const record = body as Record<string, unknown>;
-  if ("email" in record) {
-    throw new EnrolmentRegistrationError(
-      "FORBIDDEN_FIELDS",
-      "Email cannot be submitted by the client.",
-      403
-    );
-  }
   if ("studyRecordId" in record) {
     throw new EnrolmentRegistrationError(
       "FORBIDDEN_FIELDS",
@@ -109,6 +124,7 @@ export function parseEnrolmentClientPayload(body: unknown): ParsedEnrolmentClien
   }
 
   const name = typeof record.name === "string" ? record.name.trim() : "";
+  const email = parseSubmittedEmail(record.email);
   const password = typeof record.password === "string" ? record.password : "";
   const dateOfBirth = parseSubmittedDateOfBirth(record.dateOfBirth);
 
@@ -127,7 +143,7 @@ export function parseEnrolmentClientPayload(body: unknown): ParsedEnrolmentClien
     );
   }
 
-  return { name, password, dateOfBirth };
+  return { name, email, password, dateOfBirth };
 }
 
 type RegisterParticipantDb = Pick<
@@ -170,7 +186,7 @@ export async function registerParticipantViaToken(
 
   const sync = await db.redcapParticipantSync.findUnique({
     where: { studyRecordId: enrolment.studyRecordId },
-    select: { email: true, enrollmentDate: true, dateOfBirth: true },
+    select: { enrollmentDate: true, dateOfBirth: true },
   });
 
   if (!sync?.enrollmentDate) {
@@ -197,14 +213,7 @@ export async function registerParticipantViaToken(
     );
   }
 
-  const email = sync.email?.trim().toLowerCase();
-  if (!email) {
-    throw new EnrolmentRegistrationError(
-      "SYNC_EMAIL_MISSING",
-      "No email is on file for this study record. Please contact your study coordinator.",
-      400
-    );
-  }
+  const email = payload.email;
 
   const enrollmentDate = await resolveEnrollmentDate(enrolment.studyRecordId);
   if (!enrollmentDate) {

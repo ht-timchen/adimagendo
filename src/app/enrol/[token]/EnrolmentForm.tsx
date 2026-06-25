@@ -30,9 +30,10 @@ function formatExpiry(iso: string): string {
   });
 }
 
-export function EnrolmentForm({ token, email, expiresAt }: EnrolmentFormProps) {
+export function EnrolmentForm({ token, email: defaultEmail, expiresAt }: EnrolmentFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [email, setEmail] = useState(defaultEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -59,6 +60,7 @@ export function EnrolmentForm({ token, email, expiresAt }: EnrolmentFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
+          email: email.trim(),
           password,
           dateOfBirth,
         }),
@@ -138,13 +140,12 @@ export function EnrolmentForm({ token, email, expiresAt }: EnrolmentFormProps) {
                 id="email"
                 type="email"
                 value={email}
-                readOnly
-                aria-readonly
-                className="bg-slate-100"
+                onChange={(e) => setEmail(e.target.value)}
+                required
                 autoComplete="email"
               />
               <p className="text-xs text-slate-500">
-                This email comes from your REDCap registration and cannot be changed here.
+                You can use a different email address if you prefer.
               </p>
             </div>
             <div className="space-y-2">
