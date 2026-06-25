@@ -12,6 +12,7 @@ import {
   FileUp,
   LayoutDashboard,
   Link as LinkIcon,
+  ListChecks,
   LogOut,
   Mail,
   Newspaper,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { AppBrandLogo } from "@/components/brand/app-brand-logo";
 
 export type ClinicalAdminShellUser = {
   id: string;
@@ -40,6 +42,7 @@ export type ClinicalAdminShellUser = {
 const mainNav = [
   { href: "/dashboard/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/admin/participants", label: "Participants", icon: Users },
+  { href: "/dashboard/admin/participant-progress", label: "Participant Progress", icon: ListChecks },
   { href: "/dashboard/admin/checklist-completion", label: "Checklist Completion", icon: ClipboardCheck },
   { href: "/dashboard/admin/news", label: "New Posts", icon: Newspaper },
   { href: "/dashboard/admin/messages", label: "Contact Messages", icon: Mail },
@@ -112,7 +115,7 @@ function SidebarNav({
             className={cn(
               buttonVariants({ variant: active ? "secondary" : "ghost", size: "sm" }),
               "justify-start gap-2 rounded-xl",
-              active && "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100",
+              active && "bg-brand-surface text-brand dark:bg-brand/20 dark:text-brand",
               compact && "text-xs"
             )}
           >
@@ -147,7 +150,7 @@ function SidebarNav({
                   className={cn(
                     buttonVariants({ variant: active ? "secondary" : "ghost", size: "sm" }),
                     "justify-start gap-2 rounded-xl pl-4",
-                    active && "bg-violet-100 text-violet-900 dark:bg-violet-900/40 dark:text-violet-100",
+                    active && "bg-brand-surface text-brand dark:bg-brand/20 dark:text-brand",
                     compact && "text-xs"
                   )}
                 >
@@ -176,11 +179,11 @@ export function ClinicalAdminShell({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-      <aside className="hidden shrink-0 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex md:w-56 md:flex-col md:border-b-0 md:border-r">
-        <div className="flex h-14 items-center border-b border-slate-100 px-4 dark:border-slate-800">
-          <span className="font-semibold text-violet-700 dark:text-violet-400">ADIMAGENDO</span>
+      <aside className="hidden shrink-0 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 md:flex md:w-60 md:flex-col md:border-b-0 md:border-r">
+        <div className="flex justify-center px-2 py-3">
+          <AppBrandLogo size="sidebar" href="/dashboard/admin" priority />
         </div>
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto border-t border-slate-100 p-3 dark:border-slate-800">
           <SidebarNav
             pathname={pathname}
             actionsOpen={actionsOpen}
@@ -204,8 +207,8 @@ export function ClinicalAdminShell({
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 dark:border-slate-800 dark:bg-slate-900 md:hidden">
-          <span className="font-semibold text-violet-700 dark:text-violet-400">ADIMAGENDO</span>
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-2 dark:border-slate-800 dark:bg-slate-900 md:hidden">
+          <AppBrandLogo size="header" href="/dashboard/admin" priority />
           <Button
             type="button"
             variant="ghost"
@@ -241,7 +244,7 @@ export function ClinicalAdminShell({
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-lg px-4 py-1 text-xs font-medium transition-colors",
                     active
-                      ? "text-violet-600 dark:text-violet-400"
+                      ? "text-brand dark:text-brand"
                       : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                   )}
                 >

@@ -22,7 +22,7 @@ export type AdminChecklistProgress = {
  * Ordered logical steps for "Next: …" hints. Multi-key steps advance when every
  * listed key is COMPLETED. All 19 seed template keys appear exactly once below.
  */
-const ADMIN_LOGICAL_CHECKLIST_STEPS: {
+export const ADMIN_LOGICAL_CHECKLIST_STEPS: {
   displayName: string;
   templateKeys: string[];
 }[] = [
