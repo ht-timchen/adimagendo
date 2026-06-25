@@ -44,6 +44,17 @@ type CredentialsPayload = {
 const MENU_WIDTH = 220;
 const MENU_GAP = 6;
 const DISABLE_REASON_MAX = 50;
+const NO_PUSH_SUBSCRIPTION_ERROR =
+  "This participant has not enabled push notifications. The notification could not be sent.";
+
+function pushSendErrorMessage(status: number, serverMsg: string): string {
+  const normalized = serverMsg.toLowerCase();
+  if (status === 404 && normalized.includes("no active push subscription")) {
+    return NO_PUSH_SUBSCRIPTION_ERROR;
+  }
+  if (serverMsg) return serverMsg;
+  return "Failed to send notification.";
+}
 
 export function ParticipantActions({
   target,
@@ -69,6 +80,7 @@ export function ParticipantActions({
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMessage, setDraftMessage] = useState("");
+  const [notifyError, setNotifyError] = useState<string | null>(null);
   const [disableReason, setDisableReason] = useState("");
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -229,6 +241,7 @@ export function ParticipantActions({
 
   async function submitNotification() {
     if (!draftTitle.trim()) return;
+    setNotifyError(null);
     setBusy(true);
     try {
       const payload: { title: string; message?: string; url: string; userId: string } = {
@@ -248,24 +261,19 @@ export function ParticipantActions({
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         const serverMsg = typeof data.error === "string" ? data.error.trim() : "";
-        const noSubscription =
-          res.status === 404 && serverMsg.toLowerCase().includes("no active push subscription");
-        showToast(
-          "error",
-          noSubscription
-            ? "This participant has disabled notifications."
-            : serverMsg || "Failed to send notification."
-        );
+        setNotifyError(pushSendErrorMessage(res.status, serverMsg));
         return;
       }
       showToast("success", "Notification sent");
       setNotifyOpen(false);
       setDraftTitle("");
       setDraftMessage("");
+      setNotifyError(null);
     } catch {
-      showToast("error", "Failed to send notification");
+      setNotifyError("Failed to send notification. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function submitDisable() {
@@ -368,6 +376,7 @@ export function ParticipantActions({
               setNotifyOpen(true);
               setDraftTitle("");
               setDraftMessage("");
+              setNotifyError(null);
             },
           },
         ]
@@ -440,7 +449,7 @@ export function ParticipantActions({
           type="button"
           size={variant === "header" ? "default" : "sm"}
           variant="outline"
-          className={cn("rounded-xl", open && "border-violet-300 bg-violet-50")}
+          className={cn("rounded-xl", open && "border-brand/30 bg-brand-surface")}
           disabled={busy}
           aria-expanded={open}
           aria-haspopup="menu"
@@ -511,6 +520,7 @@ export function ParticipantActions({
           target={target}
           title={draftTitle}
           message={draftMessage}
+          error={notifyError}
           busy={busy}
           onTitleChange={setDraftTitle}
           onMessageChange={setDraftMessage}
@@ -519,6 +529,7 @@ export function ParticipantActions({
             setNotifyOpen(false);
             setDraftTitle("");
             setDraftMessage("");
+            setNotifyError(null);
           }}
           onSubmit={submitNotification}
         />
@@ -596,7 +607,7 @@ function CredentialsModal({
           <Copy className="mr-1.5 h-4 w-4" />
           {copied === "All" ? "Copied" : "Copy all"}
         </Button>
-        <Button type="button" className="rounded-xl bg-violet-600" onClick={onClose}>
+        <Button type="button" className="rounded-xl" onClick={onClose}>
           Done
         </Button>
       </div>
@@ -608,6 +619,7 @@ function NotifyModal({
   target,
   title,
   message,
+  error,
   busy,
   onTitleChange,
   onMessageChange,
@@ -617,6 +629,7 @@ function NotifyModal({
   target: ParticipantActionTarget;
   title: string;
   message: string;
+  error: string | null;
   busy: boolean;
   onTitleChange: (v: string) => void;
   onMessageChange: (v: string) => void;
@@ -656,6 +669,11 @@ function NotifyModal({
             className="rounded-xl"
           />
         </div>
+        {error ? (
+          <p className="text-sm text-rose-600" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <Button
@@ -669,7 +687,7 @@ function NotifyModal({
         </Button>
         <Button
           type="button"
-          className="rounded-xl bg-violet-600"
+          className="rounded-xl"
           disabled={busy || !title.trim()}
           onClick={onSubmit}
         >
@@ -776,7 +794,7 @@ function QrModal({ url, onClose }: { url: string; onClose: () => void }) {
           <Copy className="mr-1.5 h-4 w-4" />
           {copied ? "Copied" : "Copy link"}
         </Button>
-        <Button type="button" className="rounded-xl bg-violet-600" onClick={onClose}>
+        <Button type="button" className="rounded-xl" onClick={onClose}>
           Done
         </Button>
       </div>
