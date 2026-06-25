@@ -66,6 +66,16 @@ export default async function AdminEnrolmentPage() {
     createdAt: p.createdAt.toISOString(),
   }));
 
+  const studyRecordIds = redcapRows.map((p) => p.studyRecordId);
+  const boundProfiles =
+    studyRecordIds.length > 0
+      ? await prisma.participantProfile.findMany({
+          where: { studyRecordId: { in: studyRecordIds } },
+          select: { studyRecordId: true },
+        })
+      : [];
+  const boundStudyRecordIds = boundProfiles.map((p) => p.studyRecordId);
+
   return (
     <div className="mx-auto max-w-[90rem] space-y-8">
       <div>
@@ -85,6 +95,7 @@ export default async function AdminEnrolmentPage() {
       <EnrolmentClient
         initialTokens={initialTokens}
         redcapParticipants={redcapParticipants}
+        boundStudyRecordIds={boundStudyRecordIds}
       />
     </div>
   );

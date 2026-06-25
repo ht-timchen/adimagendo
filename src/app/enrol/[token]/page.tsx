@@ -5,7 +5,13 @@ import { EnrolmentForm } from "./EnrolmentForm";
 
 const SUPPORT_EMAIL = "adimagendo@adelaide.edu.au";
 
-function EnrolmentErrorCard({ message }: { message: string }) {
+function EnrolmentErrorCard({
+  message,
+  signInCta = false,
+}: {
+  message: string;
+  signInCta?: boolean;
+}) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
       <Card className="w-full max-w-md">
@@ -17,6 +23,14 @@ function EnrolmentErrorCard({ message }: { message: string }) {
         </CardHeader>
         <CardContent className="space-y-4 text-center">
           <p className="text-sm text-slate-700 dark:text-slate-300">{message}</p>
+          {signInCta ? (
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              Sign in →
+            </Link>
+          ) : null}
           <p className="text-sm text-slate-600 dark:text-slate-400">
             Need help?{" "}
             <Link
@@ -95,7 +109,10 @@ export default async function EnrolPage({
   });
   if (existingProfile) {
     return (
-      <EnrolmentErrorCard message="An account is already linked to this study record." />
+      <EnrolmentErrorCard
+        message="An account is already linked to ADIMAGENDO App. Sign in here."
+        signInCta
+      />
     );
   }
 

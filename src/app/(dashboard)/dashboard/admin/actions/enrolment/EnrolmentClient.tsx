@@ -143,9 +143,11 @@ function redcapTypeBadge(type: string | null): { label: string; className: strin
 export function EnrolmentClient({
   initialTokens,
   redcapParticipants,
+  boundStudyRecordIds: initialBoundStudyRecordIds,
 }: {
   initialTokens: EnrolmentTokenRow[];
   redcapParticipants: RedcapParticipantRow[];
+  boundStudyRecordIds: string[];
 }) {
   const router = useRouter();
   const [studyRecordId, setStudyRecordId] = useState("");
@@ -159,6 +161,9 @@ export function EnrolmentClient({
   const [copied, setCopied] = useState(false);
   const [tokens, setTokens] = useState<EnrolmentTokenRow[]>(initialTokens);
   const [participants, setParticipants] = useState(redcapParticipants);
+  const [boundStudyRecordIds, setBoundStudyRecordIds] = useState(
+    () => new Set(initialBoundStudyRecordIds)
+  );
   const [manualOpen, setManualOpen] = useState(false);
   const [linkStatusLegendOpen, setLinkStatusLegendOpen] = useState(false);
   const [origin, setOrigin] = useState("");
@@ -171,6 +176,10 @@ export function EnrolmentClient({
   useEffect(() => {
     setParticipants(redcapParticipants);
   }, [redcapParticipants]);
+
+  useEffect(() => {
+    setBoundStudyRecordIds(new Set(initialBoundStudyRecordIds));
+  }, [initialBoundStudyRecordIds]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -451,16 +460,22 @@ export function EnrolmentClient({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="rounded-xl"
-                          disabled={busyRecordId === p.studyRecordId}
-                          onClick={() => generateLinkForRecord(p.studyRecordId, label)}
-                        >
-                          {busyRecordId === p.studyRecordId ? "Generating…" : "Generate Link"}
-                        </Button>
+                        {boundStudyRecordIds.has(p.studyRecordId) ? (
+                          <span className="text-sm font-medium text-violet-700">
+                            Account activated
+                          </span>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl"
+                            disabled={busyRecordId === p.studyRecordId}
+                            onClick={() => generateLinkForRecord(p.studyRecordId, label)}
+                          >
+                            {busyRecordId === p.studyRecordId ? "Generating…" : "Generate Link"}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
