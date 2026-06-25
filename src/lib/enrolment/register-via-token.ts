@@ -41,6 +41,8 @@ function ymdToUtcDate(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
 }
+
+function parseSubmittedDateOfBirth(value: unknown): string {
   if (typeof value !== "string" || !DOB_INPUT_RE.test(value.trim())) {
     throw new EnrolmentRegistrationError(
       "DOB_MISSING",

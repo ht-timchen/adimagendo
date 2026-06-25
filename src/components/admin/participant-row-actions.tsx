@@ -43,6 +43,7 @@ type CredentialsPayload = {
 
 const MENU_WIDTH = 220;
 const MENU_GAP = 6;
+const DISABLE_REASON_MAX = 50;
 import { adminPushSendErrorMessage } from "@/lib/push/admin-push-send-ui";
 
 export function ParticipantActions({
