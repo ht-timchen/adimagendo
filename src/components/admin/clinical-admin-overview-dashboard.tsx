@@ -745,7 +745,7 @@ export function ClinicalAdminOverviewDashboard({
         </div>
 
         {/* QUICK ACTIONS */}
-        <aside className="w-full shrink-0 space-y-3 lg:w-64">
+        <aside className="w-full shrink-0 space-y-3 lg:w-72">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick actions</p>
           <div className="flex flex-col gap-2">
             {quickLinks.map((q) => {
