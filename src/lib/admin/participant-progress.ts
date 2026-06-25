@@ -179,23 +179,26 @@ export function buildDueDateDisplay(
 }
 
 function hasAnyComputedOverdueItem(params: {
-  items: ChecklistItemInput[];
+  completedKeys: Set<string>;
   enrollmentDate: Date | null | undefined;
   templatesByKey: Map<string, ChecklistTemplateMeta>;
   now?: Date;
 }): boolean {
-  for (const item of params.items) {
-    const template = params.templatesByKey.get(item.templateKey);
-    const dueOffsetDays = resolveDueOffsetDays(template);
-    if (
-      isItemComputedOverdue({
-        status: item.status,
-        enrollmentDate: params.enrollmentDate,
-        dueOffsetDays,
-        now: params.now,
-      })
-    ) {
-      return true;
+  for (const step of ADMIN_LOGICAL_CHECKLIST_STEPS) {
+    for (const key of step.templateKeys) {
+      if (params.completedKeys.has(key)) continue;
+      const template = params.templatesByKey.get(key);
+      const dueOffsetDays = resolveDueOffsetDays(template);
+      if (
+        isItemComputedOverdue({
+          status: "PENDING",
+          enrollmentDate: params.enrollmentDate,
+          dueOffsetDays,
+          now: params.now,
+        })
+      ) {
+        return true;
+      }
     }
   }
   return false;
@@ -244,7 +247,7 @@ export function buildParticipantProgressRow(params: {
   );
   const dueDisplay = buildDueDateDisplay(nextDueDate, now);
   const hasOverdueItems = hasAnyComputedOverdueItem({
-    items: params.items,
+    completedKeys,
     enrollmentDate: params.enrollmentDate,
     templatesByKey: params.templatesByKey,
     now,
