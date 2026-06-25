@@ -16,7 +16,7 @@ import {
 
 type EnrolmentFormProps = {
   token: string;
-  studyRecordId: string;
+  email: string;
   expiresAt: string;
 };
 
@@ -30,12 +30,12 @@ function formatExpiry(iso: string): string {
   });
 }
 
-export function EnrolmentForm({ token, studyRecordId, expiresAt }: EnrolmentFormProps) {
+export function EnrolmentForm({ token, email, expiresAt }: EnrolmentFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,14 +59,14 @@ export function EnrolmentForm({ token, studyRecordId, expiresAt }: EnrolmentForm
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
           password,
-          studyRecordId,
+          dateOfBirth,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         success?: boolean;
+        email?: string;
       };
 
       if (!res.ok || !data.success) {
@@ -75,17 +75,15 @@ export function EnrolmentForm({ token, studyRecordId, expiresAt }: EnrolmentForm
         return;
       }
 
-      const emailLower = email.trim().toLowerCase();
+      const registeredEmail = (data.email ?? email).trim().toLowerCase();
       const signInRes = await signIn("credentials", {
-        email: emailLower,
+        email: registeredEmail,
         password,
         redirect: false,
       });
 
       if (signInRes?.error) {
-        setError(
-          "Account created but login failed. Please go to the login page."
-        );
+        setError("Account created but login failed. Please go to the login page.");
         setLoading(false);
         return;
       }
@@ -140,10 +138,14 @@ export function EnrolmentForm({ token, studyRecordId, expiresAt }: EnrolmentForm
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                readOnly
+                aria-readonly
+                className="bg-slate-100"
                 autoComplete="email"
               />
+              <p className="text-xs text-slate-500">
+                This email comes from your REDCap registration and cannot be changed here.
+              </p>
             </div>
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium">
@@ -172,6 +174,22 @@ export function EnrolmentForm({ token, studyRecordId, expiresAt }: EnrolmentForm
                 minLength={8}
                 autoComplete="new-password"
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="dateOfBirth" className="text-sm font-medium">
+                Date of birth
+              </label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+                required
+                autoComplete="bday"
+              />
+              <p className="text-xs text-slate-500">
+                Enter your date of birth as recorded with the study team.
+              </p>
             </div>
           </CardContent>
           <CardFooter>

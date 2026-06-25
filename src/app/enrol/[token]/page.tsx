@@ -47,6 +47,12 @@ export default async function EnrolPage({
     return <EnrolmentErrorCard message="This link is invalid." />;
   }
 
+  if (enrolment.revokedAt) {
+    return (
+      <EnrolmentErrorCard message="This link has been revoked. Please contact your study coordinator." />
+    );
+  }
+
   if (enrolment.usedAt) {
     return (
       <EnrolmentErrorCard message="This link has already been used. Please contact your study coordinator." />
@@ -59,10 +65,44 @@ export default async function EnrolPage({
     );
   }
 
+  const sync = await prisma.redcapParticipantSync.findUnique({
+    where: { studyRecordId: enrolment.studyRecordId },
+    select: { email: true, enrollmentDate: true, dateOfBirth: true },
+  });
+
+  if (!sync?.enrollmentDate) {
+    return (
+      <EnrolmentErrorCard message="This study record is not eligible for enrolment yet. Please contact your study coordinator." />
+    );
+  }
+
+  if (!sync.dateOfBirth) {
+    return (
+      <EnrolmentErrorCard message="Date of birth is not on file for this study record. Please contact your study coordinator." />
+    );
+  }
+
+  const email = sync.email?.trim();
+  if (!email) {
+    return (
+      <EnrolmentErrorCard message="No email is on file for this study record. Please contact your study coordinator." />
+    );
+  }
+
+  const existingProfile = await prisma.participantProfile.findFirst({
+    where: { studyRecordId: enrolment.studyRecordId },
+    select: { id: true },
+  });
+  if (existingProfile) {
+    return (
+      <EnrolmentErrorCard message="An account is already linked to this study record." />
+    );
+  }
+
   return (
     <EnrolmentForm
       token={token}
-      studyRecordId={enrolment.studyRecordId}
+      email={email}
       expiresAt={enrolment.expiresAt.toISOString()}
     />
   );
