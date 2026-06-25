@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ParticipantAuthLayout } from "@/components/auth/participant-auth-layout";
+import { ParticipantAuthLogo } from "@/components/auth/participant-auth-logo";
+import { participantPrimaryLinkClassName } from "@/lib/auth-ui";
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { EnrolmentForm } from "./EnrolmentForm";
 
 const SUPPORT_EMAIL = "adimagendo@adelaide.edu.au";
@@ -13,36 +16,33 @@ function EnrolmentErrorCard({
   signInCta?: boolean;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+    <ParticipantAuthLayout>
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-violet-700">
-            ADIMAGENDO
-          </CardTitle>
-          <CardDescription>Study participant enrolment</CardDescription>
+        <CardHeader className="space-y-0 px-6 pb-4 pt-8 text-center">
+          <ParticipantAuthLogo />
+          <CardDescription className="mt-4 text-sm font-medium">
+            Study participant enrolment
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-sm text-slate-700 dark:text-slate-300">{message}</p>
+          <p className="text-sm text-slate-700">{message}</p>
           {signInCta ? (
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700"
-            >
+            <Link href="/login" className={participantPrimaryLinkClassName}>
               Sign in →
             </Link>
           ) : null}
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-slate-600">
             Need help?{" "}
             <Link
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="font-medium text-violet-600 hover:underline"
+              className="font-medium text-[#2F8F7A] hover:underline"
             >
               Contact the study team
             </Link>
           </p>
         </CardContent>
       </Card>
-    </div>
+    </ParticipantAuthLayout>
   );
 }
 
@@ -119,7 +119,6 @@ export default async function EnrolPage({
   return (
     <EnrolmentForm
       token={token}
-      email={email}
       expiresAt={enrolment.expiresAt.toISOString()}
     />
   );

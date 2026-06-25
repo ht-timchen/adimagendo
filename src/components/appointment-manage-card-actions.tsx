@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  participantDashboardBodyClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardInputClassName,
+  participantDashboardLabelClassName,
+  participantDashboardModalClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
+import {
   combineLocalDateTime,
   formatAppointmentDateTime,
   todayYmdLocal,
@@ -156,7 +165,7 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+    <div className="flex flex-wrap gap-2 border-t border-[#2F8F7A]/20 pt-3">
       <Button type="button" size="sm" variant="outline" onClick={openEdit}>
         Edit appointment
       </Button>
@@ -164,7 +173,7 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
         type="button"
         size="sm"
         variant="outline"
-        className="text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+        className="text-rose-700 hover:bg-rose-50"
         onClick={() => cancelDialogRef.current?.showModal()}
       >
         Cancel appointment
@@ -172,21 +181,24 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
 
       <dialog
         ref={editDialogRef}
-        className="fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className={cn(
+          "participant-portal-light fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,26rem)] -translate-x-1/2 -translate-y-1/2 p-5",
+          participantDashboardModalClassName
+        )}
         onClose={() => setEditStep("form")}
       >
         {editStep === "form" ? (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
               Edit appointment
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               Update the date and time for &quot;{appt.title}&quot;. Only future
               times are allowed.
             </p>
             <div className="grid gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Date
                 </label>
                 <Input
@@ -194,26 +206,29 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
                   min={todayYmdLocal()}
                   value={dateStr}
                   onChange={(e) => setDateStr(e.target.value)}
+                  className={participantDashboardInputClassName}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Time
                 </label>
                 <Input
                   type="time"
                   value={timeStr}
                   onChange={(e) => setTimeStr(e.target.value)}
+                  className={participantDashboardInputClassName}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Location (optional)
                 </label>
                 <Input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Suite 3, Imaging Centre"
+                  className={participantDashboardInputClassName}
                 />
               </div>
             </div>
@@ -228,10 +243,10 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
               Review changes
             </h2>
-            <p className="text-sm text-slate-700 dark:text-slate-300">
+            <p className={cn("text-sm", participantDashboardBodyClassName)}>
               Your appointment will be:{" "}
               <span className="font-medium">
                 {previewCombined
@@ -259,13 +274,16 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
 
       <dialog
         ref={cancelDialogRef}
-        className="fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className={cn(
+          "participant-portal-light fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,24rem)] -translate-x-1/2 -translate-y-1/2 p-5",
+          participantDashboardModalClassName
+        )}
       >
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
             Cancel this visit?
           </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className={cn("text-sm", participantDashboardMutedClassName)}>
             {appt.participantChecklistItemId
               ? "This removes the visit from your schedule. You can confirm a new date and time from your checklist if you still need the appointment."
               : "This removes the visit from your schedule."}
@@ -282,7 +300,7 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
             <Button
               type="button"
               variant="outline"
-              className="border-rose-300 text-rose-800 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/50"
+              className="border-rose-300 text-rose-800 hover:bg-rose-50"
               onClick={confirmCancel}
               disabled={cancelling}
             >
@@ -295,7 +313,11 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 right-6 z-[60] max-w-sm rounded-md border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 shadow-md dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className={cn(
+            "participant-portal-light fixed bottom-6 right-6 z-[60] max-w-sm px-4 py-2 text-sm shadow-md",
+            participantDashboardModalClassName,
+            participantDashboardBodyClassName
+          )}
         >
           {toast}
         </div>

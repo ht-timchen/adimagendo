@@ -17,6 +17,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  participantDashboardBodyClassName,
+  participantDashboardCalendarDayClassName,
+  participantDashboardCalendarDayHasEntryClassName,
+  participantDashboardCalendarDayOutsideClassName,
+  participantDashboardCalendarDaySelectedClassName,
+  participantDashboardCalendarMutedClassName,
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardInputClassName,
+  participantDashboardLabelClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
 
 const SYMPTOM_OPTIONS = [
   "cramping",
@@ -127,9 +140,9 @@ export function SymptomDiary() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Calendar</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Calendar</CardTitle>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -138,7 +151,7 @@ export function SymptomDiary() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="min-w-[120px] text-center font-medium">
+            <span className={cn("min-w-[120px] text-center font-medium", participantDashboardBodyClassName)}>
               {format(monthStart, "MMMM yyyy")}
             </span>
             <Button
@@ -152,11 +165,11 @@ export function SymptomDiary() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>Loading…</p>
           ) : (
             <div className="grid grid-cols-7 gap-1 text-center text-sm">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div key={day} className="font-medium text-slate-500">
+                <div key={day} className={participantDashboardCalendarMutedClassName}>
                   {day}
                 </div>
               ))}
@@ -171,10 +184,10 @@ export function SymptomDiary() {
                     type="button"
                     onClick={() => setSelectedDate(dateKey)}
                     className={cn(
-                      "rounded-lg border p-2 text-sm transition-colors",
-                      isSelected && "ring-2 ring-violet-500",
-                      hasEntry && "bg-violet-100 dark:bg-violet-900/30",
-                      !isSameMonth(d, monthStart) && "text-slate-300 dark:text-slate-600"
+                      participantDashboardCalendarDayClassName,
+                      isSelected && participantDashboardCalendarDaySelectedClassName,
+                      hasEntry && participantDashboardCalendarDayHasEntryClassName,
+                      !isSameMonth(d, monthStart) && participantDashboardCalendarDayOutsideClassName
                     )}
                   >
                     {format(d, "d")}
@@ -187,26 +200,26 @@ export function SymptomDiary() {
       </Card>
 
       {selectedDate && (
-        <Card>
+        <Card className={participantDashboardCardClassName}>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">
+            <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
               {format(parseISO(selectedDate), "EEEE, MMM d, yyyy")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Pain level (0–10)</label>
+              <label className={participantDashboardLabelClassName}>Pain level (0–10)</label>
               <Input
                 type="number"
                 min={0}
                 max={10}
                 value={form.painLevel}
                 onChange={(e) => setForm((p) => ({ ...p, painLevel: e.target.value }))}
-                className="mt-1 max-w-[80px]"
+                className={cn("mt-1 max-w-[80px]", participantDashboardInputClassName)}
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Symptoms</label>
+              <label className={participantDashboardLabelClassName}>Symptoms</label>
               <div className="mt-2 flex flex-wrap gap-2">
                 {SYMPTOM_OPTIONS.map((opt) => (
                   <label
@@ -214,8 +227,8 @@ export function SymptomDiary() {
                     className={cn(
                       "cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors",
                       form.symptoms.includes(opt)
-                        ? "border-violet-500 bg-violet-100 dark:bg-violet-900/30"
-                        : "border-slate-200 dark:border-slate-700"
+                        ? "border-[#2F8F7A]/40 bg-[#2F8F7A]/15 text-[#17483F]"
+                        : "border-[#2F8F7A]/20 bg-white/70 text-[#17483F]"
                     )}
                   >
                     <input
@@ -230,11 +243,11 @@ export function SymptomDiary() {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Notes</label>
+              <label className={participantDashboardLabelClassName}>Notes</label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                className={cn("mt-1 w-full rounded-lg px-3 py-2 text-sm", participantDashboardInputClassName)}
                 rows={3}
                 placeholder="Optional notes…"
               />

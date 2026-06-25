@@ -9,9 +9,7 @@ export function DocumentsSection() {
   return (
     <div className="space-y-6">
       <DocumentUpload onUpload={() => setRefresh((r) => r + 1)} />
-      <div key={refresh}>
-        <DocumentsList />
-      </div>
+      <DocumentsList refreshKey={refresh} />
     </div>
   );
 }

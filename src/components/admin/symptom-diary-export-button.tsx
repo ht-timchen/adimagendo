@@ -38,7 +38,7 @@ export function SymptomDiaryExportButton() {
       type="button"
       onClick={download}
       disabled={busy}
-      className="rounded-xl bg-violet-600 hover:bg-violet-700"
+      className="rounded-xl"
     >
       {busy ? (
         <>

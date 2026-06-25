@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -10,10 +10,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   try {
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
@@ -26,7 +25,7 @@ export async function POST(req: Request) {
     const { subject, message, category } = parsed.data;
     await prisma.contactMessage.create({
       data: {
-        userId: session.user.id,
+        userId: userId,
         subject,
         message,
         category: category ?? null,

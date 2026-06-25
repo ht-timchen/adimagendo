@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -12,10 +12,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   const { id } = await params;
 
@@ -48,7 +47,7 @@ export async function PATCH(
       : parsed.data.scheduledLocation?.trim() ?? null;
 
   const existing = await prisma.appointment.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: userId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -86,15 +85,14 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   const { id } = await params;
 
   const existing = await prisma.appointment.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: userId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

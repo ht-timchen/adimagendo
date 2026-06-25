@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { MarkContactMessagesSeen } from "@/components/admin/mark-contact-messages-seen";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Mail } from "lucide-react";
 
@@ -17,6 +18,7 @@ export default async function AdminMessagesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
+      <MarkContactMessagesSeen />
       <div>
         <Link
           href="/dashboard/admin"
@@ -31,7 +33,7 @@ export default async function AdminMessagesPage() {
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Mail className="h-5 w-5 text-violet-600" />
+            <Mail className="h-5 w-5 text-brand" />
             Inbox
           </CardTitle>
           <CardDescription>Participant, preview, and received time.</CardDescription>

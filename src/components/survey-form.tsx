@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardInputClassName,
+  participantDashboardLabelClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 type Question = {
   id: string;
@@ -58,14 +65,14 @@ export function SurveyForm({
 
   if (completed && saved) {
     return (
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardContent className="py-8 text-center">
-          <p className="font-medium text-violet-600 dark:text-violet-400">
+          <p className="font-medium text-[#2F8F7A]">
             Survey completed. Thank you!
           </p>
           <Link
             href="/dashboard/surveys"
-            className="mt-4 inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-4 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-[#2F8F7A]/30 bg-white/85 px-4 text-sm font-medium text-[#17483F] hover:bg-[#2F8F7A]/10"
           >
             Back to surveys
           </Link>
@@ -76,8 +83,8 @@ export function SurveyForm({
 
   if (questions.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-8 text-center text-slate-500">
+      <Card className={participantDashboardCardClassName}>
+        <CardContent className="py-8 text-center text-[#2A6F60]">
           No questions in this survey.
         </CardContent>
       </Card>
@@ -86,14 +93,16 @@ export function SurveyForm({
 
   return (
     <form onSubmit={handleSubmit}>
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader>
-          <CardTitle className="text-base">Questions</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+            Questions
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {questions.map((q) => (
             <div key={q.id}>
-              <label className="block text-sm font-medium" htmlFor={q.id}>
+              <label className={cn("block", participantDashboardLabelClassName)} htmlFor={q.id}>
                 {q.text}
               </label>
               {q.type === "scale" && (
@@ -109,7 +118,7 @@ export function SurveyForm({
                       [q.id]: e.target.value ? Number(e.target.value) : "",
                     }))
                   }
-                  className="mt-2 max-w-[100px]"
+                  className={cn("mt-2 max-w-[100px]", participantDashboardInputClassName)}
                 />
               )}
               {q.type !== "scale" && (
@@ -120,7 +129,7 @@ export function SurveyForm({
                   onChange={(e) =>
                     setAnswers((p) => ({ ...p, [q.id]: e.target.value }))
                   }
-                  className="mt-2"
+                  className={cn("mt-2", participantDashboardInputClassName)}
                 />
               )}
             </div>

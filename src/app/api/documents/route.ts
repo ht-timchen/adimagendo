@@ -1,60 +1,58 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
+import { PARTICIPANT_DOCUMENT_MAX_BYTES } from "@/lib/documents/participant-upload";
+import { uploadParticipantDocument } from "@/lib/documents/upload-participant-document";
 import { prisma } from "@/lib/db";
-import { getUploadDir } from "@/lib/uploads";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const docs = await prisma.document.findMany({
-    where: { userId: session.user.id },
+    where: { userId: userId },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json(docs);
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
+
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    const title = formData.get("title") as string | null;
-    const type = (formData.get("type") as string) || "REPORT_CARD";
-    if (!file || file.size === 0) {
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (contentLength > PARTICIPANT_DOCUMENT_MAX_BYTES) {
       return NextResponse.json(
-        { error: "No file provided" },
+        { error: "File is too large. Maximum size is 10 MB." },
+        { status: 413 }
+      );
+    }
+
+    const formData = await req.formData();
+    const fileValue = formData.get("file");
+    const title = formData.get("title");
+    const type = formData.get("type");
+
+    if (!(fileValue instanceof File)) {
+      return NextResponse.json(
+        { error: "Please select a file" },
         { status: 400 }
       );
     }
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const ext = path.extname(file.name) || ".pdf";
-    const safeTitle = (title || file.name).slice(0, 200);
-    const uploadDir = getUploadDir();
-    const dir = path.join(uploadDir, session.user.id);
-    await mkdir(dir, { recursive: true });
-    const filename = `${Date.now()}${ext}`;
-    const storageKey = path.join(session.user.id, filename);
-    await writeFile(path.join(uploadDir, storageKey), buffer);
-    const doc = await prisma.document.create({
-      data: {
-        userId: session.user.id,
-        type: type === "REFERRAL" ? "REFERRAL" : "REPORT_CARD",
-        title: safeTitle,
-        storageKey,
-        mimeType: file.type || null,
-        sizeBytes: buffer.length,
-        isReferral: false,
-      },
+
+    const result = await uploadParticipantDocument({
+      userId,
+      file: fileValue,
+      title: typeof title === "string" ? title : null,
+      type: typeof type === "string" ? type : null,
     });
-    return NextResponse.json(doc);
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json(result.document);
   } catch (e) {
     console.error("Document upload error:", e);
     return NextResponse.json(

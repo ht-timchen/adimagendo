@@ -7,6 +7,12 @@ import {
 } from "@/hooks/usePushNotification";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 import { Bell } from "lucide-react";
 
 function messageForError(
@@ -52,25 +58,26 @@ export function PushNotificationOptIn() {
   if (!isSupported) return null;
 
   return (
-    <Card>
+    <Card className={participantDashboardCardClassName}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base">Push notifications</CardTitle>
-        <Bell className="h-5 w-5 text-violet-600" />
+        <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Push notifications</CardTitle>
+        <Bell className="h-5 w-5 text-[#2F8F7A]" />
       </CardHeader>
       <CardContent className="space-y-3">
         {isSubscribed ? (
           <div className="space-y-3">
             {feedback === "Notifications enabled!" && (
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+              <p className="text-sm font-medium text-emerald-600">
                 Notifications enabled!
               </p>
             )}
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               Notifications are enabled
             </p>
             <Button
               type="button"
               variant="outline"
+              className="border-[#2F8F7A]/40 text-[#1E5D50] hover:bg-[#e8f3f0]"
               onClick={async () => {
                 setFeedback(null);
                 setPending(true);
@@ -89,14 +96,14 @@ export function PushNotificationOptIn() {
             {feedback &&
               feedback !== "Notifications enabled!" &&
               feedback !== "Notifications disabled." && (
-                <p className="text-sm text-amber-800 dark:text-amber-200">
+                <p className="text-sm text-amber-800">
                   {feedback}
                 </p>
               )}
           </div>
         ) : (
           <>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               Get study updates on this device when we send them.
             </p>
             <Button
@@ -121,8 +128,8 @@ export function PushNotificationOptIn() {
                 className={`text-sm ${
                   feedback === "Notifications enabled!" ||
                   feedback === "Notifications disabled."
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-amber-800 dark:text-amber-200"
+                    ? "text-emerald-600"
+                    : "text-amber-800"
                 }`}
               >
                 {feedback}

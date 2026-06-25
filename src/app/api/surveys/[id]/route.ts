@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const { id } = await params;
   const template = await prisma.surveyTemplate.findUnique({
     where: { id },
@@ -19,7 +18,7 @@ export async function GET(
   }
   const existing = await prisma.surveyResponse.findUnique({
     where: {
-      userId_templateId: { userId: session.user.id, templateId: id },
+      userId_templateId: { userId: userId, templateId: id },
     },
   });
   return NextResponse.json({

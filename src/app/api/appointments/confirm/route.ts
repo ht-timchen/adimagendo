@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import {
   ConfirmExternalAppointmentError,
   confirmExternalAppointment,
@@ -13,10 +13,9 @@ const BodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   let body: unknown;
   try {
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
 
   try {
     const result = await confirmExternalAppointment({
-      userId: session.user.id,
+      userId: userId,
       checklistItemId: parsed.data.checklistItemId,
       scheduledStartAt: new Date(parsed.data.scheduledStartAt),
       scheduledLocation: loc,

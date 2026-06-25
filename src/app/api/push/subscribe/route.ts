@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -17,10 +17,9 @@ const VerifyQuerySchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   const { searchParams } = new URL(req.url);
   const parsed = VerifyQuerySchema.safeParse({
@@ -42,15 +41,14 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     exists: Boolean(existing),
-    isCurrentUser: existing?.userId === session.user.id,
+    isCurrentUser: existing?.userId === userId,
   });
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   try {
     const body = await req.json();
@@ -70,12 +68,12 @@ export async function POST(req: Request) {
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
-        userId: session.user.id,
+        userId: userId,
       },
       update: {
         p256dh: keys.p256dh,
         auth: keys.auth,
-        userId: session.user.id,
+        userId: userId,
       },
     });
 
@@ -99,10 +97,9 @@ const DeleteBodySchema = z
   });
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   try {
     const body = await req.json();
@@ -118,13 +115,13 @@ export async function DELETE(req: Request) {
 
     if (all === true) {
       await prisma.pushSubscription.deleteMany({
-        where: { userId: session.user.id },
+        where: { userId: userId },
       });
     } else if (endpoint) {
       await prisma.pushSubscription.deleteMany({
         where: {
           endpoint,
-          userId: session.user.id,
+          userId: userId,
         },
       });
     }

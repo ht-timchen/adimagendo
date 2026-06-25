@@ -3,6 +3,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import confetti from "canvas-confetti";
+import {
+  participantDashboardHeadingClassName,
+  participantDashboardModalClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 const AUTO_DISMISS_MS = 2800;
 
@@ -71,8 +76,8 @@ function LevelCompleteCelebrationOverlay({
       aria-live="polite"
       aria-label={`Level ${level} complete`}
     >
-      <div className="mx-4 rounded-2xl bg-white px-8 py-10 text-center shadow-2xl dark:bg-slate-950">
-        <p className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-4xl">
+      <div className={cn("participant-portal-light mx-4 px-8 py-10 text-center", participantDashboardModalClassName)}>
+        <p className={cn("text-3xl font-bold tracking-tight sm:text-4xl", participantDashboardHeadingClassName)}>
           🎉 Level {level} Complete!
         </p>
       </div>

@@ -37,7 +37,10 @@ export function datesMatchCalendarDay(stored: Date, submittedYmd: string): boole
   );
 }
 
-function parseSubmittedDateOfBirth(value: unknown): string {
+function ymdToUtcDate(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
   if (typeof value !== "string" || !DOB_INPUT_RE.test(value.trim())) {
     throw new EnrolmentRegistrationError(
       "DOB_MISSING",
@@ -279,6 +282,7 @@ export async function registerParticipantViaToken(
         passwordHash,
         role: "PARTICIPANT",
         isActive: true,
+        dateOfBirth: ymdToUtcDate(payload.dateOfBirth),
       },
     });
 

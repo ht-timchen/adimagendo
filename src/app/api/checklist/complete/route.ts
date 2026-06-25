@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { ensureLevelCompleteNotification } from "@/lib/checklist/ensure-level-complete-notification";
 import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
@@ -32,10 +32,9 @@ function resolveLevelJustCompleted(
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   try {
     const body = await req.json();
     const parsed = BodySchema.safeParse(body);
@@ -50,7 +49,7 @@ export async function POST(req: Request) {
     }
 
     const workflowBlock = await getStepCompletionBlock(
-      session.user.id,
+      userId,
       template.key
     );
     if (workflowBlock) {
@@ -60,7 +59,7 @@ export async function POST(req: Request) {
     const existing = await prisma.participantChecklistItem.findUnique({
       where: {
         userId_templateId: {
-          userId: session.user.id,
+          userId: userId,
           templateId: parsed.data.templateId,
         },
       },
@@ -83,7 +82,7 @@ export async function POST(req: Request) {
     }
 
     const checklistItemsBefore = await prisma.participantChecklistItem.findMany({
-      where: { userId: session.user.id },
+      where: { userId: userId },
       select: {
         status: true,
         template: { select: { key: true } },
@@ -98,12 +97,12 @@ export async function POST(req: Request) {
     await prisma.participantChecklistItem.upsert({
       where: {
         userId_templateId: {
-          userId: session.user.id,
+          userId: userId,
           templateId: parsed.data.templateId,
         },
       },
       create: {
-        userId: session.user.id,
+        userId: userId,
         templateId: parsed.data.templateId,
         status: "COMPLETED",
         completedAt: new Date(),
@@ -123,13 +122,13 @@ export async function POST(req: Request) {
     );
 
     if (isLevel1Complete(completedKeysAfter)) {
-      await ensureLevelCompleteNotification(session.user.id, "level_1_complete");
+      await ensureLevelCompleteNotification(userId, "level_1_complete");
     }
     if (isLevel2Complete(completedKeysAfter)) {
-      await ensureLevelCompleteNotification(session.user.id, "level_2_complete");
+      await ensureLevelCompleteNotification(userId, "level_2_complete");
     }
     if (isLevel3Complete(completedKeysAfter)) {
-      await ensureLevelCompleteNotification(session.user.id, "level_3_complete");
+      await ensureLevelCompleteNotification(userId, "level_3_complete");
     }
 
     return NextResponse.json({ ok: true, levelJustCompleted });

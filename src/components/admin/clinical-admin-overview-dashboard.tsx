@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useActionState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
-  Bell,
   BookOpen,
   ChevronLeft,
   ChevronRight,
@@ -16,11 +14,13 @@ import {
   FileText,
   FileUp,
   Filter,
+  Mail,
   Newspaper,
   Send,
   TrendingUp,
   Users,
 } from "lucide-react";
+import { adminPushSendErrorMessage } from "@/lib/push/admin-push-send-ui";
 import {
   CartesianGrid,
   Line,
@@ -288,17 +288,17 @@ function PushModal({
   userId,
   participantLabel,
   onClose,
-  action,
+  onSent,
 }: {
   userId: string;
   participantLabel: string;
   onClose: () => void;
-  action: (
-    prev: { ok: boolean; error?: string } | null,
-    formData: FormData
-  ) => Promise<{ ok: boolean; error?: string }>;
+  onSent?: () => void;
 }) {
-  const [state, formAction] = useActionState(action, null);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDialogElement>(null);
   const router = useRouter();
 
@@ -306,13 +306,43 @@ function PushModal({
     ref.current?.showModal();
   }, []);
 
-  useEffect(() => {
-    if (state?.ok) {
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) return;
+
+    setError(null);
+    setBusy(true);
+    try {
+      const payload: { title: string; message?: string; url: string; userId: string } = {
+        title: trimmedTitle,
+        url: "/",
+        userId,
+      };
+      const trimmedBody = body.trim();
+      if (trimmedBody) payload.message = trimmedBody;
+
+      const res = await fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        const serverMsg = typeof data.error === "string" ? data.error.trim() : "";
+        setError(adminPushSendErrorMessage(res.status, serverMsg));
+        return;
+      }
+      onSent?.();
       router.refresh();
       ref.current?.close();
       onClose();
+    } catch {
+      setError("Failed to send notification. Please try again.");
+    } finally {
+      setBusy(false);
     }
-  }, [state, onClose, router]);
+  }
 
   return (
     <dialog
@@ -320,8 +350,7 @@ function PushModal({
       className="fixed inset-0 z-50 max-h-[90vh] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/40"
       onClose={onClose}
     >
-      <form action={formAction} className="flex flex-col gap-4 p-6">
-        <input type="hidden" name="userId" value={userId} />
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
         <div>
           <h2 className="text-lg font-semibold">Send notification</h2>
           <p className="mt-1 text-sm text-slate-600">To {participantLabel}</p>
@@ -331,7 +360,10 @@ function PushModal({
           <input
             name="title"
             required
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            disabled={busy}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2 disabled:opacity-60"
             placeholder="Notification title"
           />
         </div>
@@ -340,17 +372,34 @@ function PushModal({
           <textarea
             name="body"
             rows={3}
-            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2"
+            value={body}
+            onChange={(event) => setBody(event.target.value)}
+            disabled={busy}
+            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2 disabled:opacity-60"
             placeholder="Short message"
           />
         </div>
-        {state?.error ? <p className="text-sm text-rose-600">{state.error}</p> : null}
+        {error ? (
+          <p className="text-sm text-rose-600" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" className="rounded-xl" onClick={() => ref.current?.close()}>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl"
+            disabled={busy}
+            onClick={() => ref.current?.close()}
+          >
             Cancel
           </Button>
-          <Button type="submit" className="rounded-xl bg-violet-600 hover:bg-violet-700">
-            Send
+          <Button
+            type="submit"
+            className="rounded-xl bg-violet-600 hover:bg-violet-700"
+            disabled={busy || !title.trim()}
+          >
+            {busy ? "Sending…" : "Send"}
           </Button>
         </div>
       </form>
@@ -363,7 +412,8 @@ export function ClinicalAdminOverviewDashboard({
   adminName,
   adminInitial,
   rangeOptions,
-  sendParticipantPushAction,
+  canSendNotification,
+  unreadContactMessageCount = 0,
   canViewImportAction,
   canViewExportAction,
   canViewBroadcastAction,
@@ -372,10 +422,8 @@ export function ClinicalAdminOverviewDashboard({
   adminName: string;
   adminInitial: string;
   rangeOptions: { key: RangeKey; label: string }[];
-  sendParticipantPushAction?: (
-    prev: { ok: boolean; error?: string } | null,
-    formData: FormData
-  ) => Promise<{ ok: boolean; error?: string }>;
+  canSendNotification: boolean;
+  unreadContactMessageCount?: number;
   canViewImportAction: boolean;
   canViewExportAction: boolean;
   canViewBroadcastAction: boolean;
@@ -438,7 +486,7 @@ export function ClinicalAdminOverviewDashboard({
 
   return (
     <div className="min-h-full bg-[#f7f8fc] pb-10">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-8 px-4 py-6 lg:flex-row lg:items-start lg:gap-8 lg:px-6">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-8 px-4 py-6 lg:flex-row lg:items-start lg:gap-6 lg:px-6">
         <div className="min-w-0 flex-1 space-y-8">
           {/* HEADER */}
           <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -467,10 +515,19 @@ export function ClinicalAdminOverviewDashboard({
               </div>
               <Link
                 href="/dashboard/admin/messages"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
-                aria-label="Messages"
+                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                aria-label={
+                  unreadContactMessageCount > 0
+                    ? `Contact messages (${unreadContactMessageCount} new)`
+                    : "Contact messages"
+                }
               >
-                <Bell className="h-5 w-5" />
+                <Mail className="h-5 w-5" />
+                {unreadContactMessageCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-semibold leading-none text-white">
+                    {unreadContactMessageCount > 99 ? "99+" : unreadContactMessageCount}
+                  </span>
+                ) : null}
               </Link>
               <Link
                 href="/dashboard/admin/profile"
@@ -639,7 +696,7 @@ export function ClinicalAdminOverviewDashboard({
               </div>
             ) : null}
             <CardContent className="overflow-x-auto px-0 pb-0">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[820px] text-left text-sm">
                 <thead>
                   <tr className="border-y border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Record ID</th>
@@ -666,7 +723,7 @@ export function ClinicalAdminOverviewDashboard({
                           {row.checklistCompleted} / {row.checklistTotal}
                         </td>
                         <td
-                          className="max-w-[200px] truncate px-4 py-3 text-slate-700"
+                          className="px-4 py-3 text-slate-700"
                           title={
                             row.currentStep === null &&
                             row.checklistCompleted >= row.checklistTotal
@@ -694,14 +751,14 @@ export function ClinicalAdminOverviewDashboard({
                             size="sm"
                             variant="outline"
                             className="rounded-xl border-violet-200 text-violet-800 hover:bg-violet-50 disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-transparent"
-                            disabled={!sendParticipantPushAction}
+                            disabled={!canSendNotification}
                             title={
-                              sendParticipantPushAction
+                              canSendNotification
                                 ? undefined
                                 : "You do not have permission to send notifications"
                             }
                             onClick={
-                              sendParticipantPushAction
+                              canSendNotification
                                 ? () => setPushTarget({ userId: row.userId, label: row.name })
                                 : undefined
                             }
@@ -745,32 +802,30 @@ export function ClinicalAdminOverviewDashboard({
         </div>
 
         {/* QUICK ACTIONS */}
-        <aside className="w-full shrink-0 space-y-3 lg:w-72">
+        <aside className="w-full shrink-0 space-y-2 lg:w-56">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick actions</p>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {quickLinks.map((q) => {
               const Icon = q.icon;
               return (
                 <Link
                   key={q.href}
                   href={q.href}
-                  className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-violet-200 hover:bg-violet-50/50"
+                  className="group flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm transition hover:border-violet-200 hover:bg-violet-50/50"
                 >
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-violet-600" />
-                    {q.label}
-                  </span>
-                  <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-violet-600" />
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-violet-600" />
+                  <span className="min-w-0 flex-1 leading-snug">{q.label}</span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-violet-600" />
                 </Link>
               );
             })}
           </div>
-          <Card className="rounded-xl border border-violet-100 bg-violet-50/80 shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-sm font-semibold text-violet-950">Need help?</p>
-              <p className="mt-1 text-xs leading-relaxed text-violet-900/80">View user guide or contact support.</p>
-              <Button type="button" variant="outline" size="sm" className="mt-3 w-full rounded-xl border-violet-200 bg-white text-violet-900 hover:bg-violet-100">
-                <BookOpen className="mr-2 h-4 w-4" />
+          <Card className="rounded-lg border border-violet-100 bg-violet-50/80 shadow-sm">
+            <CardContent className="p-3">
+              <p className="text-xs font-semibold text-violet-950">Need help?</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-violet-900/80">View user guide or contact support.</p>
+              <Button type="button" variant="outline" size="sm" className="mt-2 h-8 w-full rounded-lg border-violet-200 bg-white text-xs text-violet-900 hover:bg-violet-100">
+                <BookOpen className="mr-1.5 h-3.5 w-3.5" />
                 Open guide
               </Button>
             </CardContent>
@@ -778,11 +833,10 @@ export function ClinicalAdminOverviewDashboard({
         </aside>
       </div>
 
-      {pushTarget && sendParticipantPushAction ? (
+      {pushTarget && canSendNotification ? (
         <PushModal
           userId={pushTarget.userId}
           participantLabel={pushTarget.label}
-          action={sendParticipantPushAction}
           onClose={() => setPushTarget(null)}
         />
       ) : null}

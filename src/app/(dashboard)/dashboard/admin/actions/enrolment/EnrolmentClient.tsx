@@ -315,7 +315,7 @@ export function EnrolmentClient({
           </div>
           <Button
             type="button"
-            className="shrink-0 rounded-xl bg-violet-600 hover:bg-violet-700"
+            className="shrink-0 rounded-xl"
             disabled={syncBusy}
             onClick={runSync}
           >
@@ -328,7 +328,7 @@ export function EnrolmentClient({
               <p className="text-sm text-slate-600">No participants synced yet. Run the sync first.</p>
               <Button
                 type="button"
-                className="mt-4 rounded-xl bg-violet-600 hover:bg-violet-700"
+                className="mt-4 rounded-xl"
                 disabled={syncBusy}
                 onClick={runSync}
               >
@@ -499,7 +499,7 @@ export function EnrolmentClient({
             <Card className="mt-4 rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <LinkIcon className="h-5 w-5 text-violet-600" />
+                  <LinkIcon className="h-5 w-5 text-brand" />
                   Generate link
                 </CardTitle>
                 <CardDescription>
@@ -543,7 +543,7 @@ export function EnrolmentClient({
                   <Button
                     type="submit"
                     disabled={busy}
-                    className="w-fit rounded-xl bg-violet-600 hover:bg-violet-700"
+                    className="w-fit rounded-xl"
                   >
                     {busy ? "Generating…" : "Generate Enrolment Link"}
                   </Button>
@@ -637,7 +637,7 @@ export function EnrolmentClient({
             <div className="mt-6 flex flex-wrap gap-2">
               <Button
                 type="button"
-                className="rounded-xl bg-violet-600 hover:bg-violet-700"
+                className="rounded-xl"
                 onClick={copyLink}
               >
                 {copied ? "Copied!" : "Copy Link"}

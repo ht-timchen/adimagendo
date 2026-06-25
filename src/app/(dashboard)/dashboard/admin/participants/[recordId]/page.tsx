@@ -5,13 +5,13 @@ import { lastActiveTimestamp } from "@/lib/admin-display";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { hasPermission } from "@/lib/admin-rbac";
+import { getParticipantAccessDisabledReason } from "@/lib/admin/participant-access-disabled-reason";
 import {
   countChecklistOverdue,
   deriveJoinStatus,
   deriveStudyStatus,
   formatAdminDateDMY,
   formatAdminDateTimeDMY,
-  getParticipantAccessDisabledReason,
   hasParticipantChecklistActivity,
 } from "@/lib/admin/participant-detail-status";
 import { ParticipantDetailClient } from "@/components/admin/participant-detail-client";

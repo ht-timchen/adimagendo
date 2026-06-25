@@ -1,7 +1,7 @@
 import type { ChecklistBookingProgress, ChecklistStatus } from "@prisma/client";
-import { ADMIN_AUDIT_ACTIONS } from "@/lib/admin-audit";
-import { ADMIN_CHECKLIST_STEP_TOTAL } from "@/lib/admin/checklist-progress";
-import { prisma } from "@/lib/db";
+
+/** Must stay in sync with ADMIN_CHECKLIST_STEP_TOTAL in checklist-progress.ts */
+const CHECKLIST_STEP_TOTAL = 19;
 
 export type EnrolmentTokenStatus = "used" | "expired" | "active";
 
@@ -67,7 +67,7 @@ export function deriveStudyStatus(input: {
   hasChecklistActivity: boolean;
 }): StudyStatus {
   if (!input.isActive) return "withdrawn";
-  const total = input.checklistTotal ?? ADMIN_CHECKLIST_STEP_TOTAL;
+  const total = input.checklistTotal ?? CHECKLIST_STEP_TOTAL;
   if (input.checklistCompleted >= total) return "completed";
   if (input.hasChecklistActivity) return "active";
   return "enrolled";
@@ -150,23 +150,4 @@ export function redcapTypeBadge(type: string | null | undefined): {
     return { label: "u18", className: "bg-purple-100 text-purple-800" };
   }
   return { label: type?.trim() || "—", className: "bg-slate-100 text-slate-600" };
-}
-
-export async function getParticipantAccessDisabledReason(
-  userId: string
-): Promise<string | null> {
-  const event = await prisma.adminAuditEvent.findFirst({
-    where: {
-      targetType: "participant",
-      targetId: userId,
-      action: ADMIN_AUDIT_ACTIONS.PARTICIPANT_DEACTIVATED,
-    },
-    orderBy: { createdAt: "desc" },
-    select: { metadata: true },
-  });
-  if (!event?.metadata || typeof event.metadata !== "object" || event.metadata === null) {
-    return null;
-  }
-  const reason = (event.metadata as { reason?: unknown }).reason;
-  return typeof reason === "string" && reason.trim() ? reason.trim() : null;
 }

@@ -43,18 +43,7 @@ type CredentialsPayload = {
 
 const MENU_WIDTH = 220;
 const MENU_GAP = 6;
-const DISABLE_REASON_MAX = 50;
-const NO_PUSH_SUBSCRIPTION_ERROR =
-  "This participant has not enabled push notifications. The notification could not be sent.";
-
-function pushSendErrorMessage(status: number, serverMsg: string): string {
-  const normalized = serverMsg.toLowerCase();
-  if (status === 404 && normalized.includes("no active push subscription")) {
-    return NO_PUSH_SUBSCRIPTION_ERROR;
-  }
-  if (serverMsg) return serverMsg;
-  return "Failed to send notification.";
-}
+import { adminPushSendErrorMessage } from "@/lib/push/admin-push-send-ui";
 
 export function ParticipantActions({
   target,
@@ -261,7 +250,7 @@ export function ParticipantActions({
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         const serverMsg = typeof data.error === "string" ? data.error.trim() : "";
-        setNotifyError(pushSendErrorMessage(res.status, serverMsg));
+        setNotifyError(adminPushSendErrorMessage(res.status, serverMsg));
         return;
       }
       showToast("success", "Notification sent");

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { getStepCompletionBlock } from "@/lib/workflow/assert-step-available";
 import {
@@ -17,10 +17,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const { id: templateId } = await params;
   const template = await prisma.surveyTemplate.findUnique({
     where: { id: templateId },
@@ -37,7 +36,7 @@ export async function POST(
   });
   if (checklistTemplate) {
     const workflowBlock = await getStepCompletionBlock(
-      session.user.id,
+      userId,
       checklistTemplate.key
     );
     if (workflowBlock) {
@@ -47,7 +46,7 @@ export async function POST(
 
   const existingResponse = await prisma.surveyResponse.findUnique({
     where: {
-      userId_templateId: { userId: session.user.id, templateId },
+      userId_templateId: { userId: userId, templateId },
     },
     select: { completed: true },
   });
@@ -67,10 +66,10 @@ export async function POST(
     const answers = parsed.data.answers as Prisma.InputJsonValue;
     await prisma.surveyResponse.upsert({
       where: {
-        userId_templateId: { userId: session.user.id, templateId },
+        userId_templateId: { userId: userId, templateId },
       },
       create: {
-        userId: session.user.id,
+        userId: userId,
         templateId,
         answers,
         completed: true,
@@ -91,7 +90,7 @@ export async function POST(
         await prisma.participantChecklistItem.findUnique({
           where: {
             userId_templateId: {
-              userId: session.user.id,
+              userId: userId,
               templateId: checklistTemplate.id,
             },
           },
@@ -102,12 +101,12 @@ export async function POST(
         await prisma.participantChecklistItem.upsert({
           where: {
             userId_templateId: {
-              userId: session.user.id,
+              userId: userId,
               templateId: checklistTemplate.id,
             },
           },
           create: {
-            userId: session.user.id,
+            userId: userId,
             templateId: checklistTemplate.id,
             status: "COMPLETED",
             completedAt: new Date(),

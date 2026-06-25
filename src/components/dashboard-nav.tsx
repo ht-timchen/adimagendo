@@ -18,6 +18,7 @@ import {
   MoreHorizontal,
   Newspaper,
   Shield,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
@@ -35,6 +36,7 @@ const participantPrimaryTabs = [
 ] as const;
 
 const participantMoreItems = [
+  { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/absences", label: "Diary", icon: BookOpen },
   { href: "/dashboard/surveys", label: "Surveys", icon: ClipboardList },
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
@@ -81,8 +83,8 @@ function NavTabLink({
       className={cn(
         "flex flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
         active
-          ? "text-violet-600 dark:text-violet-400"
-          : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+          ? "text-[#2F8F7A]"
+          : "text-[#2A6F60]/70 hover:text-[#17483F]"
       )}
     >
       <Icon className="h-5 w-5" />
@@ -121,7 +123,7 @@ export function DashboardNav({
         ) : null}
         {moreOpen ? (
           <div
-            className="dashboard-bottom-nav-safe fixed bottom-16 left-0 right-0 z-30 border-t border-slate-200 bg-white px-2 py-2 shadow-lg dark:border-slate-800 dark:bg-slate-900 md:hidden"
+            className="dashboard-bottom-nav-safe fixed bottom-16 left-0 right-0 z-30 border-t border-[#2F8F7A]/20 bg-white/95 px-2 py-2 shadow-lg backdrop-blur md:hidden"
             role="menu"
             aria-label="More"
           >
@@ -138,8 +140,8 @@ export function DashboardNav({
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300"
-                        : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                        ? "bg-brand-surface text-[#2F8F7A]"
+                        : "text-[#1E5D50] hover:bg-[#f1faf7]"
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
@@ -166,8 +168,8 @@ export function DashboardNav({
             className={cn(
               "flex flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
               isMoreActive(pathname) || moreOpen
-                ? "text-violet-600 dark:text-violet-400"
-                : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                ? "text-[#2F8F7A]"
+                : "text-[#2A6F60]/70 hover:text-[#17483F]"
             )}
             aria-expanded={moreOpen}
             aria-haspopup="menu"
@@ -197,8 +199,9 @@ export function DashboardNav({
                 variant={active ? "secondary" : "ghost"}
                 size="sm"
                 className={cn(
-                  active &&
-                    "bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200"
+                  active
+                    ? "bg-brand-surface text-[#2F8F7A]"
+                    : "text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
                 )}
               >
                 <Icon className="mr-1 h-4 w-4" />
@@ -216,7 +219,9 @@ export function DashboardNav({
             size="sm"
             className={cn(
               (isMoreActive(pathname) || desktopMoreOpen) &&
-                "bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-200"
+                "bg-brand-surface text-[#2F8F7A]",
+              !(isMoreActive(pathname) || desktopMoreOpen) &&
+                "text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
             )}
             onClick={() => setDesktopMoreOpen((open) => !open)}
             aria-expanded={desktopMoreOpen}
@@ -234,7 +239,7 @@ export function DashboardNav({
                 onClick={() => setDesktopMoreOpen(false)}
               />
               <div
-                className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-[#2F8F7A]/20 bg-white/95 py-1 shadow-lg backdrop-blur"
                 role="menu"
               >
                 {participantMoreItems.map((item) => {
@@ -246,8 +251,8 @@ export function DashboardNav({
                       href={item.href}
                       role="menuitem"
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-800",
-                        active && "text-violet-700 dark:text-violet-300"
+                        "flex items-center gap-2 px-3 py-2 text-sm text-[#17483F] transition-colors hover:bg-[#f1faf7]",
+                        active && "text-[#2F8F7A] font-medium"
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -260,12 +265,13 @@ export function DashboardNav({
           ) : null}
         </div>
       </div>
-      <span className="text-sm text-slate-500 dark:text-slate-400">
+      <span className="text-sm text-[#2A6F60]">
         {user.name ?? user.email}
       </span>
       <Button
         variant="ghost"
         size="icon"
+        className="text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
         aria-label="Sign out"
         onClick={() => signOut({ callbackUrl: "/" })}
       >

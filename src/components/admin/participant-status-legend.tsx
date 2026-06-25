@@ -32,7 +32,7 @@ export function ParticipantStatusLegend() {
         type="button"
         variant="ghost"
         size="icon"
-        className="h-7 w-7 rounded-full text-slate-400 hover:bg-violet-50 hover:text-violet-700"
+        className="h-7 w-7 rounded-full text-slate-400 hover:bg-brand-surface hover:text-brand"
         aria-expanded={open}
         aria-label="What status means"
         onClick={(e) => {

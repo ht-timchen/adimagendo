@@ -8,6 +8,14 @@ import {
   AppointmentManageCardActions,
   type SerializableAppointment,
 } from "@/components/appointment-manage-card-actions";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+  participantDashboardPageClassName,
+  participantDashboardPageTitleClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 import { CalendarClock, ChevronLeft } from "lucide-react";
 
 export default async function AppointmentsPage() {
@@ -26,19 +34,19 @@ export default async function AppointmentsPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className={participantDashboardPageClassName}>
       <div>
         <Link
           href="/dashboard"
-          className="mb-3 inline-flex items-center text-sm font-medium text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+          className="mb-3 inline-flex items-center text-sm font-medium text-[#2F8F7A] hover:text-[#277866]"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </Link>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className={participantDashboardPageTitleClassName}>
           Appointments
         </h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <p className="text-[#17483F]">
           Confirmed visits can be added to Apple Calendar, Google Calendar, or
           Outlook using <span className="font-medium">Add to Calendar</span>.
           If your browser does not download the calendar file (common on
@@ -50,8 +58,8 @@ export default async function AppointmentsPage() {
       </div>
 
       {appointments.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-slate-600 dark:text-slate-400">
+        <Card className={participantDashboardCardClassName}>
+          <CardContent className={cn("py-10 text-center text-sm", participantDashboardMutedClassName)}>
             You have no appointments yet. When your study team schedules a visit,
             it will appear here.
           </CardContent>
@@ -80,16 +88,17 @@ export default async function AppointmentsPage() {
             return (
               <li key={a.id}>
                 <Card
-                  className={
-                    cancelled ? "opacity-70 ring-1 ring-slate-200 dark:ring-slate-800" : ""
-                  }
+                  className={cn(
+                    participantDashboardCardClassName,
+                    cancelled && "opacity-70 ring-1 ring-[#2F8F7A]/15"
+                  )}
                 >
                   <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
                     <div className="space-y-1">
-                      <CardTitle className="text-base font-semibold">
+                      <CardTitle className={cn("text-base font-semibold", participantDashboardHeadingClassName)}>
                         {a.title}
                       </CardTitle>
-                      <p className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+                      <p className={cn("flex items-center gap-1.5 text-sm", participantDashboardMutedClassName)}>
                         <CalendarClock className="h-4 w-4 shrink-0" />
                         {displayStart.toLocaleString(undefined, {
                           dateStyle: "medium",
@@ -102,14 +111,14 @@ export default async function AppointmentsPage() {
                           : null}
                       </p>
                       {displayLocation ? (
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">
+                        <p className={cn("text-sm", participantDashboardMutedClassName)}>
+                          <span className={cn("font-medium", participantDashboardHeadingClassName)}>
                             Location:{" "}
                           </span>
                           {displayLocation}
                         </p>
                       ) : null}
-                      <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-500">
+                      <p className={cn("text-xs uppercase tracking-wide", participantDashboardMutedClassName)}>
                         Status: {a.status.toLowerCase()}
                       </p>
                     </div>
@@ -129,7 +138,7 @@ export default async function AppointmentsPage() {
                     ) : null}
                   </CardHeader>
                   {a.description ? (
-                    <CardContent className="pt-0 text-sm text-slate-600 dark:text-slate-400">
+                    <CardContent className={cn("pt-0 text-sm", participantDashboardMutedClassName)}>
                       {a.description}
                     </CardContent>
                   ) : null}
@@ -139,7 +148,7 @@ export default async function AppointmentsPage() {
                         href={a.externalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-medium text-violet-600 hover:underline dark:text-violet-400"
+                        className="text-sm font-medium text-[#2F8F7A] hover:text-[#277866] hover:underline"
                       >
                         Open booking link
                       </a>

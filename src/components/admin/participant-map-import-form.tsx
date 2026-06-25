@@ -82,7 +82,7 @@ export function ParticipantMapImportForm() {
           {msg.text}
         </p>
       ) : null}
-      <Button type="submit" disabled={busy} className="rounded-xl bg-violet-600 hover:bg-violet-700">
+      <Button type="submit" disabled={busy} className="rounded-xl">
         {busy ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

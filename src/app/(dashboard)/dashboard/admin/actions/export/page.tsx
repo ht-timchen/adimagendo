@@ -25,7 +25,7 @@ export default async function AdminExportPage() {
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FileDown className="h-5 w-5 text-violet-600" />
+            <FileDown className="h-5 w-5 text-brand" />
             Symptom diary
           </CardTitle>
           <CardDescription>

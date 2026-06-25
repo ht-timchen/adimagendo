@@ -7,6 +7,16 @@ import { Input } from "@/components/ui/input";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
 import { ExternalLink } from "lucide-react";
 import {
+  participantDashboardBodyClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardInputClassName,
+  participantDashboardLabelClassName,
+  participantDashboardModalClassName,
+  participantDashboardMutedClassName,
+  participantDashboardSurfaceClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
+import {
   combineLocalDateTime,
   formatAppointmentDateTime,
   todayYmdLocal,
@@ -77,10 +87,10 @@ function BookingProgressBadge({
   const tone = statusTone(progress);
   const badgeClass =
     tone === "ok"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-100 dark:ring-emerald-900"
+      ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
       : tone === "warn"
-        ? "bg-amber-50 text-amber-950 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-900"
-        : "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700";
+        ? "bg-amber-50 text-amber-950 ring-amber-200"
+        : "bg-[#e8f3f0] text-[#17483F] ring-[#2F8F7A]/20";
 
   let text = statusLabelBase(progress);
   if (mounted && progress === "CONFIRMED") {
@@ -313,7 +323,7 @@ export function ChecklistExternalBookingFlow({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-[#2F8F7A]/30 bg-white/85 px-3 text-sm font-medium text-[#17483F] hover:bg-[#2F8F7A]/10"
           >
             Open booking site <ExternalLink className="ml-1 h-4 w-4" />
           </a>
@@ -321,17 +331,17 @@ export function ChecklistExternalBookingFlow({
       </div>
 
       {bookingProgress === "NOT_STARTED" ? (
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <p className={cn("text-xs", participantDashboardMutedClassName)}>
           After you finish booking on the external site, tap &ldquo;I&apos;ve
           booked my appointment&rdquo; to continue.
         </p>
       ) : null}
 
       {showExpandedPanel ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50/90 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+        <div className={cn("rounded-md p-4", participantDashboardSurfaceClassName)}>
           {bookingProgress === "BOOKED_EXTERNALLY" ? (
             <div className="space-y-2">
-              <p className="text-sm text-slate-700 dark:text-slate-300">
+              <p className={cn("text-sm", participantDashboardBodyClassName)}>
                 Enter the date and time from your booking confirmation.
               </p>
               <Button
@@ -345,7 +355,7 @@ export function ChecklistExternalBookingFlow({
             </div>
           ) : bookingProgress === "CONFIRMED" && apptForIcs && icsStart ? (
             <div className="space-y-3">
-              <p className="text-sm text-slate-700 dark:text-slate-300">
+              <p className={cn("text-sm", participantDashboardBodyClassName)}>
                 Add this visit to your personal calendar.
               </p>
               <AddToCalendarButton
@@ -367,20 +377,23 @@ export function ChecklistExternalBookingFlow({
 
       <dialog
         ref={dialogRef}
-        className="fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,26rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        className={cn(
+          "participant-portal-light fixed left-1/2 top-1/2 z-50 w-[min(100vw-2rem,26rem)] -translate-x-1/2 -translate-y-1/2 p-5",
+          participantDashboardModalClassName
+        )}
         onClose={() => setStep("form")}
       >
         {step === "form" ? (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
               Confirm appointment
             </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               Choose the date and time of your visit (future times only).
             </p>
             <div className="grid gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Date
                 </label>
                 <Input
@@ -388,26 +401,29 @@ export function ChecklistExternalBookingFlow({
                   min={todayYmdLocal()}
                   value={dateStr}
                   onChange={(e) => setDateStr(e.target.value)}
+                  className={participantDashboardInputClassName}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Time
                 </label>
                 <Input
                   type="time"
                   value={timeStr}
                   onChange={(e) => setTimeStr(e.target.value)}
+                  className={participantDashboardInputClassName}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                <label className={participantDashboardLabelClassName}>
                   Location (optional)
                 </label>
                 <Input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Suite 3, Imaging Centre"
+                  className={participantDashboardInputClassName}
                 />
               </div>
             </div>
@@ -426,10 +442,10 @@ export function ChecklistExternalBookingFlow({
           </div>
         ) : (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
               Review
             </h2>
-            <p className="text-sm text-slate-700 dark:text-slate-300">
+            <p className={cn("text-sm", participantDashboardBodyClassName)}>
               Your appointment will be:{" "}
               <span className="font-medium">
                 {previewCombined
@@ -462,7 +478,7 @@ export function ChecklistExternalBookingFlow({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-24 left-1/2 z-[60] max-w-sm -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 shadow-md dark:border-emerald-900 dark:bg-emerald-950/90 dark:text-emerald-100 md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
+          className="fixed bottom-24 left-1/2 z-[60] max-w-sm -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 shadow-md md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
         >
           {toast}
         </div>

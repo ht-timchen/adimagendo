@@ -3,20 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { ParticipantAuthLayout } from "@/components/auth/participant-auth-layout";
+import { ParticipantAuthLogo } from "@/components/auth/participant-auth-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 
 type EnrolmentFormProps = {
   token: string;
-  email: string;
   expiresAt: string;
 };
 
@@ -30,10 +29,10 @@ function formatExpiry(iso: string): string {
   });
 }
 
-export function EnrolmentForm({ token, email: defaultEmail, expiresAt }: EnrolmentFormProps) {
+export function EnrolmentForm({ token, expiresAt }: EnrolmentFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(defaultEmail);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -99,24 +98,24 @@ export function EnrolmentForm({ token, email: defaultEmail, expiresAt }: Enrolme
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
+    <ParticipantAuthLayout>
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-violet-700">
-            ADIMAGENDO
-          </CardTitle>
-          <CardDescription>Create your study participant account</CardDescription>
+        <CardHeader className="space-y-0 px-6 pb-4 pt-8 text-center">
+          <ParticipantAuthLogo />
+          <p className="mt-4 text-center text-sm font-medium">
+            Create your study participant account
+          </p>
         </CardHeader>
         <form onSubmit={onSubmit}>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
               <p className="mt-1 text-xs text-slate-500">
                 This link expires on {formatExpiry(expiresAt)}.
               </p>
             </div>
 
             {error ? (
-              <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-center text-sm text-red-600">{error}</p>
             ) : null}
 
             <div className="space-y-2">
@@ -144,9 +143,6 @@ export function EnrolmentForm({ token, email: defaultEmail, expiresAt }: Enrolme
                 required
                 autoComplete="email"
               />
-              <p className="text-xs text-slate-500">
-                You can use a different email address if you prefer.
-              </p>
             </div>
             <div className="space-y-2">
               <label htmlFor="password" className="text-sm font-medium">
@@ -194,16 +190,12 @@ export function EnrolmentForm({ token, email: defaultEmail, expiresAt }: Enrolme
             </div>
           </CardContent>
           <CardFooter>
-            <Button
-              type="submit"
-              className="w-full bg-violet-600 hover:bg-violet-700"
-              disabled={loading}
-            >
+            <Button type="submit" variant="participant" className="w-full" disabled={loading}>
               {loading ? "Creating account…" : "Create Account & Join Study"}
             </Button>
           </CardFooter>
         </form>
       </Card>
-    </div>
+    </ParticipantAuthLayout>
   );
 }

@@ -4,18 +4,23 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
+import {
   ListChecks,
   Calendar,
   FileText,
   ChevronRight,
   CalendarClock,
 } from "lucide-react";
-import { PushNotificationOptIn } from "@/components/push-notification-opt-in";
 import { SchoolAttendanceReminderBanner } from "@/components/school-attendance-reminder-banner";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { getSchoolAttendanceBannerState } from "@/lib/school-attendance-reminder/cycle";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
+import { cn } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -91,12 +96,12 @@ export default async function DashboardPage() {
   const displayName = session.user.name ?? session.user.email ?? "Participant";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8">
+    <div className="light [color-scheme:light] mx-auto max-w-4xl space-y-8 text-[#215E52]">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        <h1 className="text-2xl font-bold text-[#17483F]">
           Welcome back, {displayName}
         </h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <p className="text-[#2A6F60]">
           {profile?.studyPhase
             ? `Study phase: ${profile.studyPhase}`
             : "Your participant dashboard"}
@@ -109,11 +114,11 @@ export default async function DashboardPage() {
 
       {staleUnconfirmedBookings.length > 0 ? (
         <div
-          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-50"
+          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm"
           role="status"
         >
           <p className="font-semibold">Please confirm your appointment</p>
-          <p className="mt-1 text-amber-900/95 dark:text-amber-100/90">
+          <p className="mt-1 text-amber-900/95">
             It has been more than 48 hours since you booked using an external
             site. Return to your checklist to enter the date and time you chose
             so reminders stay accurate.
@@ -125,45 +130,45 @@ export default async function DashboardPage() {
           </ul>
           <Link
             href="/dashboard/checklist"
-            className="mt-3 inline-flex font-medium text-amber-950 underline-offset-2 hover:underline dark:text-amber-100"
+            className="mt-3 inline-flex font-medium text-amber-950 underline-offset-2 hover:underline"
           >
             Go to checklist
           </Link>
         </div>
       ) : null}
 
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Your progress</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+            Your progress
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-600 dark:text-slate-400">
+            <span className={participantDashboardMutedClassName}>
               Study steps completed
             </span>
-            <span className="font-medium">
+            <span className={cn("font-medium", participantDashboardHeadingClassName)}>
               {stepsCompleted} of {stepsTotal}
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[#d9ece7]">
             <div
-              className="h-full rounded-full bg-violet-600 transition-all"
+              className="h-full rounded-full bg-[#2F8F7A] transition-all"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </CardContent>
       </Card>
 
-      <PushNotificationOptIn />
-
       <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="transition-shadow hover:shadow-md">
+        <Card className={cn(participantDashboardCardClassName, "transition-shadow hover:shadow-md")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base">Checklist</CardTitle>
-            <ListChecks className="h-5 w-5 text-violet-600" />
+            <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Checklist</CardTitle>
+            <ListChecks className="h-5 w-5 text-[#2F8F7A]" />
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               {stepsRemaining > 0
                 ? studyProgress.currentStepName
                   ? `Next: ${studyProgress.currentStepName}`
@@ -172,27 +177,27 @@ export default async function DashboardPage() {
             </p>
             <Link
               href="/dashboard/checklist"
-              className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+              className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-[#e8f3f0] px-3 text-sm font-medium text-[#1E5D50] hover:bg-[#d4ebe5]"
             >
               View checklist <ChevronRight className="ml-1 h-4 w-4" />
             </Link>
           </CardContent>
         </Card>
 
-        <Card className="transition-shadow hover:shadow-md">
+        <Card className={cn(participantDashboardCardClassName, "transition-shadow hover:shadow-md")}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base">Appointments</CardTitle>
-            <CalendarClock className="h-5 w-5 text-violet-600" />
+            <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Appointments</CardTitle>
+            <CalendarClock className="h-5 w-5 text-[#2F8F7A]" />
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               {upcomingAppointments.length > 0
                 ? `${upcomingAppointments.length} upcoming`
                 : "No upcoming appointments"}
             </p>
             <Link
               href="/dashboard/appointments"
-              className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-slate-100 px-3 text-sm font-medium hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+              className="mt-3 inline-flex h-9 items-center justify-center rounded-md bg-[#e8f3f0] px-3 text-sm font-medium text-[#1E5D50] hover:bg-[#d4ebe5]"
             >
               View appointments <ChevronRight className="ml-1 h-4 w-4" />
             </Link>
@@ -200,21 +205,21 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base">Quick actions</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Quick actions</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2">
           <Link
             href="/dashboard/symptoms"
-            className="inline-flex h-10 items-center justify-start rounded-lg border border-slate-200 bg-white px-4 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            className="inline-flex h-10 items-center justify-start rounded-lg border border-[#c9e4de] bg-white px-4 text-[#1E5D50] hover:bg-[#f1faf7]"
           >
             <Calendar className="mr-2 h-4 w-4" />
             Log symptoms
           </Link>
           <Link
             href="/dashboard/surveys"
-            className="inline-flex h-10 items-center justify-start rounded-lg border border-slate-200 bg-white px-4 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+            className="inline-flex h-10 items-center justify-start rounded-lg border border-[#c9e4de] bg-white px-4 text-[#1E5D50] hover:bg-[#f1faf7]"
           >
             <FileText className="mr-2 h-4 w-4" />
             Complete survey
@@ -223,16 +228,18 @@ export default async function DashboardPage() {
       </Card>
 
       {recentSymptoms.length > 0 && (
-        <Card>
+        <Card className={participantDashboardCardClassName}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Recent symptom entries</CardTitle>
+            <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+              Recent symptom entries
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-1 text-sm">
               {recentSymptoms.map((s) => (
                 <li
                   key={s.id}
-                  className="flex justify-between text-slate-600 dark:text-slate-400"
+                  className={cn("flex justify-between", participantDashboardMutedClassName)}
                 >
                   <span>{s.date.toLocaleDateString()}</span>
                   <span>

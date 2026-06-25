@@ -31,7 +31,7 @@ export default async function AdminProfilePage() {
         </CardContent>
       </Card>
       <p className="text-center text-sm text-slate-500">
-        <Link href="/dashboard/admin" className="text-violet-700 hover:underline">
+        <Link href="/dashboard/admin" className="text-brand hover:text-brand-hover hover:underline">
           ← Back to overview
         </Link>
       </p>

@@ -180,6 +180,8 @@ model ParticipantProfile {
   updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyRecordId])
 }
 
 model ChecklistTemplate {
@@ -457,6 +459,7 @@ model EnrolmentToken {
   studyRecordId String
   expiresAt     DateTime
   usedAt        DateTime?
+  revokedAt     DateTime?
   createdBy     String
   createdAt     DateTime  @default(now())
 }

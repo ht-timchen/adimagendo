@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { getUploadDir } from "@/lib/uploads";
 import { readFile } from "fs/promises";
@@ -9,13 +9,12 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const { id } = await params;
   const doc = await prisma.document.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: userId },
   });
   if (!doc || !doc.storageKey) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -32,7 +32,7 @@ export default async function AdminSettingsPage() {
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Settings className="h-5 w-5 text-violet-600" />
+            <Settings className="h-5 w-5 text-brand" />
             Study configuration
           </CardTitle>
           <CardDescription>Edit fields and save. Changes apply immediately for new sessions.</CardDescription>

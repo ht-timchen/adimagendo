@@ -59,16 +59,19 @@ export function SchoolAttendanceReminderBanner({ cycleId }: Props) {
 
   return (
     <div
-      className="rounded-lg border border-violet-300 bg-violet-50 p-4 text-sm text-violet-950 shadow-sm dark:border-violet-800 dark:bg-violet-950/50 dark:text-violet-50"
+      className="rounded-lg border border-[#2F8F7A]/30 bg-white/85 p-4 text-sm text-[#2A6F60] shadow-sm backdrop-blur-sm"
       role="dialog"
       aria-labelledby="school-attendance-reminder-title"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-3">
-          <p id="school-attendance-reminder-title" className="font-semibold">
+          <p
+            id="school-attendance-reminder-title"
+            className="font-semibold text-[#17483F]"
+          >
             School Attendance Diary
           </p>
-          <p className="text-violet-900/95 dark:text-violet-100/90">
+          <p className="text-[#2A6F60]">
             Did you miss school at any point this week? Let us know here!
           </p>
           <div className="flex flex-wrap gap-2">
@@ -84,6 +87,7 @@ export function SchoolAttendanceReminderBanner({ cycleId }: Props) {
               type="button"
               size="sm"
               variant="outline"
+              className="border-[#2F8F7A]/40 text-[#1E5D50] hover:bg-[#e8f3f0]"
               disabled={busy}
               onClick={() => respond("no")}
             >
@@ -91,7 +95,7 @@ export function SchoolAttendanceReminderBanner({ cycleId }: Props) {
             </Button>
           </div>
           {error ? (
-            <p className="text-xs text-rose-700 dark:text-rose-300" role="alert">
+            <p className="text-xs text-rose-700" role="alert">
               {error}
             </p>
           ) : null}
@@ -100,7 +104,7 @@ export function SchoolAttendanceReminderBanner({ cycleId }: Props) {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 w-8 shrink-0 p-0 text-violet-800 hover:bg-violet-100 dark:text-violet-200 dark:hover:bg-violet-900/50"
+          className="h-8 w-8 shrink-0 p-0 text-[#2F8F7A] hover:bg-[#e8f3f0]"
           disabled={busy}
           aria-label="Dismiss reminder"
           onClick={dismiss}

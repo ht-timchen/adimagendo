@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import {
+  participantDashboardHeadingClassName,
+  participantDashboardModalClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 type Props = {
   surveyUrl: string;
@@ -106,20 +112,27 @@ export function ChecklistSurveySheet({
 
   const surveyModal = openSurvey ? (
     <div
-      className="fixed inset-0 z-[200] bg-black/40 p-2 sm:p-4"
+      className="participant-portal-light fixed inset-0 z-[200] bg-black/40 p-2 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="REDCap survey"
     >
-      <div className="mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl dark:bg-slate-950">
-        <div className="flex items-center justify-between border-b px-3 py-2 dark:border-slate-800">
-          <p className="text-sm font-medium">Pre-screening survey</p>
+      <div
+        className={cn(
+          "mx-auto flex h-full w-full max-w-4xl flex-col overflow-hidden",
+          participantDashboardModalClassName
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-[#2F8F7A]/20 px-3 py-2">
+          <p className={cn("text-sm font-medium", participantDashboardHeadingClassName)}>
+            Pre-screening survey
+          </p>
           <div className="flex items-center gap-2">
             <a
               href={surveyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+              className="inline-flex h-8 items-center justify-center rounded-md border border-[#2F8F7A]/30 px-3 text-xs font-medium text-[#17483F] hover:bg-[#2F8F7A]/10"
             >
               Open in new tab
             </a>
@@ -139,17 +152,17 @@ export function ChecklistSurveySheet({
 
   const confirmModal = openConfirm ? (
     <div
-      className="fixed inset-0 z-[210] flex items-center justify-center bg-black/45 p-4"
+      className="participant-portal-light fixed inset-0 z-[210] flex items-center justify-center bg-black/45 p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Survey completion confirmation"
     >
-      <div className="w-full max-w-sm rounded-lg border bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-slate-950">
-        <p className="font-medium text-slate-900 dark:text-slate-100">
+      <div className={cn("w-full max-w-sm p-4", participantDashboardModalClassName)}>
+        <p className={cn("font-medium", participantDashboardHeadingClassName)}>
           Did you complete the survey?
         </p>
         {isStandaloneMode() ? (
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+          <p className={cn("mt-2 text-sm", participantDashboardMutedClassName)}>
             After finishing in your browser, tap &ldquo;Yes, mark complete&rdquo;
             to save your progress here.
           </p>
@@ -160,7 +173,7 @@ export function ChecklistSurveySheet({
               href={surveyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-violet-700 underline-offset-2 hover:underline dark:text-violet-300"
+              className="font-medium text-[#2F8F7A] underline-offset-2 hover:underline"
               onClick={() => setExternalSurveyOpened(true)}
             >
               Open survey
@@ -190,7 +203,7 @@ export function ChecklistSurveySheet({
           </Button>
         </div>
         {error && (
-          <p className="mt-2 text-sm text-amber-800 dark:text-amber-300">{error}</p>
+          <p className="mt-2 text-sm text-amber-800">{error}</p>
         )}
       </div>
     </div>
@@ -200,13 +213,11 @@ export function ChecklistSurveySheet({
     <>
       <Button
         type="button"
-        className="h-9 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="h-9 rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover active:bg-brand-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         disabled={disabledProp}
         onClick={() => {
           if (disabledProp) return;
           if (isStandaloneMode()) {
-            // Keep the installed app on the checklist page; navigating away
-            // prevented the confirmation step from ever running.
             if (!externalSurveyOpened) {
               openSurveyExternally();
             }

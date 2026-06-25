@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { LoginForm } from "./login-form";
+import { ParticipantAuthLayout } from "@/components/auth/participant-auth-layout";
 
 export default function LoginPage() {
   return (
@@ -11,8 +12,8 @@ export default function LoginPage() {
 
 function LoginFallback() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      <div className="h-[420px] w-full max-w-sm animate-pulse rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-800 dark:bg-slate-900" />
-    </div>
+    <ParticipantAuthLayout>
+      <div className="h-[420px] w-full max-w-sm animate-pulse rounded-xl border border-slate-200 bg-white/80 shadow-sm" />
+    </ParticipantAuthLayout>
   );
 }

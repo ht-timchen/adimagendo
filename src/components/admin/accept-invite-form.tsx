@@ -115,7 +115,7 @@ export function AcceptInviteForm({ token }: { token: string }) {
         />
       </div>
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-      <Button type="submit" className="w-full" disabled={submitting}>
+      <Button type="submit" variant="brand" className="w-full" disabled={submitting}>
         {submitting ? "Saving…" : "Set password"}
       </Button>
     </form>

@@ -74,7 +74,9 @@ export default async function AdminEnrolmentPage() {
           select: { studyRecordId: true },
         })
       : [];
-  const boundStudyRecordIds = boundProfiles.map((p) => p.studyRecordId);
+  const boundStudyRecordIds = boundProfiles
+    .map((p) => p.studyRecordId)
+    .filter((id): id is string => id != null);
 
   return (
     <div className="mx-auto max-w-[90rem] space-y-8">

@@ -271,7 +271,7 @@ export function PeopleManagement({
       <div className="flex justify-end">
         <Button
           type="button"
-          className="rounded-xl bg-violet-600 hover:bg-violet-700"
+          className="rounded-xl"
           onClick={() => setAddOpen(true)}
         >
           <UserPlus className="mr-2 h-4 w-4" />
@@ -374,7 +374,7 @@ export function PeopleManagement({
               <Button type="button" variant="outline" className="rounded-xl" onClick={() => setAddOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="rounded-xl bg-violet-600" disabled={busy}>
+              <Button type="submit" className="rounded-xl" disabled={busy}>
                 {busy ? "Creating…" : "Add person"}
               </Button>
             </div>
@@ -396,7 +396,7 @@ export function PeopleManagement({
               <Button type="button" variant="outline" className="rounded-xl" onClick={() => setEditPerson(null)}>
                 Cancel
               </Button>
-              <Button type="submit" className="rounded-xl bg-violet-600" disabled={busy}>
+              <Button type="submit" className="rounded-xl" disabled={busy}>
                 Save
               </Button>
             </div>
@@ -757,7 +757,7 @@ function CredentialsModal({
           <Copy className="mr-1.5 h-4 w-4" />
           {copied === "All" ? "Copied" : "Copy all"}
         </Button>
-        <Button type="button" className="rounded-xl bg-violet-600" onClick={onClose}>
+        <Button type="button" className="rounded-xl" onClick={onClose}>
           Done
         </Button>
       </div>

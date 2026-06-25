@@ -67,7 +67,7 @@ function JoinStatusLegend() {
         type="button"
         variant="ghost"
         size="icon"
-        className="h-7 w-7 rounded-full text-slate-400 hover:bg-violet-50 hover:text-violet-700"
+        className="h-7 w-7 rounded-full text-slate-400 hover:bg-brand-surface hover:text-brand"
         aria-expanded={open}
         aria-label="Join status definitions"
         onClick={() => setOpen((v) => !v)}
@@ -265,7 +265,7 @@ export function ParticipantDetailClient({ data }: { data: ParticipantDetailData 
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <MessageSquare className="h-5 w-5 text-violet-600" />
+            <MessageSquare className="h-5 w-5 text-brand" />
             Messages
           </CardTitle>
         </CardHeader>
@@ -280,7 +280,7 @@ export function ParticipantDetailClient({ data }: { data: ParticipantDetailData 
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Bell className="h-5 w-5 text-violet-600" />
+            <Bell className="h-5 w-5 text-brand" />
             Notifications Sent
           </CardTitle>
         </CardHeader>

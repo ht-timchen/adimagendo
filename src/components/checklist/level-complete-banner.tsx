@@ -32,13 +32,13 @@ export function LevelCompleteBanner({ notificationId, message }: Props) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
       <p className="font-medium">🎉 {message}</p>
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-8 w-8 shrink-0 p-0 text-emerald-800 hover:bg-emerald-100 dark:text-emerald-200 dark:hover:bg-emerald-900/50"
+        className="h-8 w-8 shrink-0 p-0 text-emerald-800 hover:bg-emerald-100"
         disabled={dismissing}
         aria-label="Dismiss"
         onClick={dismiss}

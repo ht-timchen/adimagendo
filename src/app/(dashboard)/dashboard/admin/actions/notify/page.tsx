@@ -27,7 +27,7 @@ export default async function AdminNotifyPage({
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Bell className="h-5 w-5 text-violet-600" />
+            <Bell className="h-5 w-5 text-brand" />
             Broadcast
           </CardTitle>
           <CardDescription>Creates one notification per active participant.</CardDescription>
@@ -42,7 +42,7 @@ export default async function AdminNotifyPage({
               <label className="text-xs font-semibold uppercase text-slate-500">Message (optional)</label>
               <textarea name="body" rows={4} className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm" />
             </div>
-            <Button type="submit" className="w-fit rounded-xl bg-violet-600 hover:bg-violet-700">
+            <Button type="submit" className="w-fit rounded-xl">
               Send to all
             </Button>
           </form>
@@ -50,11 +50,11 @@ export default async function AdminNotifyPage({
       </Card>
 
       <p className="text-center text-sm text-slate-500">
-        <Link href="/dashboard/admin/participants" className="text-violet-700 hover:underline">
+        <Link href="/dashboard/admin/participants" className="text-brand hover:text-brand-hover hover:underline">
           Individual participant tools
         </Link>
         {" · "}
-        <Link href="/dashboard/admin" className="text-violet-700 hover:underline">
+        <Link href="/dashboard/admin" className="text-brand hover:text-brand-hover hover:underline">
           Overview
         </Link>
       </p>

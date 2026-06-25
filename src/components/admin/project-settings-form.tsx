@@ -109,7 +109,7 @@ export function ProjectSettingsForm({ initial }: { initial: ProjectSettings }) {
         </p>
       ) : null}
 
-      <Button type="submit" className="rounded-xl bg-violet-600 hover:bg-violet-700">
+      <Button type="submit" className="rounded-xl">
         Save changes
       </Button>
     </form>

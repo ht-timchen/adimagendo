@@ -16,6 +16,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  participantDashboardBodyClassName,
+  participantDashboardCalendarDayClassName,
+  participantDashboardCalendarDayHasEntryClassName,
+  participantDashboardCalendarDayOutsideClassName,
+  participantDashboardCalendarMutedClassName,
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardInputClassName,
+  participantDashboardLabelClassName,
+  participantDashboardMutedClassName,
+} from "@/lib/participant-dashboard-ui";
 
 const REASONS = [
   { value: "MEDICAL", label: "Medical" },
@@ -104,19 +116,19 @@ export function AbsenceTracker() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader>
-          <CardTitle className="text-base">Log entry</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Log entry</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Date</label>
+              <label className={participantDashboardLabelClassName}>Date</label>
               <Input
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                className="mt-1"
+                className={cn("mt-1", participantDashboardInputClassName)}
                 required
               />
             </div>
@@ -128,18 +140,18 @@ export function AbsenceTracker() {
                 onChange={(e) => setForm((p) => ({ ...p, halfDay: e.target.checked }))}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              <label htmlFor="halfDay" className="text-sm">
+              <label htmlFor="halfDay" className={cn("text-sm", participantDashboardBodyClassName)}>
                 Half day only
               </label>
             </div>
             <div>
-              <label className="text-sm font-medium">Reason</label>
+              <label className={participantDashboardLabelClassName}>Reason</label>
               <select
                 value={form.reason}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, reason: e.target.value as typeof form.reason }))
                 }
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                className={cn("mt-1 w-full rounded-lg px-3 py-2 text-sm", participantDashboardInputClassName)}
               >
                 {REASONS.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -149,22 +161,22 @@ export function AbsenceTracker() {
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium">Context</label>
+              <label className={participantDashboardLabelClassName}>Context</label>
               <select
                 value={form.context}
                 onChange={(e) => setForm((p) => ({ ...p, context: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                className={cn("mt-1 w-full rounded-lg px-3 py-2 text-sm", participantDashboardInputClassName)}
               >
                 <option value="school">School</option>
                 <option value="work">Work</option>
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium">Notes (optional)</label>
+              <label className={participantDashboardLabelClassName}>Notes (optional)</label>
               <Input
                 value={form.notes}
                 onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                className="mt-1"
+                className={cn("mt-1", participantDashboardInputClassName)}
                 placeholder="Optional…"
               />
             </div>
@@ -175,9 +187,9 @@ export function AbsenceTracker() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Calendar</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Calendar</CardTitle>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -186,7 +198,7 @@ export function AbsenceTracker() {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="min-w-[120px] text-center font-medium">
+            <span className={cn("min-w-[120px] text-center font-medium", participantDashboardBodyClassName)}>
               {format(monthStart, "MMMM yyyy")}
             </span>
             <Button
@@ -200,11 +212,11 @@ export function AbsenceTracker() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>Loading…</p>
           ) : (
             <div className="grid grid-cols-7 gap-1 text-center text-sm">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <div key={day} className="font-medium text-slate-500">
+                <div key={day} className={participantDashboardCalendarMutedClassName}>
                   {day}
                 </div>
               ))}
@@ -215,9 +227,9 @@ export function AbsenceTracker() {
                   <div
                     key={format(d, "yyyy-MM-dd")}
                     className={cn(
-                      "rounded-lg border p-2 text-sm",
-                      hasEntry && "bg-amber-100 dark:bg-amber-900/20",
-                      !isSameMonth(d, monthStart) && "text-slate-300 dark:text-slate-600"
+                      participantDashboardCalendarDayClassName,
+                      hasEntry && participantDashboardCalendarDayHasEntryClassName,
+                      !isSameMonth(d, monthStart) && participantDashboardCalendarDayOutsideClassName
                     )}
                   >
                     {format(d, "d")}
@@ -232,19 +244,23 @@ export function AbsenceTracker() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader>
-          <CardTitle className="text-base">This month&apos;s diary</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+            This month&apos;s diary
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
-            <p className="text-sm text-slate-500">No diary entries for this month.</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
+              No diary entries for this month.
+            </p>
           ) : (
             <ul className="space-y-2">
               {entries.map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
+                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/70 px-3 py-2 text-sm text-[#17483F]"
                 >
                   <span>
                     {format(parseISO(e.date), "MMM d, yyyy")}

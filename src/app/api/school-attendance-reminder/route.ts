@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { z } from "zod";
 import {
   dismissSchoolAttendanceReminder,
@@ -16,10 +16,9 @@ const DismissSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   let body: unknown;
   try {
@@ -39,7 +38,7 @@ export async function POST(req: Request) {
   try {
     const outcome = await respondSchoolAttendanceReminder({
       cycleId: parsed.data.cycleId,
-      userId: session.user.id,
+      userId: userId,
       action: parsed.data.action,
     });
     return NextResponse.json({ ok: true, outcome });
@@ -50,10 +49,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
 
   let body: unknown;
   try {
@@ -70,6 +68,6 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await dismissSchoolAttendanceReminder(parsed.data.cycleId, session.user.id);
+  await dismissSchoolAttendanceReminder(parsed.data.cycleId, userId);
   return NextResponse.json({ ok: true });
 }

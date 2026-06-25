@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { SurveyForm } from "@/components/survey-form";
+import {
+  participantDashboardPageClassName,
+  participantDashboardPageTitleClassName,
+} from "@/lib/participant-dashboard-ui";
 
 export default async function SurveyTakePage({
   params,
@@ -30,19 +34,19 @@ export default async function SurveyTakePage({
   }>) ?? [];
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className={participantDashboardPageClassName}>
       <div className="flex items-center gap-4">
         <Link
           href="/dashboard/surveys"
-          className="text-sm text-violet-600 hover:underline dark:text-violet-400"
+          className="text-sm text-[#2F8F7A] hover:text-[#277866] hover:underline"
         >
           ← Back to surveys
         </Link>
       </div>
       <div>
-        <h1 className="text-2xl font-bold">{template.title}</h1>
+        <h1 className={participantDashboardPageTitleClassName}>{template.title}</h1>
         {template.description && (
-          <p className="mt-1 text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-[#17483F]">
             {template.description}
           </p>
         )}

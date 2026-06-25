@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 
@@ -14,10 +14,9 @@ const CreateSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month");
   if (!month || !/^\d{4}-\d{2}$/.test(month)) {
@@ -29,7 +28,7 @@ export async function GET(req: Request) {
 
   const entries = await prisma.absenceEntry.findMany({
     where: {
-      userId: session.user.id,
+      userId: userId,
       date: { gte: start, lte: end },
     },
     orderBy: { date: "asc" },
@@ -38,10 +37,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   try {
     const body = await req.json();
     const parsed = CreateSchema.safeParse(body);
@@ -56,7 +54,7 @@ export async function POST(req: Request) {
 
     const entry = await prisma.absenceEntry.create({
       data: {
-        userId: session.user.id,
+        userId: userId,
         date: dateObj,
         halfDay: halfDay ?? false,
         reason,
@@ -75,17 +73,16 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireParticipantApiSession();
+  if (!authResult.ok) return authResult.response;
+  const { userId } = authResult.ctx;
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
   await prisma.absenceEntry.deleteMany({
-    where: { id, userId: session.user.id },
+    where: { id, userId: userId },
   });
   return NextResponse.json({ ok: true });
 }

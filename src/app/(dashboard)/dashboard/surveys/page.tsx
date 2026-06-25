@@ -3,6 +3,14 @@ import { prisma } from "@/lib/db";
 import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+  participantDashboardPageClassName,
+  participantDashboardPageTitleClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 export default async function SurveysPage() {
   const session = await auth();
@@ -30,18 +38,18 @@ export default async function SurveysPage() {
   );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className={participantDashboardPageClassName}>
       <div>
-        <h1 className="text-2xl font-bold">Quality of life surveys</h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <h1 className={participantDashboardPageTitleClassName}>Quality of life surveys</h1>
+        <p className="text-[#17483F]">
           Complete your surveys at 3, 6, 9, and 12 months.
         </p>
       </div>
 
       <div className="space-y-3">
         {templates.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-slate-600 dark:text-slate-400">
+          <Card className={participantDashboardCardClassName}>
+            <CardContent className={cn("py-8 text-center", participantDashboardMutedClassName)}>
               <p>No surveys available yet.</p>
             </CardContent>
           </Card>
@@ -49,11 +57,13 @@ export default async function SurveysPage() {
           templates.map((t) => {
             const done = completedSurveyIds.has(t.id) || completedChecklistKeys.has(t.key);
             return (
-              <Card key={t.id}>
+              <Card key={t.id} className={participantDashboardCardClassName}>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">{t.title}</CardTitle>
+                  <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+                    {t.title}
+                  </CardTitle>
                   {done ? (
-                    <span className="text-sm text-violet-600 dark:text-violet-400">
+                    <span className="text-sm text-[#2F8F7A]">
                       Completed
                     </span>
                   ) : (
@@ -65,7 +75,7 @@ export default async function SurveysPage() {
                   )}
                 </CardHeader>
                 {t.description && (
-                  <CardContent className="pt-0 text-sm text-slate-600 dark:text-slate-400">
+                  <CardContent className={cn("pt-0 text-sm", participantDashboardMutedClassName)}>
                     {t.description}
                   </CardContent>
                 )}

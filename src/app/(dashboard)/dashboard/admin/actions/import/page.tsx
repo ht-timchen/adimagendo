@@ -24,7 +24,7 @@ export default async function AdminImportPage() {
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FileUp className="h-5 w-5 text-violet-600" />
+            <FileUp className="h-5 w-5 text-brand" />
             CSV upload
           </CardTitle>
           <CardDescription>

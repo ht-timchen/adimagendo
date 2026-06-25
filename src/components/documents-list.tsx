@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
+import { participantDashboardCardClassName, participantDashboardHeadingClassName, participantDashboardMutedClassName } from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 type Document = {
   id: string;
@@ -13,31 +15,40 @@ type Document = {
   createdAt: string;
 };
 
-export function DocumentsList() {
+export function DocumentsList({ refreshKey = 0 }: { refreshKey?: number }) {
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/documents")
-      .then((res) => res.ok ? res.json() : [])
-      .then(setDocs)
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    fetch("/api/documents", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!cancelled) setDocs(data);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
 
   const referrals = docs.filter((d) => d.isReferral);
   const reportCards = docs.filter((d) => !d.isReferral && d.type === "REPORT_CARD");
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader>
-          <CardTitle className="text-base">Referrals</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Referrals</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>Loading…</p>
           ) : referrals.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>
               No referrals yet. The study team can send referrals to you here.
             </p>
           ) : (
@@ -45,7 +56,7 @@ export function DocumentsList() {
               {referrals.map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700"
+                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/85 px-3 py-2"
                 >
                   <span className="flex items-center gap-2 text-sm">
                     <FileText className="h-4 w-4" />
@@ -63,21 +74,21 @@ export function DocumentsList() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={participantDashboardCardClassName}>
         <CardHeader>
-          <CardTitle className="text-base">Your uploads (report cards)</CardTitle>
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Your uploads (report cards)</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>Loading…</p>
           ) : reportCards.length === 0 ? (
-            <p className="text-sm text-slate-500">No report cards uploaded yet.</p>
+            <p className={cn("text-sm", participantDashboardMutedClassName)}>No report cards uploaded yet.</p>
           ) : (
             <ul className="space-y-2">
               {reportCards.map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700"
+                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/85 px-3 py-2"
                 >
                   <span className="flex items-center gap-2 text-sm">
                     <FileText className="h-4 w-4" />

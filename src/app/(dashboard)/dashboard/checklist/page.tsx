@@ -22,6 +22,14 @@ import { LevelCompleteBanner } from "@/components/checklist/level-complete-banne
 import { getLevel1EnrollmentDueLabel, getTemplateEnrollmentDueLabel } from "@/components/checklist/level-1-enrollment-due-label";
 import { Check, Lock } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
+import { cn } from "@/lib/utils";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+  participantDashboardPageClassName,
+  participantDashboardPageTitleClassName,
+} from "@/lib/participant-dashboard-ui";
 import { LEVEL_COMPLETE_NOTIFICATION_COPY } from "@/lib/checklist/level-complete-notifications";
 import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "@/lib/checklist/early-clinical-protocol";
 import { isLevel1Complete } from "@/lib/checklist/level1-follow-up";
@@ -434,35 +442,36 @@ export default async function ChecklistPage() {
     return (
       <Card
         key={t.id}
-        className={
-          isComplete ? "border-violet-200 dark:border-violet-800" : ""
-        }
+        className={cn(
+          participantDashboardCardClassName,
+          isComplete && "border-[#2F8F7A]/40"
+        )}
       >
         <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
           <div className="flex gap-3">
             <div
               className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                 isComplete
-                  ? "bg-violet-600 text-white"
-                  : "border border-slate-300 dark:border-slate-600"
+                  ? "bg-brand text-white"
+                  : "border border-[#2F8F7A]/30"
               }`}
             >
               {isComplete ? <Check className="h-4 w-4" /> : null}
             </div>
             <div>
-              <CardTitle className="flex items-center gap-2 text-base">
+              <CardTitle className={cn("flex items-center gap-2 text-base", participantDashboardHeadingClassName)}>
                 {sectionLocked && !isComplete ? (
-                  <Lock className="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" />
+                  <Lock className="h-3.5 w-3.5 shrink-0 text-[#2A6F60]" />
                 ) : null}
                 {cardTitle}
               </CardTitle>
               {cardDescription && (
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                <p className={cn("mt-1 text-sm", participantDashboardMutedClassName)}>
                   {cardDescription}
                 </p>
               )}
               {dueLabel && !isComplete && !sectionLocked ? (
-                <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
+                <p className="mt-1 text-xs text-[#2F8F7A]">
                   {dueLabel}
                 </p>
               ) : null}
@@ -530,17 +539,17 @@ export default async function ChecklistPage() {
 
   return (
     <ChecklistCelebrationRoot>
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className={participantDashboardPageClassName}>
       <div>
-        <h1 className="text-2xl font-bold">Your checklist</h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <h1 className={participantDashboardPageTitleClassName}>Your checklist</h1>
+        <p className="text-[#17483F]">
           Complete each item as you progress through the study.
         </p>
       </div>
 
       {enrollmentTiming.missing ? (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
-          <CardContent className="py-4 text-sm text-amber-950 dark:text-amber-100">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-4 text-sm text-amber-950">
             {MISSING_ENROLLMENT_DATE_MESSAGE}
           </CardContent>
         </Card>
@@ -548,8 +557,8 @@ export default async function ChecklistPage() {
 
       <div className="space-y-3">
         {templates.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-slate-600 dark:text-slate-400">
+          <Card className={participantDashboardCardClassName}>
+            <CardContent className={cn("py-8 text-center", participantDashboardMutedClassName)}>
               <p>No checklist items yet.</p>
               <p className="mt-2 text-sm">
                 Your study coordinator will add requirements here.

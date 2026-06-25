@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
+import { ADMIN_CONTACT_MESSAGES_SEEN_COOKIE } from "@/lib/admin/contact-message-inbox";
 
 function slugifyBase(title: string): string {
   return title
@@ -309,4 +310,15 @@ export async function updateProjectSettingsAction(
   revalidatePath("/dashboard/admin/settings");
   revalidatePath("/dashboard/admin");
   return { ok: true };
+}
+
+export async function markContactMessagesSeenAction(): Promise<void> {
+  await requirePermissionOrRedirect("contact_message:read");
+  const cookieStore = await cookies();
+  cookieStore.set(ADMIN_CONTACT_MESSAGES_SEEN_COOKIE, new Date().toISOString(), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+  });
+  revalidatePath("/dashboard/admin");
 }

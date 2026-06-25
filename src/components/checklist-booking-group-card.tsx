@@ -6,6 +6,13 @@ import {
 } from "@/components/checklist-external-booking-flow";
 import type { BookAppointmentRowConfig } from "@/lib/checklist-booking-group";
 import type { ChecklistStatus } from "@prisma/client";
+import {
+  participantDashboardCardClassName,
+  participantDashboardHeadingClassName,
+  participantDashboardMutedClassName,
+  participantDashboardSurfaceClassName,
+} from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 type AppointmentPayload = {
   id: string;
@@ -47,20 +54,20 @@ export function ChecklistBookingGroupCard({
   dueLabel,
 }: Props) {
   return (
-    <Card>
+    <Card className={participantDashboardCardClassName}>
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
-        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600" />
+        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#2F8F7A]/30" />
         <div className="min-w-0 flex-1">
-          <CardTitle className="text-base">{title}</CardTitle>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+            {title}
+          </CardTitle>
+          <p className={cn("mt-1 text-sm", participantDashboardMutedClassName)}>
             {description}
           </p>
           {dueLabel ? (
-            <p className="mt-1 text-xs text-violet-700 dark:text-violet-300">
-              {dueLabel}
-            </p>
+            <p className="mt-1 text-xs text-[#2F8F7A]">{dueLabel}</p>
           ) : null}
-          <p className="mt-2 text-xs text-slate-500">
+          <p className={cn("mt-2 text-xs", participantDashboardMutedClassName)}>
             Appointments can be booked in any order.
           </p>
           {isLocked ? <ChecklistLockReasons reasons={lockReasons} /> : null}
@@ -70,9 +77,9 @@ export function ChecklistBookingGroupCard({
         {rows.map((row) => (
           <div
             key={row.config.templateKey}
-            className="rounded-md border border-slate-200 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-900/40"
+            className={cn("rounded-md p-3", participantDashboardSurfaceClassName)}
           >
-            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <p className={cn("text-sm font-medium", participantDashboardHeadingClassName)}>
               {row.config.label}
             </p>
             <ChecklistExternalBookingFlow

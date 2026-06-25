@@ -1,15 +1,19 @@
 import { auth } from "@/auth";
 import { DocumentsSection } from "@/components/documents-section";
+import {
+  participantDashboardPageClassName,
+  participantDashboardPageTitleClassName,
+} from "@/lib/participant-dashboard-ui";
 
 export default async function DocumentsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className={participantDashboardPageClassName}>
       <div>
-        <h1 className="text-2xl font-bold">Documents</h1>
-        <p className="text-slate-600 dark:text-slate-400">
+        <h1 className={participantDashboardPageTitleClassName}>Documents</h1>
+        <p className="text-[#17483F]">
           Upload report cards and view referrals sent to you.
         </p>
       </div>

@@ -20,7 +20,7 @@ import {
   computeCohortChecklistCompletionPct,
 } from "@/lib/admin/checklist-progress";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
-import { sendParticipantPushAction } from "./_actions";
+import { countUnreadContactMessages } from "@/lib/admin/contact-message-inbox";
 import { hasPermission, isAdminDashboardRole } from "@/lib/admin-rbac";
 
 const COHORT_TARGET = Number(process.env.NEXT_PUBLIC_COHORT_TARGET ?? "400") || 400;
@@ -367,6 +367,7 @@ export default async function AdminOverviewPage({
   const adminName =
     session.user.name?.trim() || session.user.email.split("@")[0] || "there";
   const adminInitial = adminName.slice(0, 1).toUpperCase();
+  const unreadContactMessageCount = await countUnreadContactMessages();
 
   return (
     <ClinicalAdminOverviewDashboard
@@ -374,9 +375,8 @@ export default async function AdminOverviewPage({
       adminName={adminName}
       adminInitial={adminInitial}
       rangeOptions={RANGE_OPTIONS}
-      sendParticipantPushAction={
-        hasPermission(session, "notification:send") ? sendParticipantPushAction : undefined
-      }
+      canSendNotification={hasPermission(session, "notification:send")}
+      unreadContactMessageCount={unreadContactMessageCount}
       canViewImportAction={hasPermission(session, "import:manage")}
       canViewExportAction={hasPermission(session, "symptom_diary:export")}
       canViewBroadcastAction={hasPermission(session, "notification:broadcast")}
