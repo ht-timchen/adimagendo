@@ -7,7 +7,6 @@ import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { isLevel1FollowUpDue } from "@/lib/checklist/level1-follow-up";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import {
-  canMarkAsPilotParticipant,
   isPilotParticipant,
   parseParticipantClassificationFilter,
   participantClassificationBadge,
@@ -125,6 +124,8 @@ export default async function AdminParticipantsPage({
         name: u.name,
         email: u.email,
         recordId: displayStudyRecordId(profile, u.id),
+        studyRecordId: profile.studyRecordId?.trim() || null,
+        isActive: u.isActive,
         enrollmentDate: formatDate(profile.enrollmentDate),
         dateOfBirth: formatDate(u.dateOfBirth),
         checklistCompleted: progress.completed,
@@ -134,7 +135,6 @@ export default async function AdminParticipantsPage({
         level1FollowUpDue,
         classificationLabel: badge.label,
         classificationClassName: badge.className,
-        canMarkAsPilot: canMarkAsPilotParticipant(profile),
       };
     });
 
@@ -165,9 +165,12 @@ export default async function AdminParticipantsPage({
 
       <AdminParticipantsTable
         participants={participants}
-        canResetPassword={hasPermission(session, "participant:reset_password")}
-        canSendNotification={hasPermission(session, "notification:send")}
-        canMarkPilot={hasPermission(session, "participant:mark_pilot")}
+        permissions={{
+          canResetPassword: hasPermission(session, "participant:reset_password"),
+          canSendNotification: hasPermission(session, "notification:send"),
+          canManageEnrolment: hasPermission(session, "enrolment:manage"),
+          canUpdateParticipant: hasPermission(session, "participant:update"),
+        }}
       />
     </div>
   );

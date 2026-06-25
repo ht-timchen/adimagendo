@@ -13,6 +13,8 @@ export const ADMIN_AUDIT_ACTIONS = {
   REDCAP_SYNC_TRIGGERED: "redcap.sync_triggered",
   SYMPTOM_DIARY_EXPORTED: "symptom_diary.exported",
   PARTICIPANT_PASSWORD_RESET: "participant.password_reset",
+  PARTICIPANT_DEACTIVATED: "participant.deactivated",
+  PARTICIPANT_ACTIVATED: "participant.activated",
   NOTIFICATION_BROADCAST_SENT: "notification.broadcast_sent",
 } as const;
 
