@@ -44,13 +44,7 @@ type GeneratedLink = {
 type LinkStatusKind = "used" | "active" | "expired" | "none";
 
 function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatImportedAt(iso);
 }
 
 function formatDMY(iso: string | null): string {
