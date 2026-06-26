@@ -44,7 +44,7 @@ export async function register() {
 
   // TEST ONLY — every 30s so short REMINDER_TEST_INTERVALS (1m/2m/1m) are picked up.
   // Replace with a production cadence (e.g. hourly) when switching to Fri/Sat/Sun schedule.
-  cron.schedule("*/30 * * * * *", async () => {
+  cron.schedule("0 * * * *", async () => {
     try {
       const res = await fetch(
         `${appBaseUrl()}/api/cron/school-attendance-reminders`,
