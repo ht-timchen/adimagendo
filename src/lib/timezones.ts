@@ -1,5 +1,6 @@
 export const COMMON_TIMEZONES = [
   "UTC",
+  "Australia/Adelaide",
   "Australia/Sydney",
   "Australia/Melbourne",
   "Australia/Brisbane",
