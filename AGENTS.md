@@ -1,3 +1,10 @@
+## Read-only tasks
+
+If the user says read-only, do not create, edit, delete, stage, or commit any files, including tests, docs, plans, markdown files, temporary files, or generated artifacts.
+
+For read-only tasks, only inspect files, search code, run read-only Git commands, and report findings. If a useful file change is identified, propose it and wait for explicit approval before making it.
+
+
 # ADIMAGENDO Study Buddy Agent Instructions
 
 This project is ADIMAGENDO Study Buddy, a research study management and participant engagement platform.

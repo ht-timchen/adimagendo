@@ -3,6 +3,12 @@ name: redcap-enrolment-flow-review
 description: Use when a task involves REDCap sync, consented participant records, studyRecordId, enrolment links, magic links, DoB verification, participant registration, preferred app login email, or linking an app account to a REDCap record.
 ---
 
+## Read-only rule
+
+If the user says read-only, do not create, edit, delete, stage, or commit any files, including tests, docs, plans, markdown files, temporary files, or generated artifacts.
+
+For read-only tasks, only inspect files, search code, run read-only Git commands, and report findings. If a useful file change is identified, propose it and wait for explicit approval before making it.
+
 # REDCap Enrolment Flow Review Skill
 
 ## Purpose
