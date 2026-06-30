@@ -79,10 +79,6 @@ export function AddToCalendarButton({ input, status, className }: Props) {
   const [iosPwaFileUrl, setIosPwaFileUrl] = useState<string | null>(null);
   const [awaitingCalendarReturn, setAwaitingCalendarReturn] = useState(false);
 
-  if (!isConfirmed || !hasConfirmedDateTime(input)) {
-    return null;
-  }
-
   const onClick = useCallback(() => {
     setLoading(true);
     const body = generateStudyAppointmentIcs(input);
@@ -132,6 +128,10 @@ export function AddToCalendarButton({ input, status, className }: Props) {
       }
     };
   }, [iosPwaFileUrl]);
+
+  if (!isConfirmed || !hasConfirmedDateTime(input)) {
+    return null;
+  }
 
   return (
     <>
