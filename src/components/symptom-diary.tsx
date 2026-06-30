@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   format,
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
   addMonths,
   subMonths,
   parseISO,
@@ -61,7 +60,7 @@ export function SymptomDiary() {
   });
   const [saving, setSaving] = useState(false);
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/symptoms?month=${currentMonth}`);
@@ -72,11 +71,11 @@ export function SymptomDiary() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth]);
 
   useEffect(() => {
     loadEntries();
-  }, [currentMonth]);
+  }, [loadEntries]);
 
   useEffect(() => {
     if (!selectedDate) {

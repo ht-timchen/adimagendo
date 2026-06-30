@@ -167,7 +167,6 @@ async function loadDashboardData(
     engagedInPeriod,
     enrolledWithChecklist,
     surveysCompleted,
-    totalParticipants,
   ] = await Promise.all([
     prisma.user.count({ where: enrolledWhere }),
     prisma.user.count({
@@ -199,7 +198,6 @@ async function loadDashboardData(
     prisma.surveyResponse.count({
       where: { completed: true, updatedAt: { gte: from, lte: to } },
     }),
-    prisma.user.count({ where: { role: "PARTICIPANT" } }),
   ]);
 
   const checklistRatePct = computeCohortChecklistCompletionPct(

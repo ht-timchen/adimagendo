@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   format,
   startOfMonth,
@@ -58,7 +58,7 @@ export function AbsenceTracker() {
   });
   const [saving, setSaving] = useState(false);
 
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/absences?month=${currentMonth}`);
@@ -69,11 +69,11 @@ export function AbsenceTracker() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth]);
 
   useEffect(() => {
     loadEntries();
-  }, [currentMonth]);
+  }, [loadEntries]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
