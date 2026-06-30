@@ -107,7 +107,9 @@ async function loadDashboardData(
   now: Date
 ): Promise<AdminOverviewDashboardData> {
   const rangeKey = parseRangeKey(sp.range);
-  let { from, to } = getRangeBounds(rangeKey, now);
+  const bounds = getRangeBounds(rangeKey, now);
+  let from = bounds.from;
+  const to = bounds.to;
   if (rangeKey === "all") {
     const minD = await earliestActivityStart();
     if (minD) from = minD;
