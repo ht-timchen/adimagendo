@@ -81,6 +81,7 @@ function BookingProgressBadge({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: defers locale formatting until after mount so SSR and first client paint both show plain "Confirmed" label
     setMounted(true);
   }, []);
 
