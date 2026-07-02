@@ -106,6 +106,7 @@ export function DashboardNav({
   const [desktopMoreOpen, setDesktopMoreOpen] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- route-state sync: close mobile menu on any navigation including browser back/forward and programmatic route changes
     setMoreOpen(false);
     setDesktopMoreOpen(false);
   }, [pathname]);
