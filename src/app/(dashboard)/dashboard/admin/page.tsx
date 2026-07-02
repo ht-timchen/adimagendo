@@ -107,7 +107,9 @@ async function loadDashboardData(
   now: Date
 ): Promise<AdminOverviewDashboardData> {
   const rangeKey = parseRangeKey(sp.range);
-  let { from, to } = getRangeBounds(rangeKey, now);
+  const bounds = getRangeBounds(rangeKey, now);
+  let from = bounds.from;
+  const to = bounds.to;
   if (rangeKey === "all") {
     const minD = await earliestActivityStart();
     if (minD) from = minD;
@@ -165,7 +167,6 @@ async function loadDashboardData(
     engagedInPeriod,
     enrolledWithChecklist,
     surveysCompleted,
-    totalParticipants,
   ] = await Promise.all([
     prisma.user.count({ where: enrolledWhere }),
     prisma.user.count({
@@ -197,7 +198,6 @@ async function loadDashboardData(
     prisma.surveyResponse.count({
       where: { completed: true, updatedAt: { gte: from, lte: to } },
     }),
-    prisma.user.count({ where: { role: "PARTICIPANT" } }),
   ]);
 
   const checklistRatePct = computeCohortChecklistCompletionPct(

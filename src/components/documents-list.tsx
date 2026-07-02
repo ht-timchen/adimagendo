@@ -21,6 +21,7 @@ export function DocumentsList({ refreshKey = 0 }: { refreshKey?: number }) {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- request lifecycle sync: enter loading state before each fetch (including refreshKey refresh) to avoid stale content flash
     setLoading(true);
     fetch("/api/documents", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : []))

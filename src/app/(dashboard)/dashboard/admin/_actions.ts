@@ -25,7 +25,7 @@ export async function createNewsPostAction(formData: FormData) {
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
   const published = formData.get("published") === "on";
   if (!title || !content) redirect("/dashboard/admin/news?error=missing-fields");
-  let base = slugifyBase(title) || "post";
+  const base = slugifyBase(title) || "post";
   let slug = base;
   let n = 0;
   while (await prisma.newsPost.findUnique({ where: { slug }, select: { id: true } })) {

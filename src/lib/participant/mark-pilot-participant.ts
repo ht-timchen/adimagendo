@@ -46,12 +46,13 @@ export { canMarkAsPilotParticipant };
  * Reserved hook for a future audit trail. Classification changes should be
  * recorded here once persistence is added.
  */
-async function recordPilotClassificationChange(_event: {
+async function recordPilotClassificationChange(event: {
   userId: string;
   actorUserId: string;
   previous: ParticipantClassificationSnapshot;
   next: ParticipantClassificationSnapshot;
 }): Promise<void> {
+  void event;
   // No-op until audit storage is implemented.
 }
 

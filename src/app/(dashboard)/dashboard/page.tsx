@@ -31,7 +31,8 @@ export default async function DashboardPage() {
   }
 
   const userId = session.user.id;
-  const staleCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const now = new Date();
+  const staleCutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000);
   const validTemplateIds = await getValidChecklistTemplateIds();
   const checklistScope =
     validTemplateIds.length > 0
@@ -59,7 +60,7 @@ export default async function DashboardPage() {
     prisma.appointment.findMany({
       where: {
         userId,
-        startAt: { gte: new Date() },
+        startAt: { gte: now },
         status: { not: "CANCELLED" },
       },
       orderBy: { startAt: "asc" },

@@ -103,13 +103,24 @@ function OverviewParticipantsFilter({
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(
+    () => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: gates portal rendering on document.body until after mount to avoid SSR errors
+      setMounted(true);
+    },
+    []
+  );
 
-  useEffect(() => {
-    if (!open) return;
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setMenuPos(null);
+  }, []);
+
+  const openMenu = useCallback(() => {
     setDraftFilter(filter);
     setDraftSearch(search);
-  }, [open, filter, search]);
+    setOpen(true);
+  }, [filter, search]);
 
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -129,10 +140,7 @@ function OverviewParticipantsFilter({
   }, []);
 
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuPos(null);
-      return;
-    }
+    if (!open) return;
     updateMenuPosition();
   }, [open, updateMenuPosition]);
 
@@ -154,20 +162,20 @@ function OverviewParticipantsFilter({
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node;
       if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
+      closeMenu();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  }, [open, closeMenu]);
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeMenu();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [open, closeMenu]);
 
   const selectClass =
     "flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none ring-violet-500 focus:ring-2";
@@ -216,7 +224,7 @@ function OverviewParticipantsFilter({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 onApply(draftFilter, draftSearch);
-                setOpen(false);
+                closeMenu();
               }
             }}
           />
@@ -230,7 +238,7 @@ function OverviewParticipantsFilter({
           className="rounded-xl"
           onClick={() => {
             onClear();
-            setOpen(false);
+            closeMenu();
           }}
         >
           Clear
@@ -241,7 +249,7 @@ function OverviewParticipantsFilter({
           className="rounded-xl bg-violet-600 hover:bg-violet-700"
           onClick={() => {
             onApply(draftFilter, draftSearch);
-            setOpen(false);
+            closeMenu();
           }}
         >
           Apply
@@ -262,7 +270,7 @@ function OverviewParticipantsFilter({
         )}
         aria-expanded={open}
         aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? closeMenu() : openMenu())}
       >
         <Filter className="mr-1 h-4 w-4" />
         Filter
