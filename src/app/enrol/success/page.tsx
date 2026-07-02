@@ -30,6 +30,7 @@ export default function EnrolSuccessPage() {
   const [origin, setOrigin] = useState("");
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser-only API guard: window and detectPlatform() must run after mount to avoid SSR errors and hydration mismatch
     setPlatform(detectPlatform());
     setOrigin(window.location.origin);
   }, []);
