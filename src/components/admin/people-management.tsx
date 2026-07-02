@@ -439,7 +439,22 @@ function PeopleRowActions({
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(
+    () => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: gates portal rendering on document.body until after mount to avoid SSR errors
+      setMounted(true);
+    },
+    []
+  );
+
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setMenuPos(null);
+  }, []);
+
+  const openMenu = useCallback(() => {
+    setOpen(true);
+  }, []);
 
   const updateMenuPosition = useCallback(() => {
     const trigger = triggerRef.current;
@@ -463,10 +478,7 @@ function PeopleRowActions({
   }, []);
 
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuPos(null);
-      return;
-    }
+    if (!open) return;
     updateMenuPosition();
   }, [open, updateMenuPosition, protectedEmail, person.isActive, isSelf]);
 
@@ -490,20 +502,20 @@ function PeopleRowActions({
       if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
         return;
       }
-      setOpen(false);
+      closeMenu();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  }, [open, closeMenu]);
 
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeMenu();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [open, closeMenu]);
 
   type MenuItem = {
     key: string;
@@ -522,7 +534,7 @@ function PeopleRowActions({
       label: "Edit",
       icon: <Pencil className="h-4 w-4" />,
       onClick: () => {
-        setOpen(false);
+        closeMenu();
         onEdit();
       },
     },
@@ -542,7 +554,7 @@ function PeopleRowActions({
       label: "Reset password",
       icon: <KeyRound className="h-4 w-4" />,
       onClick: () => {
-        setOpen(false);
+        closeMenu();
         onResetPassword();
       },
     });
@@ -555,7 +567,7 @@ function PeopleRowActions({
       icon: <CheckCircle2 className="h-4 w-4" />,
       separatorBefore: true,
       onClick: () => {
-        setOpen(false);
+        closeMenu();
         onActivate();
       },
     });
@@ -568,7 +580,7 @@ function PeopleRowActions({
       icon: <Ban className="h-4 w-4" />,
       separatorBefore: true,
       onClick: () => {
-        setOpen(false);
+        closeMenu();
         onDeactivate();
       },
     });
@@ -582,7 +594,7 @@ function PeopleRowActions({
       destructive: true,
       separatorBefore: true,
       onClick: () => {
-        setOpen(false);
+        closeMenu();
         onDelete();
       },
     });
@@ -598,7 +610,7 @@ function PeopleRowActions({
         disabled={busy}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? closeMenu() : openMenu())}
       >
         Actions
         <ChevronDown className={cn("ml-1.5 h-4 w-4 transition-transform", open && "rotate-180")} />
