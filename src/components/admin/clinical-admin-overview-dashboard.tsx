@@ -103,7 +103,13 @@ function OverviewParticipantsFilter({
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(
+    () => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration guard: gates portal rendering on document.body until after mount to avoid SSR errors
+      setMounted(true);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!open) return;
