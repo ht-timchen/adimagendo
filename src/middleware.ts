@@ -12,6 +12,7 @@ const PARTICIPANT_API_PREFIXES = [
   "/api/appointments/confirm",
   "/api/participant/",
   "/api/school-attendance-reminder",
+  "/api/medical-appointments-reminder",
   "/api/notifications/",
   "/api/push/subscribe",
 ] as const;
@@ -98,6 +99,7 @@ export const config = {
     "/api/appointments/confirm",
     "/api/participant/:path*",
     "/api/school-attendance-reminder",
+    "/api/medical-appointments-reminder",
     "/api/notifications/:path*",
     "/api/push/subscribe",
     "/api/admin/:path*",
