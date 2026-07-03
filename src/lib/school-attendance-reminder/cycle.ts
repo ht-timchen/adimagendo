@@ -138,6 +138,34 @@ async function ensureActiveCycle(
   });
 }
 
+async function ensureActiveCyclesForAllParticipants(
+  now: Date
+): Promise<number> {
+  const db = schoolAttendanceReminderDelegate();
+  if (!db) return 0;
+
+  const participants = await prisma.user.findMany({
+    where: { role: "PARTICIPANT", isActive: true },
+    select: { id: true },
+  });
+
+  let cyclesCreated = 0;
+
+  for (const { id: userId } of participants) {
+    const hadAwaiting = await db.findFirst({
+      where: { userId, outcome: "AWAITING_RESPONSE" },
+      select: { id: true },
+    });
+
+    const cycle = await ensureActiveCycle(userId, now);
+    if (!hadAwaiting && cycle) {
+      cyclesCreated += 1;
+    }
+  }
+
+  return cyclesCreated;
+}
+
 async function completeCycleFromDiaryEntry(
   cycleId: string
 ): Promise<void> {
@@ -297,6 +325,7 @@ export type ProcessDueRemindersResult = {
   completedFromDiary: number;
   stagesAdvanced: number;
   pushesSent: number;
+  cyclesCreated: number;
 };
 
 export async function processDueSchoolAttendanceReminders(
@@ -309,8 +338,11 @@ export async function processDueSchoolAttendanceReminders(
       completedFromDiary: 0,
       stagesAdvanced: 0,
       pushesSent: 0,
+      cyclesCreated: 0,
     };
   }
+
+  const cyclesCreated = await ensureActiveCyclesForAllParticipants(now);
 
   const awaiting = await db.findMany({
     where: { outcome: "AWAITING_RESPONSE" },
@@ -385,5 +417,6 @@ export async function processDueSchoolAttendanceReminders(
     completedFromDiary,
     stagesAdvanced,
     pushesSent,
+    cyclesCreated,
   };
 }
