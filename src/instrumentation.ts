@@ -42,8 +42,7 @@ export async function register() {
 
   console.log("[CRON] REDCap nightly sync scheduled (2:00 AM Adelaide)");
 
-  // TEST ONLY — every 30s so short REMINDER_TEST_INTERVALS (1m/2m/1m) are picked up.
-  // Replace with a production cadence (e.g. hourly) when switching to Fri/Sat/Sun schedule.
+  // Hourly — processes due school attendance reminders (Fri/Sat/Sun Adelaide schedule).
   cron.schedule("0 * * * *", async () => {
     try {
       const res = await fetch(
@@ -79,9 +78,42 @@ export async function register() {
     }
   });
 
-  console.log(
-    "[CRON] School attendance reminders scheduled (TEST ONLY: every 30s)"
-  );
+  console.log("[CRON] School attendance reminders scheduled (hourly)");
+
+  // Hourly — processes due medical appointments reminders (month-end Adelaide schedule).
+  cron.schedule("0 * * * *", async () => {
+    try {
+      const res = await fetch(
+        `${appBaseUrl()}/api/cron/medical-appointments-reminders`,
+        { headers: { "x-cron-secret": process.env.CRON_SECRET! } }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        console.error(
+          "[CRON] Medical appointments reminders HTTP",
+          res.status,
+          body
+        );
+        return;
+      }
+      const data = (await res.json()) as {
+        processed?: number;
+        pushesSent?: number;
+        cyclesCreated?: number;
+      };
+      if ((data.pushesSent ?? 0) > 0 || (data.cyclesCreated ?? 0) > 0) {
+        console.log(
+          "[CRON] Medical appointments reminders:",
+          new Date().toISOString(),
+          data
+        );
+      }
+    } catch (err) {
+      console.error("[CRON] Medical appointments reminders failed:", err);
+    }
+  });
+
+  console.log("[CRON] Medical appointments reminders scheduled (hourly)");
 
   const { logMailConfigOnce } = await import("@/lib/mail");
   logMailConfigOnce();
