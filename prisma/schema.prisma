@@ -101,6 +101,7 @@ model User {
   pushSubscriptions PushSubscription[]
   milestones        ParticipantMilestone[]
   schoolAttendanceReminderCycles SchoolAttendanceReminderCycle[]
+  medicalAppointmentsReminderCycles MedicalAppointmentsReminderCycle[]
   adminAuditEvents  AdminAuditEvent[] @relation("AdminAuditActor")
 }
 
@@ -388,6 +389,41 @@ model SchoolAttendanceReminderCycle {
   respondedAt        DateTime?
   createdAt          DateTime                        @default(now())
   updatedAt          DateTime                        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, outcome])
+  @@index([userId, cycleStartAt])
+}
+
+/// Monthly medical-appointments diary check-in cycle (in-app banner reminders).
+enum MedicalAppointmentsReminderOutcome {
+  AWAITING_RESPONSE
+  RESPONDED_NO
+  RESPONDED_YES_CONFIRMED
+  EXPIRED_NO_RESPONSE
+}
+
+enum MedicalAppointmentsReminderStage {
+  INITIAL
+  FIRST_FOLLOWUP
+  SECOND_FOLLOWUP
+}
+
+model MedicalAppointmentsReminderCycle {
+  id                  String                             @id @default(cuid())
+  userId              String
+  /// Anchor for this reminder month (used to compute month-end due dates).
+  cycleStartAt        DateTime
+  outcome             MedicalAppointmentsReminderOutcome @default(AWAITING_RESPONSE)
+  stage               MedicalAppointmentsReminderStage   @default(INITIAL)
+  initialDueAt        DateTime
+  firstFollowUpDueAt  DateTime
+  secondFollowUpDueAt DateTime
+  dismissedAt         DateTime?
+  respondedAt         DateTime?
+  createdAt           DateTime                           @default(now())
+  updatedAt           DateTime                           @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

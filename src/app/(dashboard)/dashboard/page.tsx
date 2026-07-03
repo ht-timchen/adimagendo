@@ -15,8 +15,10 @@ import {
   ChevronRight,
   CalendarClock,
 } from "lucide-react";
+import { MedicalAppointmentsReminderBanner } from "@/components/medical-appointments-reminder-banner";
 import { SchoolAttendanceReminderBanner } from "@/components/school-attendance-reminder-banner";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
+import { getMedicalAppointmentsBannerState } from "@/lib/medical-appointments-reminder/cycle";
 import { getSchoolAttendanceBannerState } from "@/lib/school-attendance-reminder/cycle";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
@@ -46,6 +48,7 @@ export default async function DashboardPage() {
     staleUnconfirmedBookings,
     recentSymptoms,
     schoolAttendanceBanner,
+    medicalAppointmentsBanner,
   ] = await Promise.all([
     prisma.participantProfile.findUnique({
       where: { userId },
@@ -81,6 +84,7 @@ export default async function DashboardPage() {
       take: 5,
     }),
     getSchoolAttendanceBannerState(userId),
+    getMedicalAppointmentsBannerState(userId),
   ]);
 
   const studyProgress = computeAdminChecklistProgress(
@@ -111,6 +115,10 @@ export default async function DashboardPage() {
 
       {schoolAttendanceBanner ? (
         <SchoolAttendanceReminderBanner {...schoolAttendanceBanner} />
+      ) : null}
+
+      {medicalAppointmentsBanner ? (
+        <MedicalAppointmentsReminderBanner {...medicalAppointmentsBanner} />
       ) : null}
 
       {staleUnconfirmedBookings.length > 0 ? (
