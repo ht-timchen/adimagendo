@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port ${PORT:-3000}",
     "prebuild": "prisma generate",
-    "prestart": "prisma db execute --schema prisma/schema.prisma --file prisma/sql/predeploy-dedupe-study-record-id.sql && prisma db push --accept-data-loss",
+    "prestart": "prisma db execute --schema prisma/schema.prisma --file prisma/sql/predeploy-dedupe-study-record-id.sql && prisma migrate deploy",
     "lint": "eslint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
