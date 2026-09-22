@@ -15,7 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "icons:generate": "bash scripts/generate-pwa-icons.sh",
-    "test": "tsx --test src/lib/workflow/**/*.test.ts src/lib/checklist/**/*.test.ts src/lib/school-attendance-reminder/**/*.test.ts src/lib/participant-api-auth.test.ts src/lib/documents/**/*.test.ts src/lib/participant-profile-display.test.ts"
+    "test": "tsx --test src/lib/workflow/**/*.test.ts src/lib/checklist/**/*.test.ts src/lib/school-attendance-reminder/**/*.test.ts src/lib/participant-api-auth.test.ts src/lib/documents/**/*.test.ts src/lib/participant-profile-display.test.ts src/lib/push/participant-push-access.test.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

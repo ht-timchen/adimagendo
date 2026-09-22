@@ -143,7 +143,17 @@ export function usePushNotification() {
           body: JSON.stringify(payload),
         });
 
-        if (!cancelled) setIsSubscribed(saveRes.ok);
+        if (!saveRes.ok) {
+          try {
+            await repaired.unsubscribe();
+          } catch {
+            /* ignore */
+          }
+          if (!cancelled) setIsSubscribed(false);
+          return;
+        }
+
+        if (!cancelled) setIsSubscribed(true);
       } catch {
         if (!cancelled) setIsSubscribed(false);
       }

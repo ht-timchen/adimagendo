@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import {
+  disableParticipantPushIfEnabled,
+  rejectAlreadyInactiveParticipant,
+} from "@/lib/push/participant-push-access";
 import { requirePermission } from "@/lib/admin-api-auth";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 
@@ -29,7 +33,11 @@ export async function PATCH(
   }
 
   if (!user.isActive) {
-    return NextResponse.json({ error: "Participant is already inactive" }, { status: 400 });
+    const rejected = await rejectAlreadyInactiveParticipant(prisma, id);
+    return NextResponse.json(
+      { error: rejected.error },
+      { status: rejected.status }
+    );
   }
 
   let reason: string;
@@ -47,9 +55,12 @@ export async function PATCH(
   }
 
   try {
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: false },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      await disableParticipantPushIfEnabled(tx, id);
     });
     await recordAdminAuditEvent({
       session,

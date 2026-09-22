@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { prisma } from "@/lib/db";
+import { enableParticipantPush } from "@/lib/push/participant-push-access";
 import { z } from "zod";
 
 const SubscriptionSchema = z.object({
@@ -50,6 +51,11 @@ export async function POST(req: Request) {
   if (!authResult.ok) return authResult.response;
   const { userId } = authResult.ctx;
 
+  const participant = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isActive: true },
+  });
+
   try {
     const body = await req.json();
     const parsed = SubscriptionSchema.safeParse(body);
@@ -61,21 +67,16 @@ export async function POST(req: Request) {
     }
 
     const { endpoint, keys } = parsed.data;
-
-    await prisma.pushSubscription.upsert({
-      where: { endpoint },
-      create: {
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        userId: userId,
-      },
-      update: {
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        userId: userId,
-      },
+    const saved = await enableParticipantPush(prisma, {
+      userId,
+      isActive: participant?.isActive ?? false,
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
     });
+    if (!saved.ok) {
+      return NextResponse.json({ error: saved.error }, { status: saved.status });
+    }
 
     return new NextResponse(null, { status: 200 });
   } catch (e) {
