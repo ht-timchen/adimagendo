@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   participantDashboardCardClassName,
@@ -13,6 +14,8 @@ import { cn } from "@/lib/utils";
 export default async function NewsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
 
   const posts = await prisma.newsPost.findMany({
     where: { published: true },

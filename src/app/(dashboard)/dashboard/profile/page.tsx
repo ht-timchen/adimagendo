@@ -7,6 +7,7 @@ import { PushNotificationOptIn } from "@/components/push-notification-opt-in";
 import { ParticipantProfileAccountActions } from "@/components/participant-profile-account-actions";
 import { ParticipantProfileDetailRow } from "@/components/participant-profile-detail-row";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import {
   formatParticipantProfileDate,
   formatParticipantProfileText,
@@ -28,6 +29,8 @@ export default async function ProfilePage() {
   if (isAdminDashboardRole(session)) {
     redirect("/dashboard/admin");
   }
+
+  await requireActiveParticipantPage(session);
 
   const [user, profile] = await Promise.all([
     prisma.user.findUnique({

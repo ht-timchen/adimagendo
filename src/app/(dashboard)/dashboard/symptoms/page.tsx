@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { SymptomDiary } from "@/components/symptom-diary";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import {
   participantDashboardPageClassName,
   participantDashboardPageTitleClassName,
@@ -8,6 +9,8 @@ import {
 export default async function SymptomsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
 
   return (
     <div className={participantDashboardPageClassName}>

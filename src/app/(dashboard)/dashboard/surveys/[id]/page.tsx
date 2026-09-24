@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { SurveyForm } from "@/components/survey-form";
@@ -15,6 +16,9 @@ export default async function SurveyTakePage({
 }) {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
+
   const { id } = await params;
   const template = await prisma.surveyTemplate.findUnique({
     where: { id },

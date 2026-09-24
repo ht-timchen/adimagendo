@@ -19,27 +19,36 @@ export function evaluateParticipantApiAccess(input: {
   role?: string | null;
   isAdmin: boolean;
   studyRecordId?: string | null;
+  /** Current database User.isActive. Session active is not authoritative. */
+  isActive?: boolean | null;
 }): 401 | 403 | "ok" {
   if (!input.userId) return 401;
   if (input.isAdmin || input.role !== "PARTICIPANT") return 403;
+  if (input.isActive !== true) return 403;
   if (!input.studyRecordId?.trim()) return 403;
   return "ok";
 }
 
 export async function requireParticipantApiSession(): Promise<ParticipantApiAuthResult> {
   const session = await auth();
-  const profile = session?.user?.id
+  const userId = session?.user?.id;
+
+  const profile = userId
     ? await prisma.participantProfile.findUnique({
-        where: { userId: session.user.id },
-        select: { studyRecordId: true },
+        where: { userId },
+        select: {
+          studyRecordId: true,
+          user: { select: { isActive: true } },
+        },
       })
     : null;
 
   const decision = evaluateParticipantApiAccess({
-    userId: session?.user?.id,
+    userId,
     role: session?.user?.role,
     isAdmin: session ? isAdminDashboardRole(session) : false,
     studyRecordId: profile?.studyRecordId,
+    isActive: profile?.user.isActive,
   });
 
   if (decision === 401) {

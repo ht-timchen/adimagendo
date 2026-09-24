@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
@@ -15,6 +16,8 @@ import { cn } from "@/lib/utils";
 export default async function SurveysPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
 
   const templates = await prisma.surveyTemplate.findMany({
     orderBy: { intervalMonths: "asc" },

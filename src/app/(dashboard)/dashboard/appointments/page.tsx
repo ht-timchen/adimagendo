@@ -15,12 +15,15 @@ import {
   participantDashboardPageClassName,
   participantDashboardPageTitleClassName,
 } from "@/lib/participant-dashboard-ui";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { cn } from "@/lib/utils";
 import { CalendarClock, ChevronLeft } from "lucide-react";
 
 export default async function AppointmentsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  await requireActiveParticipantPage(session);
 
   const raw = await prisma.appointment.findMany({
     where: { userId: session.user.id },

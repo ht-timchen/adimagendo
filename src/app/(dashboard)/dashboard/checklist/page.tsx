@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { REDCAP_PRE_SCREENING_SURVEY_URL } from "@/lib/redcap";
 import type { ChecklistBookingProgress } from "@/components/checklist-external-booking-flow";
 import {
@@ -204,6 +205,8 @@ function isUnlocked(
 export default async function ChecklistPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
 
   const profile = await prisma.participantProfile.findUnique({
     where: { userId: session.user.id },

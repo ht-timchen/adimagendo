@@ -22,6 +22,7 @@ import { getMedicalAppointmentsBannerState } from "@/lib/medical-appointments-re
 import { getSchoolAttendanceBannerState } from "@/lib/school-attendance-reminder/cycle";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { cn } from "@/lib/utils";
 
 export default async function DashboardPage() {
@@ -31,6 +32,8 @@ export default async function DashboardPage() {
   if (isAdminDashboardRole(session)) {
     redirect("/dashboard/admin");
   }
+
+  await requireActiveParticipantPage(session);
 
   const userId = session.user.id;
   const now = new Date();

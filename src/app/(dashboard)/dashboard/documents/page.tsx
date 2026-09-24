@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { DocumentsSection } from "@/components/documents-section";
+import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import {
   participantDashboardPageClassName,
   participantDashboardPageTitleClassName,
@@ -8,6 +9,8 @@ import {
 export default async function DocumentsPage() {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  await requireActiveParticipantPage(session);
 
   return (
     <div className={participantDashboardPageClassName}>
