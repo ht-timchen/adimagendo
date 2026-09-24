@@ -1,20 +1,10 @@
 /**
  * School attendance reminder timing configuration.
  */
-/** TEST ONLY — short ms offsets for manual QA (not active). */
-export const REMINDER_TEST_INTERVALS = {
-  /** Initial banner due this long after cycleStartAt */
-  initialDueAfterMs: 1 * 60 * 1000,
-  /** First follow-up due this long after initialDueAt (not cycle start) */
-  firstFollowUpAfterInitialDueMs: 2 * 60 * 1000,
-  /** Second follow-up due this long after firstFollowUpDueAt */
-  secondFollowUpAfterFirstFollowUpMs: 1 * 60 * 1000,
-} as const;
-
-/** Production cadence (Fri 5pm / Sat 3pm / Sun 3pm Adelaide). */
+/** Production cadence (Fri 4:30pm / Sat 3pm / Sun 3pm Adelaide). */
 export const PRODUCTION_SCHOOL_ATTENDANCE_REMINDER_INTERVALS = {
   timezone: "Australia/Adelaide",
-  initial: { weekday: 5, hour: 17, minute: 0 },
+  initial: { weekday: 5, hour: 16, minute: 30 },
   firstFollowUp: { weekday: 6, hour: 15, minute: 0 },
   secondFollowUp: { weekday: 0, hour: 15, minute: 0 },
 } as const;
@@ -40,12 +30,6 @@ const ADELAIDE_WEEKDAY_OFFSET: Record<string, number> = {
   Sat: 5,
   Sun: 6,
 };
-
-function isTestIntervals(
-  intervals: typeof REMINDER_TEST_INTERVALS | typeof PRODUCTION_SCHOOL_ATTENDANCE_REMINDER_INTERVALS
-): intervals is typeof REMINDER_TEST_INTERVALS {
-  return "initialDueAfterMs" in intervals;
-}
 
 function getZonedParts(date: Date, timeZone: string): ZonedParts {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -138,6 +122,7 @@ function computeProductionReminderDueDates(
   initialDueAt: Date;
   firstFollowUpDueAt: Date;
   secondFollowUpDueAt: Date;
+  cycleEndAt: Date;
 } {
   const { timezone } = config;
   const zoned = getZonedParts(cycleStartAt, timezone);
@@ -152,6 +137,7 @@ function computeProductionReminderDueDates(
   const friday = addCalendarDays(monday.year, monday.month, monday.day, 4);
   const saturday = addCalendarDays(monday.year, monday.month, monday.day, 5);
   const sunday = addCalendarDays(monday.year, monday.month, monday.day, 6);
+  const nextMonday = addCalendarDays(monday.year, monday.month, monday.day, 7);
 
   return {
     initialDueAt: zonedWallClockToUtc(timezone, {
@@ -169,6 +155,11 @@ function computeProductionReminderDueDates(
       hour: config.secondFollowUp.hour,
       minute: config.secondFollowUp.minute,
     }),
+    cycleEndAt: zonedWallClockToUtc(timezone, {
+      ...nextMonday,
+      hour: 0,
+      minute: 0,
+    }),
   };
 }
 
@@ -176,21 +167,10 @@ export function computeReminderDueDates(cycleStartAt: Date): {
   initialDueAt: Date;
   firstFollowUpDueAt: Date;
   secondFollowUpDueAt: Date;
+  cycleEndAt: Date;
 } {
-  const intervals = ACTIVE_SCHOOL_ATTENDANCE_REMINDER_INTERVALS;
-
-  if (!isTestIntervals(intervals)) {
-    return computeProductionReminderDueDates(cycleStartAt, intervals);
-  }
-
-  const initialDueAt = new Date(
-    cycleStartAt.getTime() + intervals.initialDueAfterMs
+  return computeProductionReminderDueDates(
+    cycleStartAt,
+    ACTIVE_SCHOOL_ATTENDANCE_REMINDER_INTERVALS
   );
-  const firstFollowUpDueAt = new Date(
-    initialDueAt.getTime() + intervals.firstFollowUpAfterInitialDueMs
-  );
-  const secondFollowUpDueAt = new Date(
-    firstFollowUpDueAt.getTime() + intervals.secondFollowUpAfterFirstFollowUpMs
-  );
-  return { initialDueAt, firstFollowUpDueAt, secondFollowUpDueAt };
 }

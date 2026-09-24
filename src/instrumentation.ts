@@ -42,8 +42,8 @@ export async function register() {
 
   console.log("[CRON] REDCap nightly sync scheduled (2:00 AM Adelaide)");
 
-  // Hourly — processes due school attendance reminders (Fri/Sat/Sun Adelaide schedule).
-  cron.schedule("0 * * * *", async () => {
+  // Every 15 minutes — school attendance reminders (Fri/Sat/Sun Adelaide schedule).
+  cron.schedule("*/15 * * * *", async () => {
     try {
       const res = await fetch(
         `${appBaseUrl()}/api/cron/school-attendance-reminders`,
@@ -61,11 +61,13 @@ export async function register() {
       const data = (await res.json()) as {
         processed?: number;
         pushesSent?: number;
-        completedFromDiary?: number;
+        cyclesCreated?: number;
+        expired?: number;
       };
       if (
         (data.pushesSent ?? 0) > 0 ||
-        (data.completedFromDiary ?? 0) > 0
+        (data.cyclesCreated ?? 0) > 0 ||
+        (data.expired ?? 0) > 0
       ) {
         console.log(
           "[CRON] School attendance reminders:",
@@ -76,12 +78,12 @@ export async function register() {
     } catch (err) {
       console.error("[CRON] School attendance reminders failed:", err);
     }
-  });
+  }, { noOverlap: true });
 
-  console.log("[CRON] School attendance reminders scheduled (hourly)");
+  console.log("[CRON] School attendance reminders scheduled (every 15 minutes)");
 
-  // Hourly — processes due medical appointments reminders (month-end Adelaide schedule).
-  cron.schedule("0 * * * *", async () => {
+  // Every 15 minutes — medical appointments reminders (month-end Adelaide schedule).
+  cron.schedule("*/15 * * * *", async () => {
     try {
       const res = await fetch(
         `${appBaseUrl()}/api/cron/medical-appointments-reminders`,
@@ -100,8 +102,13 @@ export async function register() {
         processed?: number;
         pushesSent?: number;
         cyclesCreated?: number;
+        expired?: number;
       };
-      if ((data.pushesSent ?? 0) > 0 || (data.cyclesCreated ?? 0) > 0) {
+      if (
+        (data.pushesSent ?? 0) > 0 ||
+        (data.cyclesCreated ?? 0) > 0 ||
+        (data.expired ?? 0) > 0
+      ) {
         console.log(
           "[CRON] Medical appointments reminders:",
           new Date().toISOString(),
@@ -111,9 +118,11 @@ export async function register() {
     } catch (err) {
       console.error("[CRON] Medical appointments reminders failed:", err);
     }
-  });
+  }, { noOverlap: true });
 
-  console.log("[CRON] Medical appointments reminders scheduled (hourly)");
+  console.log(
+    "[CRON] Medical appointments reminders scheduled (every 15 minutes)"
+  );
 
   const { logMailConfigOnce } = await import("@/lib/mail");
   logMailConfigOnce();

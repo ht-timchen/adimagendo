@@ -107,6 +107,7 @@ function computeProductionReminderDueDates(
   initialDueAt: Date;
   firstFollowUpDueAt: Date;
   secondFollowUpDueAt: Date;
+  cycleEndAt: Date;
 } {
   const { timezone } = config;
   const zoned = getZonedParts(cycleStartAt, timezone);
@@ -129,6 +130,12 @@ function computeProductionReminderDueDates(
     monthEnd.day,
     config.secondFollowUpOffsetDays
   );
+  const dayAfterThird = addCalendarDays(
+    monthEnd.year,
+    monthEnd.month,
+    monthEnd.day,
+    config.secondFollowUpOffsetDays + 1
+  );
 
   return {
     initialDueAt: zonedWallClockToUtc(timezone, {
@@ -146,6 +153,11 @@ function computeProductionReminderDueDates(
       hour: config.initial.hour,
       minute: config.initial.minute,
     }),
+    cycleEndAt: zonedWallClockToUtc(timezone, {
+      ...dayAfterThird,
+      hour: 0,
+      minute: 0,
+    }),
   };
 }
 
@@ -153,6 +165,7 @@ export function computeReminderDueDates(cycleStartAt: Date): {
   initialDueAt: Date;
   firstFollowUpDueAt: Date;
   secondFollowUpDueAt: Date;
+  cycleEndAt: Date;
 } {
   return computeProductionReminderDueDates(
     cycleStartAt,

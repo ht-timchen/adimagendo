@@ -100,8 +100,7 @@ model User {
   contactMessages  ContactMessage[]
   pushSubscriptions PushSubscription[]
   milestones        ParticipantMilestone[]
-  schoolAttendanceReminderCycles SchoolAttendanceReminderCycle[]
-  medicalAppointmentsReminderCycles MedicalAppointmentsReminderCycle[]
+  reminderCycles    ReminderCycle[]
   adminAuditEvents  AdminAuditEvent[] @relation("AdminAuditActor")
 }
 
@@ -359,76 +358,51 @@ model Document {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-/// Weekly school-attendance diary check-in cycle (in-app banner reminders).
-enum SchoolAttendanceReminderOutcome {
-  AWAITING_RESPONSE
-  RESPONDED_NO
-  RESPONDED_YES_CONFIRMED
-  RESPONDED_YES_ROUTED
-  EXPIRED_NO_RESPONSE
+enum ReminderType {
+  school_attendance
+  medical_appointments
 }
 
-enum SchoolAttendanceReminderStage {
-  INITIAL
-  FIRST_FOLLOWUP
-  SECOND_FOLLOWUP
+enum ReminderCycleStatus {
+  pending
+  completed
+  expired_missed
 }
 
-model SchoolAttendanceReminderCycle {
-  id                 String                          @id @default(cuid())
-  userId             String
-  /// Start of this reminder cycle (ISO week start in production; test cycle anchor).
-  cycleStartAt       DateTime
-  outcome            SchoolAttendanceReminderOutcome @default(AWAITING_RESPONSE)
-  stage              SchoolAttendanceReminderStage   @default(INITIAL)
-  initialDueAt       DateTime
-  firstFollowUpDueAt DateTime
-  secondFollowUpDueAt DateTime
-  /// Set when participant dismisses without Yes/No; cleared when stage advances.
-  dismissedAt        DateTime?
-  respondedAt        DateTime?
-  createdAt          DateTime                        @default(now())
-  updatedAt          DateTime                        @updatedAt
+enum ReminderResponse {
+  YES
+  NO
+}
+
+/// One school-week or medical-month reminder. Cycle start is reminder1At.
+model ReminderCycle {
+  id              String              @id @default(cuid())
+  userId          String
+  reminderType    ReminderType
+  /// school:YYYY-MM-DD (Adelaide R1 Friday) or medical:YYYY-MM (R1 month).
+  periodKey       String
+  scheduleVersion Int
+  reminder1At     DateTime
+  reminder2At     DateTime
+  reminder3At     DateTime
+  cycleEndAt      DateTime
+  push1SentAt     DateTime?
+  push2SentAt     DateTime?
+  push3SentAt     DateTime?
+  /// Short lease so two workers do not send the same stage. Not a send record.
+  push1ClaimedAt  DateTime?
+  push2ClaimedAt  DateTime?
+  push3ClaimedAt  DateTime?
+  dismissedAt     DateTime?
+  status          ReminderCycleStatus @default(pending)
+  response        ReminderResponse?
+  completedAt     DateTime?
+  createdAt       DateTime            @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, outcome])
-  @@index([userId, cycleStartAt])
-}
-
-/// Monthly medical-appointments diary check-in cycle (in-app banner reminders).
-enum MedicalAppointmentsReminderOutcome {
-  AWAITING_RESPONSE
-  RESPONDED_NO
-  RESPONDED_YES_CONFIRMED
-  EXPIRED_NO_RESPONSE
-}
-
-enum MedicalAppointmentsReminderStage {
-  INITIAL
-  FIRST_FOLLOWUP
-  SECOND_FOLLOWUP
-}
-
-model MedicalAppointmentsReminderCycle {
-  id                  String                             @id @default(cuid())
-  userId              String
-  /// Anchor for this reminder month (used to compute month-end due dates).
-  cycleStartAt        DateTime
-  outcome             MedicalAppointmentsReminderOutcome @default(AWAITING_RESPONSE)
-  stage               MedicalAppointmentsReminderStage   @default(INITIAL)
-  initialDueAt        DateTime
-  firstFollowUpDueAt  DateTime
-  secondFollowUpDueAt DateTime
-  dismissedAt         DateTime?
-  respondedAt         DateTime?
-  createdAt           DateTime                           @default(now())
-  updatedAt           DateTime                           @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, outcome])
-  @@index([userId, cycleStartAt])
+  @@unique([userId, reminderType, periodKey])
+  @@index([reminderType, status])
 }
 
 model Notification {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireParticipantApiSession } from "@/lib/participant-api-auth";
 import { z } from "zod";
+import { ReminderNotAvailableError } from "@/lib/reminder-cycle/process";
 import {
   dismissSchoolAttendanceReminder,
   respondSchoolAttendanceReminder,
@@ -43,6 +44,9 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: true, outcome });
   } catch (e) {
+    if (e instanceof ReminderNotAvailableError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
     console.error("School attendance reminder respond error:", e);
     return NextResponse.json({ error: "Failed to save response" }, { status: 400 });
   }
@@ -68,6 +72,15 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await dismissSchoolAttendanceReminder(parsed.data.cycleId, userId);
+  const dismissed = await dismissSchoolAttendanceReminder(
+    parsed.data.cycleId,
+    userId
+  );
+  if (!dismissed) {
+    return NextResponse.json(
+      { error: "Reminder is not available" },
+      { status: 409 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }

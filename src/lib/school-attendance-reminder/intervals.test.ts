@@ -37,7 +37,7 @@ describe("school attendance reminder intervals", () => {
     );
   });
 
-  it("schedules Fri 5pm, Sat 3pm, Sun 3pm Adelaide for the cycle week", () => {
+  it("schedules Fri 4:30pm, Sat 3pm, Sun 3pm Adelaide for the cycle week", () => {
     const cycleStartAt = new Date("2026-06-01T12:00:00.000Z");
     const due = computeReminderDueDates(cycleStartAt);
 
@@ -46,8 +46,8 @@ describe("school attendance reminder intervals", () => {
     const secondFollowUp = adelaideWallClock(due.secondFollowUpDueAt);
 
     assert.equal(initial.weekday, "Fri");
-    assert.equal(initial.hour, 17);
-    assert.equal(initial.minute, 0);
+    assert.equal(initial.hour, 16);
+    assert.equal(initial.minute, 30);
 
     assert.equal(firstFollowUp.weekday, "Sat");
     assert.equal(firstFollowUp.hour, 15);
