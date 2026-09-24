@@ -21,7 +21,7 @@ const PUSH_COPY: Record<ReminderType, PushPayload> = {
   },
   medical_appointments: {
     title: "Medical Appointments Diary",
-    body: "Did you have any medical appointments this month? Let us know here!",
+    body: "Did you see a health professional at any time this month? Let us know here!",
     url: "/dashboard",
   },
 };

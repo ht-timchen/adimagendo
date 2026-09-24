@@ -72,7 +72,7 @@ export function MedicalAppointmentsReminderBanner({ cycleId }: Props) {
             Medical Appointments Diary
           </p>
           <p className="text-[#2A6F60]">
-            Did you see a health professional at any time this month?
+            Did you see a health professional at any time this month? Let us know here!
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
