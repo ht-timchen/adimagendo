@@ -176,6 +176,8 @@ model ParticipantProfile {
   phone         String?
   redcapType    String?
   consentStatus String?
+  /// Last time the participant opened the News list (engagement badge only).
+  newsLastViewedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

@@ -484,7 +484,7 @@ export function ClinicalAdminOverviewDashboard({
     { href: "/dashboard/admin/actions/import", label: "Import CSV", icon: FileUp },
     { href: "/dashboard/admin/actions/export", label: "Export CSV", icon: FileDown },
     { href: "/dashboard/admin/actions/notify", label: "Send notifications", icon: Send },
-    { href: "/dashboard/admin/news", label: "News Post", icon: Newspaper },
+    { href: "/dashboard/admin/news", label: "News posts", icon: Newspaper },
   ].filter((link) => {
     if (link.href === "/dashboard/admin/actions/import") return canViewImportAction;
     if (link.href === "/dashboard/admin/actions/export") return canViewExportAction;

@@ -8,15 +8,7 @@ import { prisma } from "@/lib/db";
 import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 import { ADMIN_CONTACT_MESSAGES_SEEN_COOKIE } from "@/lib/admin/contact-message-inbox";
-
-function slugifyBase(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 72);
-}
+import { createNewsPostWithUniqueSlug } from "@/lib/news/slug";
 
 export async function createNewsPostAction(formData: FormData) {
   await requirePermissionOrRedirect("post:update");
@@ -25,22 +17,11 @@ export async function createNewsPostAction(formData: FormData) {
   const excerpt = String(formData.get("excerpt") ?? "").trim() || null;
   const published = formData.get("published") === "on";
   if (!title || !content) redirect("/dashboard/admin/news?error=missing-fields");
-  const base = slugifyBase(title) || "post";
-  let slug = base;
-  let n = 0;
-  while (await prisma.newsPost.findUnique({ where: { slug }, select: { id: true } })) {
-    n += 1;
-    slug = `${base}-${n}`;
-  }
-  await prisma.newsPost.create({
-    data: {
-      title,
-      slug,
-      content,
-      excerpt,
-      published,
-      publishedAt: published ? new Date() : null,
-    },
+  await createNewsPostWithUniqueSlug({
+    title,
+    content,
+    excerpt,
+    published,
   });
   revalidatePath("/dashboard/admin/news");
   redirect("/dashboard/admin/news");

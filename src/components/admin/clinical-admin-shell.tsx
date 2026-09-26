@@ -42,7 +42,7 @@ const mainNav = [
   { href: "/dashboard/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/admin/participants", label: "Participants", icon: Users },
   { href: "/dashboard/admin/participant-progress", label: "Participant Progress", icon: ListChecks },
-  { href: "/dashboard/admin/news", label: "New Posts", icon: Newspaper },
+  { href: "/dashboard/admin/news", label: "News posts", icon: Newspaper },
   { href: "/dashboard/admin/messages", label: "Contact Messages", icon: Mail },
   { href: "/dashboard/admin/people", label: "People", icon: UsersRound },
   { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },

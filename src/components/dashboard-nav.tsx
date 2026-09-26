@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { Button } from "@/components/ui/button";
+import { ParticipantNewsBell } from "@/components/participant-news-bell";
 
 const participantPrimaryTabs = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -96,9 +97,16 @@ function NavTabLink({
 export function DashboardNav({
   user,
   mobile,
+  newNewsCount = 0,
+  showNewsBell = false,
+  showProfileLink = false,
 }: {
   user: { name?: string | null; email?: string | null; role?: string };
   mobile?: boolean;
+  newNewsCount?: number;
+  showNewsBell?: boolean;
+  /** Participant-only: name links to /dashboard/profile */
+  showProfileLink?: boolean;
 }) {
   const pathname = usePathname() ?? "";
   const isAdminUser = isAdminDashboardRole(user.role);
@@ -266,9 +274,24 @@ export function DashboardNav({
           ) : null}
         </div>
       </div>
-      <span className="text-sm text-[#2A6F60]">
-        {user.name ?? user.email}
-      </span>
+      {showNewsBell ? <ParticipantNewsBell newNewsCount={newNewsCount} /> : null}
+      {showProfileLink ? (
+        <Link
+          href="/dashboard/profile"
+          className={cn(
+            "max-w-[10rem] truncate text-sm text-[#2A6F60] underline-offset-2",
+            "hover:text-[#17483F] hover:underline",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F8F7A]/45 focus-visible:ring-offset-2 rounded-sm"
+          )}
+          aria-label="Open profile"
+        >
+          {user.name ?? user.email}
+        </Link>
+      ) : (
+        <span className="max-w-[10rem] truncate text-sm text-[#2A6F60]">
+          {user.name ?? user.email}
+        </span>
+      )}
       <Button
         variant="ghost"
         size="icon"

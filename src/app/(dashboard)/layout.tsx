@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { DashboardLayoutChrome } from "@/components/dashboard-layout-chrome";
+import { getParticipantNewNewsCount } from "@/lib/news/news-badge";
 
 export default async function DashboardLayout({
   children,
@@ -14,10 +15,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  if (
-    session.user.role === "PARTICIPANT" &&
-    !isAdminDashboardRole(session)
-  ) {
+  const isParticipantOnly =
+    session.user.role === "PARTICIPANT" && !isAdminDashboardRole(session);
+
+  if (isParticipantOnly) {
     const profile = await prisma.participantProfile.findUnique({
       where: { userId: session.user.id },
       select: { studyRecordId: true },
@@ -27,5 +28,18 @@ export default async function DashboardLayout({
     }
   }
 
-  return <DashboardLayoutChrome user={session.user}>{children}</DashboardLayoutChrome>;
+  const newNewsCount = isParticipantOnly
+    ? await getParticipantNewNewsCount(session.user.id)
+    : 0;
+
+  return (
+    <DashboardLayoutChrome
+      user={session.user}
+      newNewsCount={newNewsCount}
+      showNewsBell={isParticipantOnly}
+      showProfileLink={isParticipantOnly}
+    >
+      {children}
+    </DashboardLayoutChrome>
+  );
 }

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requirePermission } from "@/lib/admin-api-auth";
+import { createNewsPostWithUniqueSlug } from "@/lib/news/slug";
 
 const CreateSchema = z.object({
   title: z.string().min(1),
-  slug: z.string().min(1),
   content: z.string(),
   excerpt: z.string().optional(),
   published: z.boolean().optional(),
@@ -27,6 +27,10 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
+    // Ignore any client-supplied slug; uniqueness is allocated server-side.
+    if (body && typeof body === "object" && "slug" in body) {
+      delete (body as { slug?: unknown }).slug;
+    }
     const parsed = CreateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -34,16 +38,12 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const { title, slug, content, excerpt, published } = parsed.data;
-    const post = await prisma.newsPost.create({
-      data: {
-        title,
-        slug,
-        content,
-        excerpt: excerpt ?? null,
-        published: published ?? false,
-        publishedAt: published ? new Date() : null,
-      },
+    const { title, content, excerpt, published } = parsed.data;
+    const post = await createNewsPostWithUniqueSlug({
+      title,
+      content,
+      excerpt,
+      published,
     });
     return NextResponse.json(post);
   } catch (e) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,6 @@ type Post = {
   published: boolean;
 };
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
-}
-
 export function AdminNewsForm({
   mode,
   initial,
@@ -31,18 +24,11 @@ export function AdminNewsForm({
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(initial?.title ?? "");
-  const [slug, setSlug] = useState(initial?.slug ?? "");
   const [content, setContent] = useState(initial?.content ?? "");
   const [excerpt, setExcerpt] = useState(initial?.excerpt ?? "");
   const [published, setPublished] = useState(initial?.published ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (mode === "create" && !initial && title && !slug) {
-      setSlug(slugify(title));
-    }
-  }, [title, mode, initial, slug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +41,6 @@ export function AdminNewsForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title,
-            slug: slug || slugify(title),
             content,
             excerpt: excerpt || undefined,
             published,
@@ -74,7 +59,6 @@ export function AdminNewsForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title,
-            slug: slug || slugify(title),
             content,
             excerpt: excerpt || undefined,
             published,
@@ -112,16 +96,6 @@ export function AdminNewsForm({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. March study update"
               required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Slug (URL-friendly, e.g. march-update)
-            </label>
-            <Input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder={slugify(title) || "march-update"}
             />
           </div>
           <div>

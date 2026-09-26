@@ -5,7 +5,6 @@ import { requirePermission } from "@/lib/admin-api-auth";
 
 const UpdateSchema = z.object({
   title: z.string().min(1).optional(),
-  slug: z.string().min(1).optional(),
   content: z.string().optional(),
   excerpt: z.string().optional(),
   published: z.boolean().optional(),
@@ -37,6 +36,10 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+    // Preserve existing slug; ignore any client-supplied slug on edit.
+    if (body && typeof body === "object" && "slug" in body) {
+      delete (body as { slug?: unknown }).slug;
+    }
     const parsed = UpdateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -46,14 +49,12 @@ export async function PATCH(
     }
     const data: {
       title?: string;
-      slug?: string;
       content?: string;
       excerpt?: string | null;
       published?: boolean;
       publishedAt?: Date | null;
     } = {};
     if (parsed.data.title !== undefined) data.title = parsed.data.title;
-    if (parsed.data.slug !== undefined) data.slug = parsed.data.slug;
     if (parsed.data.content !== undefined) data.content = parsed.data.content;
     if (parsed.data.excerpt !== undefined) data.excerpt = parsed.data.excerpt;
     if (parsed.data.published !== undefined) {

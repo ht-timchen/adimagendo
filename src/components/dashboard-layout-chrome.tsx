@@ -16,9 +16,15 @@ type ChromeUser = {
 export function DashboardLayoutChrome({
   children,
   user,
+  newNewsCount = 0,
+  showNewsBell = false,
+  showProfileLink = false,
 }: {
   children: React.ReactNode;
   user: ChromeUser;
+  newNewsCount?: number;
+  showNewsBell?: boolean;
+  showProfileLink?: boolean;
 }) {
   const pathname = usePathname() ?? "";
   const hideParticipantChrome = pathname.startsWith("/dashboard/admin");
@@ -51,7 +57,12 @@ export function DashboardLayoutChrome({
               priority
             />
           </Link>
-          <DashboardNav user={user} />
+          <DashboardNav
+            user={user}
+            newNewsCount={newNewsCount}
+            showNewsBell={showNewsBell}
+            showProfileLink={showProfileLink}
+          />
         </div>
       </header>
       <main className="relative z-10 dashboard-main-safe-mobile flex-1 p-4 pb-24 md:pb-4 md:pl-6 md:pr-6">
