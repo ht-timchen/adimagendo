@@ -15,6 +15,34 @@ import {
   hasParticipantChecklistActivity,
 } from "@/lib/admin/participant-detail-status";
 import { ParticipantDetailClient } from "@/components/admin/participant-detail-client";
+import type { ParticipantClassificationCardData } from "@/components/admin/participant-data-classification-card";
+import {
+  isTestParticipantForTiming,
+  resolveEnrollmentDateForTiming,
+} from "@/lib/checklist/enrollment-date-for-timing";
+import {
+  adelaideCivilDate,
+  formatAdelaideCivilDate,
+  formatCivilDateYmd,
+} from "@/lib/dates/adelaide-calendar";
+import {
+  canMarkAsPilotParticipant,
+  participantClassificationBadge,
+} from "@/lib/participant/pilot-participant-scope";
+import {
+  canMarkAsTestParticipant,
+  canUnmarkTestParticipant,
+  classificationLockedReason,
+} from "@/lib/participant/classification-eligibility";
+import { getParticipantClassificationHistory } from "@/lib/participant/classification-history";
+import {
+  isTestEnrollmentDateToolsEnabled,
+  TEST_ENROLLMENT_DATE_MIN,
+  testEnrollmentDateMax,
+} from "@/lib/participant/test-enrollment-date";
+
+const DATA_SOURCE_LABELS = { LOCAL: "Local", REDCAP: "REDCap" } as const;
+const DATA_KIND_LABELS = { TEST: "Test", REAL: "Pilot", UNKNOWN: "Unknown" } as const;
 
 export default async function AdminParticipantDetailPage({
   params,
@@ -45,6 +73,9 @@ export default async function AdminParticipantDetailPage({
     where: { studyRecordId },
     select: {
       enrollmentDate: true,
+      studyRecordId: true,
+      dataSource: true,
+      dataKind: true,
       redcapType: true,
       user: {
         select: {
@@ -73,7 +104,8 @@ export default async function AdminParticipantDetailPage({
   }
 
   const user = profile.user;
-  const [redcapSync, tokens, lastActive, accessDisabledReason] = await Promise.all([
+  const canClassify = hasPermission(session, "participant:classify");
+  const [redcapSync, tokens, lastActive, accessDisabledReason, day0Timing, history] = await Promise.all([
     prisma.redcapParticipantSync.findUnique({
       where: { studyRecordId },
       select: { email: true, dateOfBirth: true, redcapType: true },
@@ -85,7 +117,38 @@ export default async function AdminParticipantDetailPage({
     }),
     lastActiveTimestamp(user.id),
     user.isActive ? Promise.resolve(null) : getParticipantAccessDisabledReason(user.id),
+    resolveEnrollmentDateForTiming(profile),
+    canClassify ? getParticipantClassificationHistory(user.id) : Promise.resolve([]),
   ]);
+
+  const day0Civil =
+    day0Timing.missing || !day0Timing.enrollmentDate
+      ? null
+      : adelaideCivilDate(day0Timing.enrollmentDate);
+  const day0Label = day0Civil ? formatAdelaideCivilDate(day0Civil) : null;
+
+  let classification: ParticipantClassificationCardData | undefined;
+  if (canClassify) {
+    const badge = participantClassificationBadge(profile);
+    classification = {
+      userId: user.id,
+      sourceLabel: DATA_SOURCE_LABELS[profile.dataSource],
+      typeLabel: DATA_KIND_LABELS[profile.dataKind],
+      typeClassName: badge.className,
+      canMarkTest: canMarkAsTestParticipant(profile),
+      canMarkPilot:
+        hasPermission(session, "participant:mark_pilot") && canMarkAsPilotParticipant(profile),
+      canUnmarkTest: canUnmarkTestParticipant(profile),
+      lockedReason: classificationLockedReason(profile),
+      isTestAccount: isTestParticipantForTiming(profile),
+      testDateToolsEnabled: isTestEnrollmentDateToolsEnabled(),
+      day0Label,
+      day0Ymd: day0Civil ? formatCivilDateYmd(day0Civil) : null,
+      minDateYmd: formatCivilDateYmd(TEST_ENROLLMENT_DATE_MIN),
+      maxDateYmd: formatCivilDateYmd(testEnrollmentDateMax(new Date())),
+      history,
+    };
+  }
 
   const checklistItems = user.checklist.map((item) => ({
     templateKey: item.template.key,
@@ -147,13 +210,14 @@ export default async function AdminParticipantDetailPage({
         checklistTotal: progress.total,
         checklistOverdue: overdue,
         lastActivity: formatAdminDateTimeDMY(lastActivityAt),
-        enrolledDate: formatAdminDateDMY(profile.enrollmentDate),
+        day0: day0Label ?? "Missing",
         permissions: {
           canResetPassword: hasPermission(session, "participant:reset_password"),
           canSendNotification: hasPermission(session, "notification:send"),
           canManageEnrolment: hasPermission(session, "enrolment:manage"),
           canUpdateParticipant: hasPermission(session, "participant:update"),
         },
+        classification,
       }}
     />
   );

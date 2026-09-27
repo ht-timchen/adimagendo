@@ -17,6 +17,10 @@ import {
   type ParticipantActionPermissions,
   type ParticipantActionTarget,
 } from "@/components/admin/participant-row-actions";
+import {
+  ParticipantDataClassificationCard,
+  type ParticipantClassificationCardData,
+} from "@/components/admin/participant-data-classification-card";
 
 export type ParticipantDetailData = {
   userId: string;
@@ -34,8 +38,11 @@ export type ParticipantDetailData = {
   checklistTotal: number;
   checklistOverdue: number;
   lastActivity: string;
-  enrolledDate: string;
+  /** Day 0 from resolveEnrollmentDateForTiming, or "Missing". */
+  day0: string;
   permissions: ParticipantActionPermissions;
+  /** Present only for super admins. */
+  classification?: ParticipantClassificationCardData;
 };
 
 const JOIN_STATUS_LEGEND = [
@@ -256,11 +263,15 @@ export function ParticipantDetailClient({ data }: { data: ParticipantDetailData 
                 ),
               },
               { label: "Last activity", value: data.lastActivity },
-              { label: "Enrolled date", value: data.enrolledDate },
+              { label: "Day 0", value: data.day0 },
             ]}
           />
         </CardContent>
       </Card>
+
+      {data.classification ? (
+        <ParticipantDataClassificationCard data={data.classification} />
+      ) : null}
 
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader className="pb-2">
