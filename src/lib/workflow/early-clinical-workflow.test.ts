@@ -4,7 +4,8 @@ import { evaluateStepAvailability } from "./evaluate-step-availability";
 import type { WorkflowChecklistTemplate, WorkflowEvaluationContext } from "./types";
 
 function template(
-  partial: WorkflowChecklistTemplate
+  partial: Pick<WorkflowChecklistTemplate, "key" | "title" | "sortOrder"> &
+    Partial<WorkflowChecklistTemplate>
 ): WorkflowChecklistTemplate {
   return {
     prerequisiteKeys: [],

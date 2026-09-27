@@ -5,6 +5,22 @@ import {
   computeAdminChecklistProgress,
   type AdminChecklistProgressItem,
 } from "@/lib/admin/checklist-progress";
+import {
+  getFollowUpOverdueThreshold,
+  getFollowUpUnlock,
+} from "@/lib/checklist/follow-up-availability";
+import { getFollowUpUnlockMonths } from "@/lib/checklist/protocol-timing";
+import { getLevel1DueDays } from "@/lib/checklist/early-clinical-protocol";
+import {
+  addCivilDays,
+  adelaideCivilDate,
+  adelaideMidnightUtc,
+  civilDaysBetween,
+  civilWeekday,
+  compareCivilDates,
+  formatCivilDateDMY,
+  type CivilDate,
+} from "@/lib/dates/adelaide-calendar";
 
 export type ChecklistTemplateMeta = {
   key: string;
@@ -51,18 +67,6 @@ type ChecklistItemInput = {
   status: ChecklistStatus;
 };
 
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function addDays(base: Date, days: number): Date {
-  const d = startOfDay(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
 function isLogicalStepComplete(templateKeys: string[], completedKeys: Set<string>): boolean {
   return templateKeys.every((key) => completedKeys.has(key));
 }
@@ -100,82 +104,110 @@ export function getNextIncompleteTemplateKey(completedKeys: Set<string>): string
   return null;
 }
 
-function resolveDueOffsetDays(template: ChecklistTemplateMeta | undefined): number | null {
-  if (!template?.dueOffsetDays || template.dueOffsetDays <= 0) return null;
-  return template.dueOffsetDays;
+function isFollowUpKey(templateKey: string): boolean {
+  return getFollowUpUnlockMonths(templateKey) != null;
 }
 
-export function computeItemDueDate(
-  enrollmentDate: Date | null | undefined,
-  dueOffsetDays: number | null
-): Date | null {
-  if (!enrollmentDate || dueOffsetDays == null || dueOffsetDays <= 0) return null;
-  return addDays(enrollmentDate, dueOffsetDays);
+/**
+ * Last Adelaide calendar date on which the item is not overdue (overdue from the next day).
+ * Follow-ups: unlock + FOLLOW_UP_GRACE_DAYS (3-year imaging: never).
+ * Level 1: enrolment + getLevel1DueDays (template dueOffsetDays is not read).
+ */
+export function computeOverdueThreshold(params: {
+  templateKey: string;
+  enrollmentDate: Date | null | undefined;
+  template: ChecklistTemplateMeta | undefined;
+}): CivilDate | null {
+  const { templateKey, enrollmentDate } = params;
+  if (!enrollmentDate) return null;
+  if (isFollowUpKey(templateKey)) {
+    return getFollowUpOverdueThreshold(templateKey, enrollmentDate);
+  }
+  const dueDays = getLevel1DueDays(templateKey);
+  if (dueDays == null) return null;
+  return addCivilDays(adelaideCivilDate(enrollmentDate), dueDays);
 }
 
 export function isItemComputedOverdue(params: {
+  templateKey: string;
   status: ChecklistStatus;
   enrollmentDate: Date | null | undefined;
-  dueOffsetDays: number | null;
+  template: ChecklistTemplateMeta | undefined;
   now?: Date;
 }): boolean {
   if (params.status === "COMPLETED") return false;
-  const dueDate = computeItemDueDate(params.enrollmentDate, params.dueOffsetDays);
-  if (!dueDate) return false;
-  const today = startOfDay(params.now ?? new Date());
-  return dueDate < today;
+  const threshold = computeOverdueThreshold(params);
+  if (!threshold) return false;
+  const today = adelaideCivilDate(params.now ?? new Date());
+  return compareCivilDates(today, threshold) > 0;
 }
 
-function endOfWeekSunday(date: Date): Date {
-  const d = startOfDay(date);
-  const day = d.getDay();
-  const daysUntilSunday = day === 0 ? 0 : 7 - day;
-  return addDays(d, daysUntilSunday);
-}
+export type NextItemDate = {
+  /** Level 1: due date. Follow-up: unlock date. */
+  date: CivilDate;
+  kind: "due" | "opens";
+  overdueAfter: CivilDate | null;
+};
 
-export function formatDueDateDMY(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day}/${month}/${year}`;
+export function computeNextItemDate(params: {
+  templateKey: string;
+  enrollmentDate: Date | null | undefined;
+  template: ChecklistTemplateMeta | undefined;
+}): NextItemDate | null {
+  const { templateKey, enrollmentDate } = params;
+  if (!enrollmentDate) return null;
+  const unlock = getFollowUpUnlock(templateKey, enrollmentDate);
+  if (unlock) {
+    return {
+      date: unlock.unlockDate,
+      kind: "opens",
+      overdueAfter: computeOverdueThreshold(params),
+    };
+  }
+  const due = computeOverdueThreshold(params);
+  return due ? { date: due, kind: "due", overdueAfter: due } : null;
 }
 
 export function buildDueDateDisplay(
-  dueDate: Date | null,
+  next: NextItemDate | null,
   now: Date = new Date()
 ): {
   label: string;
   tone: DueDateTone;
   daysLate: number | null;
 } {
-  if (!dueDate) {
+  if (!next) {
     return { label: "—", tone: "none", daysLate: null };
   }
 
-  const today = startOfDay(now);
-  const due = startOfDay(dueDate);
-  const formatted = formatDueDateDMY(due);
+  const today = adelaideCivilDate(now);
+  const formatted = formatCivilDateDMY(next.date);
+  const relation = compareCivilDates(next.date, today);
+  const prefix = next.kind === "opens" ? (relation > 0 ? "Opens " : "Opened ") : "";
 
-  if (due < today) {
-    const msPerDay = 24 * 60 * 60 * 1000;
-    const daysLate = Math.max(1, Math.round((today.getTime() - due.getTime()) / msPerDay));
+  if (next.overdueAfter && compareCivilDates(today, next.overdueAfter) > 0) {
     return {
-      label: formatted,
+      label: `${prefix}${formatted}`,
       tone: "overdue",
-      daysLate,
+      daysLate: Math.max(1, civilDaysBetween(next.overdueAfter, today)),
     };
   }
 
-  if (due.getTime() === today.getTime()) {
-    return { label: "Today", tone: "today", daysLate: null };
+  if (relation === 0) {
+    return {
+      label: next.kind === "opens" ? "Opens today" : "Today",
+      tone: "today",
+      daysLate: null,
+    };
   }
 
-  const weekEnd = endOfWeekSunday(today);
-  if (due <= weekEnd) {
-    return { label: formatted, tone: "this_week", daysLate: null };
+  const weekday = civilWeekday(today);
+  const weekEnd = addCivilDays(today, weekday === 0 ? 0 : 7 - weekday);
+  if (relation > 0 && compareCivilDates(next.date, weekEnd) <= 0) {
+    return { label: `${prefix}${formatted}`, tone: "this_week", daysLate: null };
   }
 
-  return { label: formatted, tone: "default", daysLate: null };
+  return { label: `${prefix}${formatted}`, tone: "default", daysLate: null };
 }
 
 function hasAnyComputedOverdueItem(params: {
@@ -187,13 +219,12 @@ function hasAnyComputedOverdueItem(params: {
   for (const step of ADMIN_LOGICAL_CHECKLIST_STEPS) {
     for (const key of step.templateKeys) {
       if (params.completedKeys.has(key)) continue;
-      const template = params.templatesByKey.get(key);
-      const dueOffsetDays = resolveDueOffsetDays(template);
       if (
         isItemComputedOverdue({
+          templateKey: key,
           status: "PENDING",
           enrollmentDate: params.enrollmentDate,
-          dueOffsetDays,
+          template: params.templatesByKey.get(key),
           now: params.now,
         })
       ) {
@@ -240,12 +271,15 @@ export function buildParticipantProgressRow(params: {
   const currentPhase = deriveCurrentPhaseLabel(completedKeys);
   const nextTask = progress.currentStepName;
   const nextKey = getNextIncompleteTemplateKey(completedKeys);
-  const nextTemplate = nextKey ? params.templatesByKey.get(nextKey) : undefined;
-  const nextDueDate = computeItemDueDate(
-    params.enrollmentDate,
-    resolveDueOffsetDays(nextTemplate)
-  );
-  const dueDisplay = buildDueDateDisplay(nextDueDate, now);
+  const nextDate = nextKey
+    ? computeNextItemDate({
+        templateKey: nextKey,
+        enrollmentDate: params.enrollmentDate,
+        template: params.templatesByKey.get(nextKey),
+      })
+    : null;
+  const nextDueDate = nextDate ? adelaideMidnightUtc(nextDate.date) : null;
+  const dueDisplay = buildDueDateDisplay(nextDate, now);
   const hasOverdueItems = hasAnyComputedOverdueItem({
     completedKeys,
     enrollmentDate: params.enrollmentDate,

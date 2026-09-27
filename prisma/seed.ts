@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { assertProtocolValid, validateProtocol } from "./validate-protocol";
 import { deleteOrphanedParticipantChecklistItems } from "../src/lib/valid-checklist-items";
 import { BOOK_APPOINTMENT_ROWS, BOOK_APPOINTMENT_3Y_ROWS } from "../src/lib/checklist-booking-group";
+import {
+  BASELINE_DUE_DAYS,
+  FOLLOW_UP_TEMPLATE_KEYS,
+  LEVEL_1_FOLLOW_UP_DUE_DAYS,
+} from "../src/lib/checklist/protocol-timing";
 
 function bookExternalUrl(templateKey: string): string | undefined {
   return (
@@ -66,7 +71,12 @@ type ChecklistSeed = {
 };
 
 /** Level 1 monitoring display only — not an unlock trigger. */
-const LEVEL_1_DUE_OFFSET_DAYS = 56;
+const LEVEL_1_DUE_OFFSET_DAYS = LEVEL_1_FOLLOW_UP_DUE_DAYS;
+
+/*
+ * Follow-up rows (FOLLOW_UP_UNLOCK_MONTHS keys) open on consent date + N calendar months,
+ * derived in code. Their dueOffsetDays values are legacy and unused; unlockOffsetDays must be 0.
+ */
 
 const DEPRECATED_CHECKLIST_KEYS = ["enrollment_survey", "book_appointment"];
 const DEPRECATED_SURVEY_KEYS = ["enrollment_survey"];
@@ -125,7 +135,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     surveyTemplateKey: "qol_baseline",
     redcapUrl: REDCAP_PLACEHOLDER,
     prerequisiteKeys: [],
-    dueOffsetDays: LEVEL_1_DUE_OFFSET_DAYS,
+    dueOffsetDays: BASELINE_DUE_DAYS,
     unlockOffsetDays: 0,
   },
   {
@@ -229,7 +239,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     sortOrder: 9,
     surveyTemplateKey: "qol_3m",
     redcapUrl: REDCAP_PLACEHOLDER,
-    prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
+    prerequisiteKeys: [],
     dueOffsetDays: 90,
     unlockOffsetDays: 0,
   },
@@ -280,6 +290,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     prerequisiteKeys: [],
     completionGroupKey: "book_appointments_3y",
     dueOffsetDays: 912,
+    unlockOffsetDays: 0,
   },
   {
     key: "book_mri_3y",
@@ -291,6 +302,7 @@ const CHECKLIST_TEMPLATES: ChecklistSeed[] = [
     prerequisiteKeys: [],
     completionGroupKey: "book_appointments_3y",
     dueOffsetDays: 912,
+    unlockOffsetDays: 0,
   },
   {
     key: "qol_24m",
@@ -375,7 +387,9 @@ const STUDY_MILESTONES = [
 ];
 
 async function main() {
-  const validation = validateProtocol(CHECKLIST_TEMPLATES, STUDY_MILESTONES);
+  const validation = validateProtocol(CHECKLIST_TEMPLATES, STUDY_MILESTONES, {
+    followUpTemplateKeys: FOLLOW_UP_TEMPLATE_KEYS,
+  });
   assertProtocolValid(validation);
 
   for (const survey of SURVEY_TEMPLATES) {

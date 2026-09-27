@@ -1,3 +1,5 @@
+import { BASELINE_DUE_DAYS, LEVEL_1_FOLLOW_UP_DUE_DAYS } from "./protocol-timing";
+
 /** Level 1 template keys required for the early clinical block (matches study milestone). */
 export const LEVEL_1_REQUIRED_TEMPLATE_KEYS = [
   "qol_baseline",
@@ -12,7 +14,18 @@ export const LEVEL_1_REQUIRED_TEMPLATE_KEYS = [
 ] as const;
 
 /** Coordinator monitoring window from REDCap enrolment (8 weeks). Not used to unlock TVUS steps. */
-export const LEVEL_1_FOLLOW_UP_DUE_DAYS = 56;
+export { LEVEL_1_FOLLOW_UP_DUE_DAYS } from "./protocol-timing";
 
 /** Recommended Post-TVUS completion window after ultrasound marked complete. */
 export const POST_TVUS_RECOMMENDED_DAYS_AFTER_ULTRASOUND = 7;
+
+/**
+ * Days after enrolment a Level 1 item is due (participant "Due by" and admin overdue).
+ * Null for keys outside Level 1. Template dueOffsetDays in the database is not read.
+ */
+export function getLevel1DueDays(templateKey: string): number | null {
+  if (!(LEVEL_1_REQUIRED_TEMPLATE_KEYS as readonly string[]).includes(templateKey)) {
+    return null;
+  }
+  return templateKey === "qol_baseline" ? BASELINE_DUE_DAYS : LEVEL_1_FOLLOW_UP_DUE_DAYS;
+}

@@ -1,92 +1,53 @@
 import { POST_TVUS_RECOMMENDED_DAYS_AFTER_ULTRASOUND } from "./early-clinical-protocol";
-import { MISSING_ENROLLMENT_DATE_MESSAGE } from "./enrollment-date-for-timing";
+import {
+  addCivilDays,
+  adelaideCivilDate,
+  formatAdelaideCivilDate,
+} from "@/lib/dates/adelaide-calendar";
 
 export type ChecklistDueDisplay = {
   recommendedLabel: string | null;
 };
 
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function addDays(base: Date, days: number): Date {
-  const d = startOfDay(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-
-function formatDate(d: Date): string {
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-const ENROLLMENT_DUE_TEMPLATE_KEYS = new Set([
-  "qol_3m",
-  "qol_6m",
-  "qol_9m",
-  "qol_12m",
-  "qol_24m",
-  "qol_36m",
-]);
+export const PRE_TVUS_HINT_NO_DATE =
+  "Complete after booking ultrasound, before your ultrasound appointment.";
 
 /**
- * Participant-facing due hints. Unlock remains prerequisite-based only.
+ * Participant-facing TVUS survey hints (Adelaide calendar dates). Follow-up items show
+ * "Available from" only (see follow-up-availability.ts); they have no due date in the app.
  */
 export function getChecklistDueDisplay(params: {
   templateKey: string;
   completedAtByKey: Map<string, Date | null>;
-  enrollmentDate?: Date | null;
-  dueOffsetDays?: number | null;
-  enrollmentDateMissing?: boolean;
+  /** Ultrasound appointment start, when booked with a date. */
+  ultrasoundAppointmentAt?: Date | null;
 }): ChecklistDueDisplay {
-  const {
-    templateKey,
-    completedAtByKey,
-    enrollmentDate,
-    dueOffsetDays,
-    enrollmentDateMissing,
-  } = params;
+  const { templateKey, completedAtByKey, ultrasoundAppointmentAt } = params;
 
   if (templateKey === "pre_tvus_survey") {
     return {
-      recommendedLabel:
-        "Complete after booking ultrasound, before your ultrasound appointment.",
+      recommendedLabel: ultrasoundAppointmentAt
+        ? `Complete before your ultrasound on ${formatAdelaideCivilDate(
+            adelaideCivilDate(ultrasoundAppointmentAt)
+          )}`
+        : PRE_TVUS_HINT_NO_DATE,
     };
   }
 
   if (templateKey === "post_tvus_survey") {
     const ultrasoundDoneAt = completedAtByKey.get("ultrasound_completed");
     if (ultrasoundDoneAt) {
-      const recommendedDate = addDays(
-        ultrasoundDoneAt,
+      const recommendedDate = addCivilDays(
+        adelaideCivilDate(ultrasoundDoneAt),
         POST_TVUS_RECOMMENDED_DAYS_AFTER_ULTRASOUND
       );
       return {
-        recommendedLabel: `Recommended by ${formatDate(recommendedDate)} (within 7 days after ultrasound completion)`,
+        recommendedLabel: `Recommended by ${formatAdelaideCivilDate(recommendedDate)} (within 7 days after ultrasound completion)`,
       };
     }
     return {
       recommendedLabel:
         "Recommended within 7 days after you mark ultrasound complete.",
-    };
-  }
-
-  if (
-    ENROLLMENT_DUE_TEMPLATE_KEYS.has(templateKey) &&
-    dueOffsetDays != null &&
-    dueOffsetDays > 0
-  ) {
-    if (enrollmentDateMissing || !enrollmentDate) {
-      return { recommendedLabel: MISSING_ENROLLMENT_DATE_MESSAGE };
-    }
-    const dueBy = addDays(enrollmentDate, dueOffsetDays);
-    return {
-      recommendedLabel: `Due by ${formatDate(dueBy)}`,
     };
   }
 

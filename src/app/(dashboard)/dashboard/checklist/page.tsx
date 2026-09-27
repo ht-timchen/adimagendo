@@ -15,14 +15,39 @@ import { ChecklistSurveySheet } from "@/components/checklist-survey-sheet";
 import { ChecklistExternalBookingFlow } from "@/components/checklist-external-booking-flow";
 import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
 import { ChecklistBookingGroupCard } from "@/components/checklist-booking-group-card";
-import { ChecklistLevel1Section } from "@/components/checklist/checklist-level-1-section";
-import { ChecklistLevel2Section } from "@/components/checklist/checklist-level-2-section";
-import { ChecklistLevel3Section } from "@/components/checklist/checklist-level-3-section";
+import {
+  ChecklistCollapsibleSection,
+  ChecklistOpenSection,
+  ChecklistShowMore,
+} from "@/components/checklist/checklist-section";
+import { ChecklistLevelLabel } from "@/components/checklist/checklist-level-label";
 import { ChecklistCelebrationRoot } from "@/components/checklist/level-complete-celebration";
 import { LevelCompleteBanner } from "@/components/checklist/level-complete-banner";
-import { getLevel1EnrollmentDueLabel, getTemplateEnrollmentDueLabel } from "@/components/checklist/level-1-enrollment-due-label";
-import { Check, Lock } from "lucide-react";
+import {
+  getLevel1EnrollmentDueLabel,
+  getLevel1SummaryText,
+} from "@/components/checklist/level-1-enrollment-due-label";
+import { ChecklistAvailabilityNote } from "@/components/checklist/checklist-availability-note";
+import { ChecklistSurveyWindowNote } from "@/components/checklist/checklist-survey-window-note";
+import { Check } from "lucide-react";
 import { getChecklistDueDisplay } from "@/lib/checklist/checklist-due-display";
+import {
+  computeUnlockAfterDays,
+  computeUnlockAfterMonths,
+  FOLLOW_UP_ENROLLMENT_MISSING_TEXT,
+  followUpAvailableFromText,
+  getSurveyWindow,
+  surveyWindowTestLabel,
+} from "@/lib/checklist/follow-up-availability";
+import { getFollowUpUnlockMonths } from "@/lib/checklist/protocol-timing";
+import {
+  closingSoonSummaryText,
+  collectChecklistCardSlots,
+  groupChecklistCards,
+  showsDueDate,
+  type ChecklistCardEntry,
+  type ChecklistTimeGate,
+} from "@/lib/checklist/checklist-sections";
 import { cn } from "@/lib/utils";
 import {
   participantDashboardCardClassName,
@@ -90,12 +115,6 @@ function parsePrerequisiteKeys(value: unknown): string[] {
   return value.filter((k): k is string => typeof k === "string");
 }
 
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 type ChecklistTemplateRow = Awaited<
   ReturnType<typeof prisma.checklistTemplate.findMany>
 >[number];
@@ -108,8 +127,52 @@ type LinkedAppointmentRow = Awaited<
   ReturnType<typeof prisma.appointment.findMany>
 >[number];
 
+type UnlockState = {
+  unlocked: boolean;
+  reasons: string[];
+  timing: string | null;
+  timeGate: ChecklistTimeGate;
+  prerequisitesMet: boolean;
+};
+
+type ChecklistCard = ChecklistCardEntry & {
+  render: (opts: { showDue: boolean }) => ReactNode;
+};
+
 function isBookingProgressUnlocked(progress: ChecklistBookingProgress): boolean {
   return progress === "CONFIRMED" || progress === "BOOKED_EXTERNALLY";
+}
+
+/**
+ * Calendar timing gate. Follow-up keys use protocol-timing months; the note is shown
+ * with a clock rather than as a lock reason.
+ */
+function timeGate(
+  template: ChecklistTemplateRow,
+  ctx: { enrollmentDate: Date | null; enrollmentDateMissing: boolean; now: Date }
+): { gate: ChecklistTimeGate; text: string | null } {
+  const months = getFollowUpUnlockMonths(template.key);
+  const days =
+    months == null && template.unlockOffsetDays != null && template.unlockOffsetDays > 0
+      ? template.unlockOffsetDays
+      : null;
+  if (months == null && days == null) return { gate: { kind: "open" }, text: null };
+  if (!ctx.enrollmentDate || ctx.enrollmentDateMissing) {
+    return {
+      gate: { kind: "enrollment_date_missing" },
+      text: FOLLOW_UP_ENROLLMENT_MISSING_TEXT,
+    };
+  }
+  const unlock =
+    months != null
+      ? computeUnlockAfterMonths(ctx.enrollmentDate, months)
+      : computeUnlockAfterDays(ctx.enrollmentDate, days!);
+  return ctx.now < unlock.unlocksAt
+    ? {
+        gate: { kind: "opens_later", opensAt: unlock.unlocksAt },
+        text: followUpAvailableFromText(unlock),
+      }
+    : { gate: { kind: "open" }, text: null };
 }
 
 function isUnlocked(
@@ -122,22 +185,9 @@ function isUnlocked(
     itemByTemplateId: Map<string, ParticipantItemRow>;
     appointmentByChecklistItemId: Map<string, LinkedAppointmentRow>;
   }
-): { unlocked: boolean; reasons: string[] } {
+): UnlockState {
   const reasons: string[] = [];
-
-  if (template.unlockOffsetDays != null && template.unlockOffsetDays > 0) {
-    if (!ctx.enrollmentDate || ctx.enrollmentDateMissing) {
-      reasons.push(MISSING_ENROLLMENT_DATE_MESSAGE);
-    } else {
-      const unlockAt = startOfDay(ctx.enrollmentDate);
-      unlockAt.setDate(unlockAt.getDate() + template.unlockOffsetDays);
-      if (startOfDay(ctx.now) < unlockAt) {
-        reasons.push(
-          `Available from ${unlockAt.toLocaleDateString()} (${template.unlockOffsetDays} days after enrollment)`
-        );
-      }
-    }
-  }
+  const { gate, text: timing } = timeGate(template, ctx);
 
   if (template.bookingPrerequisiteKey) {
     const bookingTemplate = ctx.templateByKey.get(template.bookingPrerequisiteKey);
@@ -199,8 +249,22 @@ function isUnlocked(
     }
   }
 
-  return { unlocked: reasons.length === 0, reasons };
+  return {
+    unlocked: reasons.length === 0 && gate.kind === "open",
+    reasons,
+    timing,
+    timeGate: gate,
+    prerequisitesMet: reasons.length === 0,
+  };
 }
+
+const OPEN_UNLOCK_STATE: UnlockState = {
+  unlocked: true,
+  reasons: [],
+  timing: null,
+  timeGate: { kind: "open" },
+  prerequisitesMet: true,
+};
 
 export default async function ChecklistPage() {
   const session = await auth();
@@ -281,20 +345,20 @@ export default async function ChecklistPage() {
       .filter((i) => i.status === "COMPLETED" && i.completedAt)
       .map((i) => [i.template.key, i.completedAt] as const)
   );
+  const bookUltrasoundTemplate = templateByKey.get("book_ultrasound");
+  const bookUltrasoundItem = bookUltrasoundTemplate
+    ? byTemplate.get(bookUltrasoundTemplate.id)
+    : undefined;
+  const ultrasoundAppointmentAt = bookUltrasoundItem
+    ? getUltrasoundAppointmentDateTime(
+        appointmentByChecklistItemId.get(bookUltrasoundItem.id)
+      )
+    : null;
   const completedTemplateKeys = new Set(
     userItems
       .filter((i) => i.status === "COMPLETED")
       .map((i) => i.template.key)
   );
-  const level1CompletedCount = LEVEL_1_REQUIRED_TEMPLATE_KEYS.filter((key) =>
-    completedTemplateKeys.has(key)
-  ).length;
-  const level2CompletedCount = LEVEL_2_REQUIRED_TEMPLATE_KEYS.filter((key) =>
-    completedTemplateKeys.has(key)
-  ).length;
-  const level3CompletedCount = LEVEL_3_REQUIRED_TEMPLATE_KEYS.filter((key) =>
-    completedTemplateKeys.has(key)
-  ).length;
   const level1Complete = isLevel1Complete(completedTemplateKeys);
   const level2Complete = isLevel2Complete(completedTemplateKeys);
   const level3Complete = isLevel3Complete(completedTemplateKeys);
@@ -311,22 +375,15 @@ export default async function ChecklistPage() {
     level3Complete &&
     unreadLevelCompleteNotificationByType.has("level_3_complete");
 
-  function renderChecklistItem(
+  function buildChecklistCard(
     t: ChecklistTemplateRow,
     options: {
-      useLevel1Due: boolean;
-      sectionLocked?: boolean;
-      renderedBookingGroups: Set<string>;
+      levelLabel: string;
+      order: number;
     }
-  ): ReactNode {
+  ): ChecklistCard | null {
     const groupKey = t.completionGroupKey;
     if (isKnownBookingGroupKey(groupKey)) {
-      if (options.renderedBookingGroups.has(groupKey)) {
-        return null;
-      }
-
-      options.renderedBookingGroups.add(groupKey);
-
       const groupDef = getBookingGroupDefinition(groupKey);
       if (!groupDef) return null;
 
@@ -366,39 +423,42 @@ export default async function ChecklistPage() {
       const unlockTemplate = templateByKey.get(groupDef.unlockTemplateKey);
       const groupUnlock = unlockTemplate
         ? isUnlocked(unlockTemplate, unlockCtx)
-        : { unlocked: true, reasons: [] as string[] };
-      const sectionLocked = options.sectionLocked ?? false;
+        : OPEN_UNLOCK_STATE;
       const allBookingRowsComplete =
         rows.length > 0 && rows.every((row) => row.status === "COMPLETED");
-      const groupDueLabel =
-        !sectionLocked && !allBookingRowsComplete && unlockTemplate
-          ? options.useLevel1Due
-            ? getLevel1EnrollmentDueLabel({
-                enrollmentDate: enrollmentTiming.enrollmentDate,
-                dueOffsetDays: unlockTemplate.dueOffsetDays,
-                enrollmentDateMissing: enrollmentTiming.missing,
-              })
-            : getTemplateEnrollmentDueLabel({
-                enrollmentDate: enrollmentTiming.enrollmentDate,
-                dueOffsetDays: unlockTemplate.dueOffsetDays,
-                unlockOffsetDays: unlockTemplate.unlockOffsetDays,
-                enrollmentDateMissing: enrollmentTiming.missing,
-              })
-          : null;
+      const groupDueLabel = !allBookingRowsComplete
+        ? getLevel1EnrollmentDueLabel({
+            templateKey: groupDef.unlockTemplateKey,
+            enrollmentDate: enrollmentTiming.enrollmentDate,
+            enrollmentDateMissing: enrollmentTiming.missing,
+            now: unlockCtx.now,
+          })
+        : null;
 
       const header = BOOK_GROUP_HEADERS[groupKey];
 
-      return (
-        <ChecklistBookingGroupCard
-          key={groupKey}
-          title={header.title}
-          description={header.description}
-          rows={rows}
-          isLocked={sectionLocked || !groupUnlock.unlocked}
-          lockReasons={sectionLocked ? [] : groupUnlock.reasons}
-          dueLabel={groupDueLabel}
-        />
-      );
+      return {
+        key: groupKey,
+        title: header.title,
+        order: options.order,
+        completed: allBookingRowsComplete,
+        timeGate: groupUnlock.timeGate,
+        prerequisitesMet: groupUnlock.prerequisitesMet,
+        surveyWindow: null,
+        render: ({ showDue }) => (
+          <ChecklistBookingGroupCard
+            key={groupKey}
+            title={header.title}
+            description={header.description}
+            rows={rows}
+            isLocked={!groupUnlock.unlocked}
+            lockReasons={groupUnlock.reasons}
+            dueLabel={showDue ? groupDueLabel : null}
+            availabilityNote={allBookingRowsComplete ? null : groupUnlock.timing}
+            levelLabel={options.levelLabel}
+          />
+        ),
+      };
     }
 
     const item = byTemplate.get(t.id);
@@ -406,32 +466,27 @@ export default async function ChecklistPage() {
       ? appointmentByChecklistItemId.get(item.id)
       : undefined;
     const status = item?.status ?? "PENDING";
-    const dueDisplay = getChecklistDueDisplay({
-      templateKey: t.key,
-      completedAtByKey,
-      enrollmentDate: enrollmentTiming.enrollmentDate,
-      dueOffsetDays: t.dueOffsetDays,
-      enrollmentDateMissing: enrollmentTiming.missing,
-    });
-    const dueLabel = options.useLevel1Due
-      ? getLevel1EnrollmentDueLabel({
-          enrollmentDate: enrollmentTiming.enrollmentDate,
-          dueOffsetDays: t.dueOffsetDays,
-          enrollmentDateMissing: enrollmentTiming.missing,
-        })
-      : dueDisplay.recommendedLabel ??
-        getTemplateEnrollmentDueLabel({
-          enrollmentDate: enrollmentTiming.enrollmentDate,
-          dueOffsetDays: t.dueOffsetDays,
-          unlockOffsetDays: t.unlockOffsetDays,
-          enrollmentDateMissing: enrollmentTiming.missing,
-        });
+    const dueLabel =
+      getChecklistDueDisplay({
+        templateKey: t.key,
+        completedAtByKey,
+        ultrasoundAppointmentAt,
+      }).recommendedLabel ??
+      getLevel1EnrollmentDueLabel({
+        templateKey: t.key,
+        enrollmentDate: enrollmentTiming.enrollmentDate,
+        enrollmentDateMissing: enrollmentTiming.missing,
+        now: unlockCtx.now,
+      });
 
     const unlock = isUnlocked(t, unlockCtx);
+    const surveyWindow =
+      enrollmentTiming.enrollmentDate && !enrollmentTiming.missing
+        ? getSurveyWindow(t.key, enrollmentTiming.enrollmentDate, unlockCtx.now)
+        : null;
     const isComplete = status === "COMPLETED";
     const isLocked = !isComplete && !unlock.unlocked;
-    const sectionLocked = options.sectionLocked ?? false;
-    const actionsDisabled = sectionLocked || isLocked;
+    const actionsDisabled = isLocked;
     const surveyUrl = t.redcapUrl?.trim() || REDCAP_PRE_SCREENING_SURVEY_URL;
     const cardTitle =
       t.key === "ultrasound_completed"
@@ -442,7 +497,17 @@ export default async function ChecklistPage() {
         ? ULTRASOUND_COMPLETED_UI.description
         : t.description;
 
-    return (
+    return {
+      key: t.key,
+      title: cardTitle,
+      order: options.order,
+      completed: isComplete,
+      timeGate: unlock.timeGate,
+      prerequisitesMet: unlock.prerequisitesMet,
+      surveyWindow: surveyWindow
+        ? { state: surveyWindow.state, daysLeft: surveyWindow.daysLeft }
+        : null,
+      render: ({ showDue }) => (
       <Card
         key={t.id}
         className={cn(
@@ -462,10 +527,8 @@ export default async function ChecklistPage() {
               {isComplete ? <Check className="h-4 w-4" /> : null}
             </div>
             <div>
+              <ChecklistLevelLabel label={options.levelLabel} />
               <CardTitle className={cn("flex items-center gap-2 text-base", participantDashboardHeadingClassName)}>
-                {sectionLocked && !isComplete ? (
-                  <Lock className="h-3.5 w-3.5 shrink-0 text-[#2A6F60]" />
-                ) : null}
                 {cardTitle}
               </CardTitle>
               {cardDescription && (
@@ -473,12 +536,20 @@ export default async function ChecklistPage() {
                   {cardDescription}
                 </p>
               )}
-              {dueLabel && !isComplete && !sectionLocked ? (
+              {showDue && dueLabel && !isComplete ? (
                 <p className="mt-1 text-xs text-[#2F8F7A]">
                   {dueLabel}
                 </p>
               ) : null}
-              {isLocked && !sectionLocked ? (
+              {!isComplete && surveyWindow ? (
+                <ChecklistSurveyWindowNote
+                  surveyWindow={surveyWindow}
+                  testLabel={surveyWindowTestLabel()}
+                />
+              ) : !isComplete && unlock.timing ? (
+                <ChecklistAvailabilityNote text={unlock.timing} />
+              ) : null}
+              {isLocked ? (
                 <ChecklistLockReasons reasons={unlock.reasons} />
               ) : null}
             </div>
@@ -533,12 +604,44 @@ export default async function ChecklistPage() {
           ) : null}
         </CardContent>
       </Card>
-    );
+      ),
+    };
   }
 
-  const level1RenderedBookingGroups = new Set<string>();
-  const level2RenderedBookingGroups = new Set<string>();
-  const level3RenderedBookingGroups = new Set<string>();
+  const cards: ChecklistCard[] = [];
+  const cardSlots = collectChecklistCardSlots(
+    [
+      { templates: level1Templates, levelLabel: "Level 1" },
+      { templates: level2Templates, levelLabel: "Level 2" },
+      { templates: level3Templates, levelLabel: "Level 3" },
+    ],
+    isKnownBookingGroupKey
+  );
+  for (const { template, level } of cardSlots) {
+    const card = buildChecklistCard(template, {
+      levelLabel: level.levelLabel,
+      order: cards.length,
+    });
+    if (card) cards.push(card);
+  }
+  const sections = groupChecklistCards(cards);
+  const renderCard = (c: ChecklistCard) =>
+    c.render({ showDue: showsDueDate(sections.sectionOf.get(c.key)) });
+  const level1Summary = getLevel1SummaryText({
+    completedCount: LEVEL_1_REQUIRED_TEMPLATE_KEYS.filter((key) =>
+      completedTemplateKeys.has(key)
+    ).length,
+    totalCount: LEVEL_1_REQUIRED_TEMPLATE_KEYS.length,
+    enrollmentDate: enrollmentTiming.enrollmentDate,
+    enrollmentDateMissing: enrollmentTiming.missing,
+    now: unlockCtx.now,
+  });
+
+  const levelBanners = [
+    { show: showLevel1CongratsBanner, type: "level_1_complete" as const },
+    { show: showLevel2CongratsBanner, type: "level_2_complete" as const },
+    { show: showLevel3CongratsBanner, type: "level_3_complete" as const },
+  ].filter((b) => b.show);
 
   return (
     <ChecklistCelebrationRoot>
@@ -549,6 +652,14 @@ export default async function ChecklistPage() {
           Complete each item as you progress through the study.
         </p>
       </div>
+
+      {levelBanners.map((b) => (
+        <LevelCompleteBanner
+          key={b.type}
+          notificationId={unreadLevelCompleteNotificationByType.get(b.type)!}
+          message={LEVEL_COMPLETE_NOTIFICATION_COPY[b.type]}
+        />
+      ))}
 
       {enrollmentTiming.missing ? (
         <Card className="border-amber-200 bg-amber-50">
@@ -571,89 +682,80 @@ export default async function ChecklistPage() {
         ) : (
           <>
             {level1Templates.length > 0 ? (
-              <div className="space-y-3">
-                {showLevel1CongratsBanner ? (
-                  <LevelCompleteBanner
-                    notificationId={
-                      unreadLevelCompleteNotificationByType.get(
-                        "level_1_complete"
-                      )!
-                    }
-                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_1_complete}
-                  />
-                ) : null}
-                <ChecklistLevel1Section
-                  completedCount={level1CompletedCount}
-                  totalCount={LEVEL_1_REQUIRED_TEMPLATE_KEYS.length}
-                  enrollmentDate={enrollmentTiming.enrollmentDate}
-                  enrollmentDateMissing={enrollmentTiming.missing}
-                >
-                  {level1Templates.map((t) =>
-                    renderChecklistItem(t, {
-                      useLevel1Due: true,
-                      renderedBookingGroups: level1RenderedBookingGroups,
-                    })
-                  )}
-                </ChecklistLevel1Section>
-              </div>
+              <p
+                key="level-1-summary"
+                className={cn(
+                  "rounded-2xl border border-[#2F8F7A]/20 bg-white/85 px-4 py-3 text-sm font-medium",
+                  participantDashboardHeadingClassName
+                )}
+              >
+                {level1Summary}
+              </p>
             ) : null}
-            {level2Templates.length > 0 ? (
-              <div className="space-y-3">
-                {showLevel2CongratsBanner ? (
-                  <LevelCompleteBanner
-                    notificationId={
-                      unreadLevelCompleteNotificationByType.get(
-                        "level_2_complete"
-                      )!
-                    }
-                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_2_complete}
-                  />
-                ) : null}
-                <ChecklistLevel2Section
-                  unlocked={level1Complete}
-                  completedCount={level2CompletedCount}
-                  totalCount={LEVEL_2_REQUIRED_TEMPLATE_KEYS.length}
-                  enrollmentDate={enrollmentTiming.enrollmentDate}
-                  enrollmentDateMissing={enrollmentTiming.missing}
-                >
-                  {level2Templates.map((t) =>
-                    renderChecklistItem(t, {
-                      useLevel1Due: false,
-                      sectionLocked: !level1Complete,
-                      renderedBookingGroups: level2RenderedBookingGroups,
-                    })
-                  )}
-                </ChecklistLevel2Section>
-              </div>
+            <ChecklistOpenSection
+              key="todo"
+              id="checklist-todo"
+              title="To do now"
+              count={sections.todo.length}
+            >
+              {sections.todo.length === 0 ? (
+                <p className={cn("text-sm", participantDashboardMutedClassName)}>
+                  No tasks need your action right now.
+                </p>
+              ) : (
+                sections.todoVisible.map(renderCard)
+              )}
+              {sections.todoHiddenClosingSoon.length > 0 ? (
+                <p className="text-sm text-[#17483F]">
+                  Also closing soon:{" "}
+                  {sections.todoHiddenClosingSoon
+                    .map(closingSoonSummaryText)
+                    .join("; ")}
+                </p>
+              ) : null}
+              {sections.todoHidden.length > 0 ? (
+                <ChecklistShowMore hiddenCount={sections.todoHidden.length}>
+                  {sections.todoHidden.map(renderCard)}
+                </ChecklistShowMore>
+              ) : null}
+            </ChecklistOpenSection>
+            {sections.comingUp.length > 0 ? (
+              <ChecklistOpenSection
+                key="coming-up"
+                id="checklist-coming-up"
+                title="Coming up next"
+                count={sections.comingUp.length}
+              >
+                {sections.comingUp.map(renderCard)}
+              </ChecklistOpenSection>
             ) : null}
-            {level3Templates.length > 0 ? (
-              <div className="space-y-3">
-                {showLevel3CongratsBanner ? (
-                  <LevelCompleteBanner
-                    notificationId={
-                      unreadLevelCompleteNotificationByType.get(
-                        "level_3_complete"
-                      )!
-                    }
-                    message={LEVEL_COMPLETE_NOTIFICATION_COPY.level_3_complete}
-                  />
-                ) : null}
-                <ChecklistLevel3Section
-                  unlocked={level2Complete}
-                  completedCount={level3CompletedCount}
-                  totalCount={LEVEL_3_REQUIRED_TEMPLATE_KEYS.length}
-                  enrollmentDate={enrollmentTiming.enrollmentDate}
-                  enrollmentDateMissing={enrollmentTiming.missing}
-                >
-                  {level3Templates.map((t) =>
-                    renderChecklistItem(t, {
-                      useLevel1Due: false,
-                      sectionLocked: !level2Complete,
-                      renderedBookingGroups: level3RenderedBookingGroups,
-                    })
-                  )}
-                </ChecklistLevel3Section>
-              </div>
+            {sections.waiting.length > 0 ? (
+              <ChecklistCollapsibleSection
+                key="waiting"
+                title="Waiting for another step"
+                count={sections.waiting.length}
+                description="These unlock once an earlier step is done. Each card says what is needed."
+              >
+                {sections.waiting.map(renderCard)}
+              </ChecklistCollapsibleSection>
+            ) : null}
+            {sections.later.length > 0 ? (
+              <ChecklistCollapsibleSection
+                key="later"
+                title="Later in the study"
+                count={sections.later.length}
+              >
+                {sections.later.map(renderCard)}
+              </ChecklistCollapsibleSection>
+            ) : null}
+            {sections.completed.length > 0 ? (
+              <ChecklistCollapsibleSection
+                key="completed"
+                title="Completed"
+                count={sections.completed.length}
+              >
+                {sections.completed.map(renderCard)}
+              </ChecklistCollapsibleSection>
             ) : null}
           </>
         )}

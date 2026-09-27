@@ -15,6 +15,7 @@ function mockSession(overrides: Partial<Session["user"]> & { id: string }): Sess
       email: overrides.email ?? "staff@example.com",
       name: overrides.name ?? "Staff User",
       role: overrides.role ?? "ADMIN",
+      active: overrides.active ?? true,
       superAdmin: overrides.superAdmin ?? false,
     },
     expires: new Date(Date.now() + 60_000).toISOString(),
@@ -57,7 +58,7 @@ describe("admin audit recording", () => {
     const originalCreate = prisma.adminAuditEvent.create;
     prisma.adminAuditEvent.create = (async () => {
       throw new Error("simulated audit write failure");
-    }) as typeof originalCreate;
+    }) as unknown as typeof originalCreate;
 
     try {
       await assert.doesNotReject(async () => {

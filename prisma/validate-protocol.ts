@@ -3,6 +3,7 @@ export type ProtocolChecklistStep = {
   sortOrder: number;
   prerequisiteKeys?: string[];
   requiredMilestoneKeys?: string[];
+  unlockOffsetDays?: number;
 };
 
 export type ProtocolMilestone = {
@@ -21,12 +22,27 @@ export type ProtocolValidationResult = {
  */
 export function validateProtocol(
   checklistSteps: ProtocolChecklistStep[],
-  milestones: ProtocolMilestone[]
+  milestones: ProtocolMilestone[],
+  options: { followUpTemplateKeys?: readonly string[] } = {}
 ): ProtocolValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
   const checklistKeys = new Set(checklistSteps.map((s) => s.key));
+
+  const stepByKey = new Map(checklistSteps.map((s) => [s.key, s] as const));
+  for (const followUpKey of options.followUpTemplateKeys ?? []) {
+    const step = stepByKey.get(followUpKey);
+    if (!step) {
+      errors.push(`Follow-up timing key "${followUpKey}" has no ChecklistTemplate`);
+      continue;
+    }
+    if (step.unlockOffsetDays !== 0) {
+      errors.push(
+        `ChecklistTemplate "${followUpKey}": unlockOffsetDays must be 0 (follow-up timing is month-based in code)`
+      );
+    }
+  }
   const milestoneKeys = new Set(milestones.map((m) => m.key));
   const sortOrderByKey = new Map(
     checklistSteps.map((s) => [s.key, s.sortOrder] as const)

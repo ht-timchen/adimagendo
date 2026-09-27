@@ -6,7 +6,8 @@ import type { WorkflowChecklistTemplate, WorkflowEvaluationContext } from "./typ
 const ENROLLMENT = new Date("2026-01-01T12:00:00Z");
 
 function template(
-  partial: WorkflowChecklistTemplate
+  partial: Pick<WorkflowChecklistTemplate, "key" | "title" | "sortOrder"> &
+    Partial<WorkflowChecklistTemplate>
 ): WorkflowChecklistTemplate {
   return {
     prerequisiteKeys: [],
@@ -80,8 +81,9 @@ function buildContext(
         key: "qol_3m",
         title: "3-month survey",
         sortOrder: 9,
-        prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
+        prerequisiteKeys: [],
         unlockOffsetDays: 0,
+        unlockOffsetMonths: 3,
       }),
     ],
     [
@@ -110,7 +112,6 @@ function buildContext(
     enrollmentDate: ENROLLMENT,
     enrollmentDateMissing: false,
     now: new Date("2026-02-01T12:00:00Z"),
-    templatesByKey: defaultTemplates,
     completedKeys: new Set(),
     bookingProgressByKey: new Map(),
     bookingAppointmentDateTimeByKey: new Map(),
@@ -157,7 +158,22 @@ describe("evaluateStepAvailability", () => {
     );
   });
 
-  it("does not lock qol_3m solely by the 90-day offset", () => {
+  it("opens qol_3m at 3 calendar months without Level 1 blood/MRI confirmations", () => {
+    const result = evaluateStepAvailability(
+      "qol_3m",
+      buildContext({
+        completedKeys: new Set(),
+        achievedMilestoneKeys: new Set(),
+        now: new Date("2026-04-01T12:00:00Z"),
+      })
+    );
+
+    assert.equal(result.locked, false);
+    assert.equal(result.available, true);
+    assert.deepEqual(result.reasons, []);
+  });
+
+  it("keeps qol_3m closed before 3 calendar months with an Available from reason", () => {
     const result = evaluateStepAvailability(
       "qol_3m",
       buildContext({
@@ -169,17 +185,13 @@ describe("evaluateStepAvailability", () => {
           "confirm_blood_test",
           "confirm_mri",
         ]),
-        achievedMilestoneKeys: new Set(),
         now: new Date("2026-02-01T12:00:00Z"),
       })
     );
 
-    assert.equal(result.locked, false);
-    assert.equal(result.available, true);
-    assert.equal(
-      result.reasons.some((r) => r.includes("90 days after enrollment")),
-      false
-    );
+    assert.equal(result.locked, true);
+    assert.deepEqual(result.reasonCodes, ["NOT_YET_OPEN"]);
+    assert.deepEqual(result.reasons, ["Available from 1 Apr 2026"]);
   });
 
   it("locks steps with unlockOffsetDays when enrollment date is missing", () => {
@@ -300,9 +312,21 @@ describe("evaluateStepAvailability", () => {
   });
 
   it("requires all prerequisites when multiple are configured", () => {
+    const templatesByKey = new Map(buildContext().templatesByKey);
+    templatesByKey.set(
+      "multi_prereq_step",
+      template({
+        key: "multi_prereq_step",
+        title: "Multi-prerequisite step",
+        sortOrder: 9,
+        prerequisiteKeys: ["confirm_blood_test", "confirm_mri"],
+      })
+    );
+
     const onlyOne = evaluateStepAvailability(
-      "qol_3m",
+      "multi_prereq_step",
       buildContext({
+        templatesByKey,
         completedKeys: new Set([
           "qol_baseline",
           "book_ultrasound",
@@ -322,8 +346,9 @@ describe("evaluateStepAvailability", () => {
     );
 
     const allMet = evaluateStepAvailability(
-      "qol_3m",
+      "multi_prereq_step",
       buildContext({
+        templatesByKey,
         completedKeys: new Set([
           "qol_baseline",
           "book_ultrasound",
@@ -413,7 +438,6 @@ describe("Level 3 step availability", () => {
 
     return buildContext({
       now: LEVEL_3_NOW,
-      templatesByKey: level3Templates,
       completedKeys: new Set(),
       bookingProgressByKey: new Map(),
       ...overrides,

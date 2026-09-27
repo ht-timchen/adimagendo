@@ -73,20 +73,11 @@ Sequential, condition-driven (not time-based):
 6. Confirm Blood Test & MRI (self-report + coordinator verified)
 → Level 1 Complete 🎉 (physical reward sent by post)
 
-### Phase 5: Level 2 — Time-based Surveys
-All triggered by Days from enrollment date:
-- Day 90: 3-month survey
-- Day 180: 6-month survey
-- Day 270: 9-month survey
-- Day 360: 12-month survey
-
-### Phase 6: Level 3 — Long-term Follow-up
-- Day 730: 24-month survey
-- Day ~912: Book Ultrasound & MRI (2nd imaging)
-- Day 1095: Confirm Ultrasound Completed
-- Day 1095: Confirm MRI Completed
-- Day 1095: 36-month survey
-→ Level 3 Complete 🎉 (physical reward sent by post)
+### Phases 5–6: Level 2 and Level 3 — Follow-up items
+Follow-up items open on consent date + N calendar months (Adelaide calendar date): 3/6/9/12/24/36-month surveys; 2.5-year imaging bookings at 30 months; 3-year imaging completion at 36 months (and after booking). REDCap closes surveys; the app has no closing date. Levels are visual groups and progress indicators; completing an earlier Level is not required (Protocol v1 §4.3.3, §4.6, §4.10.2).
+- Level 2: 3-, 6-, 9- and 12-month surveys
+- Level 3: 24-month survey, 2.5-year imaging bookings, 3-year ultrasound/MRI completion, 36-month survey
+→ Level 2 / Level 3 Complete 🎉 (physical reward sent by post)
 
 **Total checklist items: 15 across all levels** (pending Shae written confirmation)
 
@@ -115,43 +106,82 @@ All triggered by Days from enrollment date:
 `consent_sigdatetime_over18`, under 18: `consent_sigdatetime_u18`)
 Stored as `ParticipantProfile.enrollmentDate`.
 
-**Offset stored on**: `ChecklistTemplate.dueOffsetDays` (not per-participant)
+**Offset source**: code, `getLevel1DueDays` in `src/lib/checklist/early-clinical-protocol.ts` (constants in `protocol-timing.ts`). `ChecklistTemplate.dueOffsetDays` is kept in step by the seed and data migrations but is not read.
 **Calculated at**: render time in checklist page (not stored in DB)
+
+Level 1: the baseline QoL survey (`qol_baseline`) is due enrolment + `BASELINE_DUE_DAYS` (7; PICF "Enrolment · 1 week · Baseline Surveys"); the other eight Level 1 items are due enrolment + 56 days. Both the participant "Due by" and admin overdue use these (baseline overdue from day 8). The admin "Level 1 follow-up due" flag still means Level 1 incomplete after 56 days. Follow-up items: unlock = enrolment + months (`src/lib/checklist/protocol-timing.ts`); admin overdue = unlock + `FOLLOW_UP_GRACE_DAYS` (internal coordinator threshold, not the REDCap close date). `dueOffsetDays` is not used for follow-up items. The 3-year imaging items (`book_ultrasound_3y`, `book_mri_3y`, `ultrasound_3y_completed`, `mri_3y_completed`) are excluded from admin overdue; they stay visible, still count towards Level 3 and the admin total of 19. All dates are Adelaide calendar dates, and admin pages use the same enrolment date resolver as the participant view.
 
 #### Level 1 — Event triggers + 8-week coordinator follow-up
 | Step | Unlock trigger | Participant display |
 |---|---|---|
-| Book ultrasound → Pre-TVUS | `book_ultrasound` completed | Hint before US appointment |
+| Book ultrasound → Pre-TVUS | `book_ultrasound` completed | "Complete before your ultrasound on <date>" |
 | Ultrasound done → Post-TVUS | `ultrasound_completed` completed | Recommended within **7 days** after US complete |
 | Blood / MRI confirm | `book_bloods` / `book_mri` only (not blocked by Post-TVUS) | — |
 | Coordinator follow-up | — | Admin **Follow-up due** if Level 1 incomplete **56 days** after `ParticipantProfile.enrollmentDate` |
 
 `enrollmentDate` on profile: prefer **REDCap consent/enrolment** from `RedcapParticipantSync` at magic-link enrol; fallback app signup time. Open registration still uses signup time.
 
-56 days is **display-only** for coordinators (no auto-`OVERDUE`, no TVUS unlock). Level 1 must be completed before Day 90 (3-month survey unlock).
+56 days is **display-only** for coordinators (no auto-`OVERDUE`, no TVUS unlock). Level 1 completion is not a prerequisite for later activities.
 
-#### Level 2 — Time-based
-| Step | dueOffsetDays |
+#### Level 2 and Level 3 — Calendar-month timing (`FOLLOW_UP_UNLOCK_MONTHS`)
+| Step | Opens (months after consent) | Admin overdue |
+|---|---|---|
+| 3-month survey (`qol_3m`) | 3 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+| 6-month survey (`qol_6m`) | 6 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+| 9-month survey (`qol_9m`) | 9 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+| 12-month survey (`qol_12m`) | 12 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+| 24-month survey (`qol_24m`) | 24 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+| 2.5yr Book Ultrasound / MRI (`book_ultrasound_3y`, `book_mri_3y`) | 30 | Excluded |
+| 3yr Ultrasound / MRI Completed (`ultrasound_3y_completed`, `mri_3y_completed`) | 36, and after the matching booking | Excluded |
+| 36-month survey (`qol_36m`) | 36 | unlock + `FOLLOW_UP_GRACE_DAYS` |
+
+Months are added to the Adelaide calendar date of consent; the day is clamped to the end of shorter months (31 Jan + 1 month = 28/29 Feb). Items open at 00:00 Adelaide time. Participants see "Available from <d MMM yyyy>" and no due date. If the enrolment date is missing, timed items stay locked ("Available once your enrolment date is confirmed").
+
+**Survey window (follow-up surveys `qol_3m` … `qol_36m` only).** REDCap closes each follow-up survey `SURVEY_WINDOW_DAYS` after release. The checklist shows this on the survey card (display only; the app never closes or locks a survey):
+
+| State | Participant text |
 |---|---|
-| 3-month survey | 90 |
-| 6-month survey | 180 |
-| 9-month survey | 270 |
-| 12-month survey | 360 |
+| Before it opens | "Available from 1 Apr 2026 · open for 30 days" |
+| Open, more than 7 days left | "Open until 30 Apr 2026" |
+| Open, 2–7 days left | "Open until 30 Apr 2026 · 5 days left" |
+| Last day | "Last day to complete: today (30 Apr 2026)" |
+| After the window | "This survey closed on 30 Apr 2026. If you missed it, please contact the study team." (links to the Contact page; the item stays clickable and can still be marked complete) |
 
-#### Level 3 — Time-based
-| Step | dueOffsetDays |
-|---|---|
-| 24-month survey | 730 |
-| 2.5yr Book Appointment | 912 |
-| 3yr Ultrasound Completed | 1095 |
-| 3yr MRI Completed | 1095 |
-| 36-month survey | 1095 |
+"Open until" = unlock date + `SURVEY_WINDOW_DAYS` − 1 (Adelaide calendar date). While `SURVEY_WINDOW_IS_TEST_VALUE` is true, cards also show "Test setting: the 30-day window may change before launch." (the number comes from `SURVEY_WINDOW_DAYS`). The 2.5-year and 3-year imaging items show no window. Whether REDCap sends survey reminders is not confirmed; the app does not rely on it.
 
-**Note**: `unlockOffsetDays` (dev branch only) controls when a step 
-becomes available — separate from due date display. Timed surveys 
-have both set to the same value (e.g. 90, 180...). Level 1 steps 
-have `unlockOffsetDays: 0` (available immediately, sequential 
-locking handled by workflow engine).
+**Test values (`src/lib/checklist/protocol-timing.ts`)** — both must be confirmed before production and are kept as separate constants:
+- `SURVEY_WINDOW_DAYS` = 30: must match the REDCap survey window (participant-facing). Confirm with the REDCap data manager.
+- `FOLLOW_UP_GRACE_DAYS` = 30: internal admin overdue threshold after a follow-up opens (not shown to participants). Confirm with the research team.
+
+**Note**: `unlockOffsetDays` is 0 for all templates. Follow-up timing is calendar months in code. Within-Level order is enforced by `prerequisiteKeys` / `bookingPrerequisiteKey` in the workflow engine (server-enforced, including the booking APIs).
+
+**Participant checklist layout (display only; `src/lib/checklist/checklist-sections.ts`).** Each card (one per item, one per booking group) appears in exactly one section; section counts are cards, not underlying items. Sections come from explicit unlock data, never from due dates or message text:
+
+| Section | Rule | Default |
+|---|---|---|
+| To do now | Not complete, open, prerequisites met (includes partly booked groups) | Open; first 3 cards, then "Show N more". When empty: "No tasks need your action right now." |
+| Coming up next | The 2 earliest cards with a real future opening date (ties by page order) | Open; hidden when empty |
+| Waiting for another step | Open by date but a prerequisite/booking is missing; card shows the reason | Collapsed; hidden when empty |
+| Later in the study | Other future cards, including timed cards with no enrolment date | Collapsed; hidden when empty |
+| Completed | Completed (booking group: all rows) | Collapsed; hidden when empty |
+
+To do now order: surveys closing within 7 days (fewest days left first), then page order (Level, then `sortOrder`), then closed surveys. Hidden surveys closing within 7 days are listed above "Show N more". Every card has a "Level 1/2/3" label; Level sections are no longer shown. Level-complete banners sit at the top of the page, followed by one Level 1 line: "Level 1 · 4 of 9 · complete by 26 Feb 2026" (enrolment + 56 days; no date once that date has passed or if the enrolment date is missing; "Level 1 · complete" when done).
+
+Due text appears only on cards in "To do now": "Due by" for Level 1 items (baseline 7 days, others 56 days), except Pre-TVUS and Post-TVUS, which show their hints instead. If the enrolment date is missing, those cards show the missing-date message. Cards in other sections show no due text; waiting cards show only what they are waiting for.
+- Any Level 1 item after its due date (baseline from day 8, others from day 57): "Please complete this as soon as you can." The Level 1 line then drops its date ("Level 1 · 4 of 9").
+- Pre-TVUS: "Complete before your ultrasound on <d MMM yyyy>" when the ultrasound appointment date is known; otherwise "Complete after booking ultrasound, before your ultrasound appointment."
+- Post-TVUS: "Recommended by <d MMM yyyy>" = Adelaide date the ultrasound was marked complete + 7 days.
+
+**Participant vs admin wording.** Participation is voluntary and missing an item does not lead to withdrawal (Protocol v1 §4.10.2); many participants are 14–17. The participant view uses calm, encouraging wording: never "overdue", no red. The admin view keeps its overdue flags (row status, overdue counts, red styling, days late) so coordinators know whom to follow up. The same late item is therefore calm for the participant and overdue for admin (e.g. the baseline from day 8, other Level 1 items from day 57).
+
+**Known limitations**
+- Confirming the last booking row moves the whole booking card into the collapsed "Completed" section, so the "Add it to your calendar below" message and button are no longer in view.
+- After REDCap closes a survey, the app shows a "closed" message but still allows self-reported completion (by design, display only).
+- The survey window is calculated from the app's unlock date. If REDCap releases a survey at a different time (e.g. a scheduled invitation later in the day), its real close time may differ from the date shown.
+- The enrolment date is parsed in the REDCap sync route using the server time zone (S1-09); a consent time late in the Adelaide day may be stored as the next day. Fix deferred to a separate PR.
+- "Next: …", the admin phase label and next date assume sequential completion.
+- Declining ultrasound/MRI/blood means Level 1 can never complete; Level 3 still requires the optional 3-year imaging.
+- Some tests write to the database at `DATABASE_URL`; run them against a throwaway database.
 
 ### Participant Account Creation
 - **Phase 1 (current)**: Coordinator exports CSV from REDCap (email + record_id), uploads to admin dashboard. App matches by email and creates accounts.
@@ -465,6 +495,9 @@ Mixing origins (e.g. localhost + ngrok) breaks magic links and PWA installs.
 - [ ] Set AUTH_URL + NEXTAUTH_URL to production domain
 - [ ] Set CRON_SECRET to a strong random value
 - [ ] Verify REDCAP_API_URL points to production REDCap project
+- [ ] Confirm SURVEY_WINDOW_DAYS with REDCap before production
+- [ ] Set SURVEY_WINDOW_DAYS to the confirmed REDCap value and set SURVEY_WINDOW_IS_TEST_VALUE to false
+- [ ] Confirm FOLLOW_UP_GRACE_DAYS (test value 30) with the research team
 
 ---
 

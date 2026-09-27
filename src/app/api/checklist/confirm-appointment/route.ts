@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireParticipantApiSession } from "@/lib/participant-api-auth";
-import { prisma } from "@/lib/db";
-import {
-  ConfirmExternalAppointmentError,
-  confirmExternalAppointment,
-} from "@/lib/checklist/confirm-external-appointment";
-import { alreadyCompletedResponse } from "@/lib/workflow/completion-response";
+import { confirmChecklistAppointment } from "@/lib/checklist/checklist-booking-requests";
 import { z } from "zod";
 
 const BodySchema = z.object({
@@ -31,48 +26,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const item = await prisma.participantChecklistItem.findUnique({
-    where: {
-      userId_templateId: {
-        userId: userId,
-        templateId: parsed.data.templateId,
-      },
-    },
+  const result = await confirmChecklistAppointment({
+    userId,
+    templateId: parsed.data.templateId,
+    scheduledStartAt: parsed.data.scheduledStartAt,
+    scheduledLocation: parsed.data.scheduledLocation,
   });
-
-  if (!item) {
-    return NextResponse.json(
-      { error: "Checklist item not found. Use Book Now first." },
-      { status: 404 }
-    );
-  }
-
-  if (
-    item.status === "COMPLETED" &&
-    item.bookingProgress === "CONFIRMED"
-  ) {
-    return alreadyCompletedResponse();
-  }
-
-  const loc =
-    parsed.data.scheduledLocation?.trim() === ""
-      ? null
-      : parsed.data.scheduledLocation?.trim() ?? null;
-
-  try {
-    const result = await confirmExternalAppointment({
-      userId: userId,
-      checklistItemId: item.id,
-      scheduledStartAt: new Date(parsed.data.scheduledStartAt),
-      scheduledLocation: loc,
-    });
-
-    return NextResponse.json({ ok: true, ...result });
-  } catch (e) {
-    if (e instanceof ConfirmExternalAppointmentError) {
-      return NextResponse.json({ error: e.message }, { status: e.status });
-    }
-    console.error("POST /api/checklist/confirm-appointment:", e);
-    return NextResponse.json({ error: "Failed to confirm appointment." }, { status: 500 });
-  }
+  return NextResponse.json(result.body, { status: result.status });
 }

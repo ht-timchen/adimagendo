@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { resolveEnrollmentDateForTiming } from "@/lib/checklist/enrollment-date-for-timing";
+import { getFollowUpUnlockMonths } from "@/lib/checklist/protocol-timing";
 import { evaluateStepAvailability } from "./evaluate-step-availability";
 import { parseJsonStringKeys } from "./parse-json-keys";
 import type {
@@ -76,6 +77,7 @@ export async function loadWorkflowEvaluationContext(
         prerequisiteKeys: parseJsonStringKeys(t.prerequisiteKeys),
         requiredMilestoneKeys: parseJsonStringKeys(t.requiredMilestoneKeys),
         unlockOffsetDays: t.unlockOffsetDays,
+        unlockOffsetMonths: getFollowUpUnlockMonths(t.key),
         bookingPrerequisiteKey: t.bookingPrerequisiteKey,
       },
     ])

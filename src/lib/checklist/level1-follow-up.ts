@@ -1,13 +1,10 @@
 import {
-  LEVEL_1_FOLLOW_UP_DUE_DAYS,
-  LEVEL_1_REQUIRED_TEMPLATE_KEYS,
-} from "./early-clinical-protocol";
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+  addCivilDays,
+  adelaideCivilDate,
+  compareCivilDates,
+} from "@/lib/dates/adelaide-calendar";
+import { LEVEL_1_REQUIRED_TEMPLATE_KEYS } from "./early-clinical-protocol";
+import { LEVEL_1_FOLLOW_UP_DUE_DAYS } from "./protocol-timing";
 
 export function isLevel1Complete(completedTemplateKeys: Set<string>): boolean {
   return LEVEL_1_REQUIRED_TEMPLATE_KEYS.every((key) =>
@@ -27,9 +24,11 @@ export function isLevel1FollowUpDue(params: {
   const { enrollmentDate, completedTemplateKeys, now = new Date() } = params;
   if (isLevel1Complete(completedTemplateKeys)) return false;
 
-  const threshold = startOfDay(enrollmentDate);
-  threshold.setDate(threshold.getDate() + LEVEL_1_FOLLOW_UP_DUE_DAYS);
-  return startOfDay(now) > threshold;
+  const threshold = addCivilDays(
+    adelaideCivilDate(enrollmentDate),
+    LEVEL_1_FOLLOW_UP_DUE_DAYS
+  );
+  return compareCivilDates(adelaideCivilDate(now), threshold) > 0;
 }
 
 export const LEVEL_1_FOLLOW_UP_LABEL =

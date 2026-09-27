@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { displayStudyRecordId, participantEngagementStatus } from "@/lib/admin-display";
 import { computeAdminChecklistProgress } from "@/lib/admin/checklist-progress";
 import { isLevel1FollowUpDue } from "@/lib/checklist/level1-follow-up";
+import { resolveEnrollmentDatesForTiming } from "@/lib/checklist/enrollment-date-for-timing";
+import { adelaideCivilDate, formatAdelaideCivilDate } from "@/lib/dates/adelaide-calendar";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
 import {
   isPilotParticipant,
@@ -96,10 +98,15 @@ export default async function AdminParticipantsPage({
     filterCountsList.map(({ filter, count }) => [filter, count])
   ) as Record<ParticipantClassificationFilter, number>;
 
+  const enrollmentByUserId = await resolveEnrollmentDatesForTiming(
+    users.flatMap((u) => (u.profile ? [{ key: u.id, profile: u.profile }] : []))
+  );
+
   const participants: ParticipantRow[] = users
     .filter((u) => u.profile != null)
     .map((u) => {
       const profile = u.profile!;
+      const enrollmentDate = enrollmentByUserId.get(u.id)?.enrollmentDate ?? null;
       const progress = computeAdminChecklistProgress(
         u.checklist.map((item) => ({
           templateKey: item.template.key,
@@ -113,9 +120,9 @@ export default async function AdminParticipantsPage({
       );
       const level1FollowUpDue =
         isPilotParticipant(profile) &&
-        profile.enrollmentDate != null &&
+        enrollmentDate != null &&
         isLevel1FollowUpDue({
-          enrollmentDate: profile.enrollmentDate,
+          enrollmentDate,
           completedTemplateKeys: completedKeys,
         });
 
@@ -128,7 +135,9 @@ export default async function AdminParticipantsPage({
         recordId: displayStudyRecordId(profile, u.id),
         studyRecordId: profile.studyRecordId?.trim() || null,
         isActive: u.isActive,
-        enrollmentDate: formatDate(profile.enrollmentDate),
+        enrollmentDate: enrollmentDate
+          ? formatAdelaideCivilDate(adelaideCivilDate(enrollmentDate))
+          : null,
         dateOfBirth: formatDate(u.dateOfBirth),
         checklistCompleted: progress.completed,
         checklistTotal: progress.total,

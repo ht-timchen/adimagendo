@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/participant-progress";
 import { ParticipantProgressDashboard } from "@/components/admin/participant-progress-dashboard";
 import { getValidChecklistTemplateIds } from "@/lib/valid-checklist-items";
+import { resolveEnrollmentDatesForTiming } from "@/lib/checklist/enrollment-date-for-timing";
 import { hasPermission } from "@/lib/admin-rbac";
 
 export default async function ParticipantProgressPage() {
@@ -40,6 +41,8 @@ export default async function ParticipantProgressPage() {
           select: {
             studyRecordId: true,
             enrollmentDate: true,
+            dataSource: true,
+            dataKind: true,
           },
         },
         checklist: {
@@ -53,6 +56,13 @@ export default async function ParticipantProgressPage() {
     }),
   ]);
 
+  const enrollmentByUserId = await resolveEnrollmentDatesForTiming(
+    users.flatMap((user) =>
+      user.profile ? [{ key: user.id, profile: user.profile }] : []
+    )
+  );
+
+  // dueOffsetDays is not read for overdue; due and unlock days come from code (protocol-timing).
   const templatesByKey = new Map<string, ChecklistTemplateMeta>(
     templates.map((t) => [
       t.key,
@@ -75,7 +85,7 @@ export default async function ParticipantProgressPage() {
         studyRecordId: profile?.studyRecordId ?? null,
         detailRecordId,
         isActive: user.isActive,
-        enrollmentDate: profile?.enrollmentDate ?? null,
+        enrollmentDate: enrollmentByUserId.get(user.id)?.enrollmentDate ?? null,
         items: user.checklist.map((item) => ({
           templateKey: item.template.key,
           status: item.status,

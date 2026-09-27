@@ -34,6 +34,10 @@ Workflow rules:
 - studyRecordId (REDCap record_id) is the single stable research identity that binds the app account to the REDCap record. App login email may differ from the REDCap email on file and should not be used as a research identifier.
 - App login email is the authentication credential only. It may differ from the REDCap email on file. studyRecordId is the authoritative research identity for all data linkage.
 - ADMIN_CHECKLIST_STEP_TOTAL in src/lib/admin/checklist-progress.ts is hardcoded to 19. Any change to the number of Checklist Template entries in prisma/seed.ts must be manually reflected in this constant.
+- Checklist timing constants live in `src/lib/checklist/protocol-timing.ts`; the seed and app import them.
+- Change existing `ChecklistTemplate` rows with a data-only Prisma migration, and update `prisma/seed.ts` to match.
+- Never run `npm run db:seed` on staging or production (it overwrites templates and resets the default super admin password).
+- Never run commands that change any database schema or data (prisma db execute, db push, migrate deploy, migrate dev, migrate resolve, seed). Write the migration file and tell Sunny the exact command to run.
 - Prefer small, reviewable diffs.
 
 Testing rules:

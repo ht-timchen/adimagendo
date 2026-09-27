@@ -1,16 +1,31 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getChecklistDueDisplay } from "./checklist-due-display";
+import { getChecklistDueDisplay, PRE_TVUS_HINT_NO_DATE } from "./checklist-due-display";
+
+/** Run these under several TZ values (e.g. TZ=UTC); results must not change. */
 
 describe("Post-TVUS recommended due display", () => {
-  it("shows recommended date 7 days after ultrasound completion", () => {
-    const usDone = new Date("2026-06-01T10:00:00Z");
+  it("is the Adelaide date of ultrasound completion + 7 days", () => {
+    // 2 Jun 2026 00:30 Adelaide (ACST), still 1 Jun in UTC.
+    const usDone = new Date("2026-06-01T15:00:00Z");
     const display = getChecklistDueDisplay({
       templateKey: "post_tvus_survey",
       completedAtByKey: new Map([["ultrasound_completed", usDone]]),
     });
-    assert.ok(display.recommendedLabel?.includes("Recommended by"));
-    assert.ok(display.recommendedLabel?.includes("7 days"));
+    assert.equal(
+      display.recommendedLabel,
+      "Recommended by 9 Jun 2026 (within 7 days after ultrasound completion)"
+    );
+  });
+
+  it("uses Adelaide dates across the end of daylight saving", () => {
+    // 1 Apr 2026 23:30 Adelaide (ACDT); + 7 days = 8 Apr (ACST).
+    const usDone = new Date("2026-04-01T13:00:00Z");
+    const display = getChecklistDueDisplay({
+      templateKey: "post_tvus_survey",
+      completedAtByKey: new Map([["ultrasound_completed", usDone]]),
+    });
+    assert.match(display.recommendedLabel ?? "", /^Recommended by 8 Apr 2026 /);
   });
 
   it("shows guidance when ultrasound is not yet complete", () => {
@@ -18,35 +33,49 @@ describe("Post-TVUS recommended due display", () => {
       templateKey: "post_tvus_survey",
       completedAtByKey: new Map(),
     });
-    assert.ok(display.recommendedLabel?.includes("7 days"));
+    assert.equal(
+      display.recommendedLabel,
+      "Recommended within 7 days after you mark ultrasound complete."
+    );
   });
 });
 
-describe("Enrollment-based due-by display", () => {
-  const enrollmentDate = new Date("2026-01-01T12:00:00Z");
-
-  it("shows due-by date for qol_3m using dueOffsetDays", () => {
+describe("Pre-TVUS hint", () => {
+  it("names the ultrasound date (Adelaide) when the appointment date is known", () => {
+    // 12 Oct 2026 00:30 Adelaide (ACDT), still 11 Oct in UTC.
     const display = getChecklistDueDisplay({
-      templateKey: "qol_3m",
+      templateKey: "pre_tvus_survey",
       completedAtByKey: new Map(),
-      enrollmentDate,
-      dueOffsetDays: 90,
-    });
-    assert.ok(display.recommendedLabel?.startsWith("Due by"));
-    assert.ok(!display.recommendedLabel?.includes("Available from"));
-  });
-
-  it("shows missing enrollment message instead of inventing today", () => {
-    const display = getChecklistDueDisplay({
-      templateKey: "qol_3m",
-      completedAtByKey: new Map(),
-      enrollmentDate: null,
-      dueOffsetDays: 90,
-      enrollmentDateMissing: true,
+      ultrasoundAppointmentAt: new Date("2026-10-11T14:00:00Z"),
     });
     assert.equal(
       display.recommendedLabel,
-      "Enrollment date is missing. Checklist timing cannot be calculated."
+      "Complete before your ultrasound on 12 Oct 2026"
     );
+  });
+
+  it("keeps the current text when the appointment date is unknown", () => {
+    for (const ultrasoundAppointmentAt of [null, undefined]) {
+      const display = getChecklistDueDisplay({
+        templateKey: "pre_tvus_survey",
+        completedAtByKey: new Map(),
+        ultrasoundAppointmentAt,
+      });
+      assert.equal(display.recommendedLabel, PRE_TVUS_HINT_NO_DATE);
+    }
+    assert.equal(
+      PRE_TVUS_HINT_NO_DATE,
+      "Complete after booking ultrasound, before your ultrasound appointment."
+    );
+  });
+});
+
+describe("Follow-up items have no due-by display", () => {
+  it("returns no due label for qol_3m", () => {
+    const display = getChecklistDueDisplay({
+      templateKey: "qol_3m",
+      completedAtByKey: new Map(),
+    });
+    assert.equal(display.recommendedLabel, null);
   });
 });

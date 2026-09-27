@@ -1,4 +1,7 @@
-export type StepAvailabilityReasonCode = "BOOKING_PREREQUISITE_NOT_MET";
+export type StepAvailabilityReasonCode =
+  | "BOOKING_PREREQUISITE_NOT_MET"
+  | "NOT_YET_OPEN"
+  | "ENROLLMENT_DATE_MISSING";
 
 export type WorkflowBookingProgress =
   | "NOT_STARTED"
@@ -20,6 +23,8 @@ export type WorkflowChecklistTemplate = {
   prerequisiteKeys: string[];
   requiredMilestoneKeys: string[];
   unlockOffsetDays: number | null;
+  /** Calendar months after enrolment (Adelaide date); from protocol-timing, not the DB. */
+  unlockOffsetMonths?: number | null;
   bookingPrerequisiteKey: string | null;
 };
 

@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
+import { ChecklistAvailabilityNote } from "@/components/checklist/checklist-availability-note";
+import { ChecklistLevelLabel } from "@/components/checklist/checklist-level-label";
 import {
   ChecklistExternalBookingFlow,
   type ChecklistBookingProgress,
@@ -43,6 +45,8 @@ type Props = {
   isLocked: boolean;
   lockReasons: string[];
   dueLabel?: string | null;
+  availabilityNote?: string | null;
+  levelLabel?: string | null;
 };
 
 export function ChecklistBookingGroupCard({
@@ -52,12 +56,15 @@ export function ChecklistBookingGroupCard({
   isLocked,
   lockReasons,
   dueLabel,
+  availabilityNote,
+  levelLabel,
 }: Props) {
   return (
     <Card className={participantDashboardCardClassName}>
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
         <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#2F8F7A]/30" />
         <div className="min-w-0 flex-1">
+          {levelLabel ? <ChecklistLevelLabel label={levelLabel} /> : null}
           <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
             {title}
           </CardTitle>
@@ -66,6 +73,9 @@ export function ChecklistBookingGroupCard({
           </p>
           {dueLabel ? (
             <p className="mt-1 text-xs text-[#2F8F7A]">{dueLabel}</p>
+          ) : null}
+          {availabilityNote ? (
+            <ChecklistAvailabilityNote text={availabilityNote} />
           ) : null}
           <p className={cn("mt-2 text-xs", participantDashboardMutedClassName)}>
             Appointments can be booked in any order.

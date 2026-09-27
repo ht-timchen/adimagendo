@@ -3,24 +3,17 @@ import {
   preTvusUltrasoundBookingLockReason,
 } from "@/lib/checklist/pre-tvus-ultrasound-prerequisite";
 import { MISSING_ENROLLMENT_DATE_MESSAGE } from "@/lib/checklist/enrollment-date-for-timing";
+import {
+  computeUnlockAfterDays,
+  computeUnlockAfterMonths,
+  followUpAvailableFromText,
+} from "@/lib/checklist/follow-up-availability";
 import type {
   StepAvailability,
   StepAvailabilityReasonCode,
   WorkflowBookingProgress,
   WorkflowEvaluationContext,
 } from "./types";
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function unlockDate(enrollmentDate: Date, unlockOffsetDays: number): Date {
-  const d = startOfDay(enrollmentDate);
-  d.setDate(d.getDate() + unlockOffsetDays);
-  return d;
-}
 
 function isBookingPrerequisiteMet(
   progress: WorkflowBookingProgress | undefined
@@ -62,15 +55,27 @@ export function evaluateStepAvailability(
     context.milestones.map((m) => [m.key, m] as const)
   );
 
-  if (step.unlockOffsetDays != null && step.unlockOffsetDays > 0) {
+  const unlockMonths =
+    step.unlockOffsetMonths != null && step.unlockOffsetMonths > 0
+      ? step.unlockOffsetMonths
+      : null;
+  const unlockDays =
+    step.unlockOffsetDays != null && step.unlockOffsetDays > 0
+      ? step.unlockOffsetDays
+      : null;
+
+  if (unlockMonths != null || unlockDays != null) {
     if (!context.enrollmentDate || context.enrollmentDateMissing) {
       reasons.push(MISSING_ENROLLMENT_DATE_MESSAGE);
+      reasonCodes.push("ENROLLMENT_DATE_MISSING");
     } else {
-      const unlockAt = unlockDate(context.enrollmentDate, step.unlockOffsetDays);
-      if (context.now < unlockAt) {
-        reasons.push(
-          `Available from ${unlockAt.toLocaleDateString()} (${step.unlockOffsetDays} days after enrollment)`
-        );
+      const unlock =
+        unlockMonths != null
+          ? computeUnlockAfterMonths(context.enrollmentDate, unlockMonths)
+          : computeUnlockAfterDays(context.enrollmentDate, unlockDays!);
+      if (context.now < unlock.unlocksAt) {
+        reasons.push(followUpAvailableFromText(unlock));
+        reasonCodes.push("NOT_YET_OPEN");
       }
     }
   }
