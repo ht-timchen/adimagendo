@@ -1,5 +1,6 @@
-import type { ParticipantDataKind, ParticipantDataSource } from "@prisma/client";
+import type { Session } from "next-auth";
 import { prisma } from "@/lib/db";
+import { ADMIN_AUDIT_ACTIONS, createAdminAuditEventInTx } from "@/lib/admin-audit";
 import {
   canMarkAsPilotParticipant,
   PILOT_PARTICIPANT_PROFILE_WHERE,
@@ -8,16 +9,23 @@ import {
   PARTICIPANT_DATA_KIND,
   PARTICIPANT_DATA_SOURCE,
 } from "./participant-classification-values";
+import type { ClassificationChangeReasonInput } from "./classification-change-reason";
+import {
+  CLASSIFICATION_CONFLICT_MESSAGE,
+  classificationAuditMetadata,
+  classificationChangeFailure,
+  ClassificationConflictError,
+  loadParticipantForClassificationChange,
+  type ClassificationChangeFailure,
+  type ParticipantClassificationSnapshot,
+} from "./classification-change-common";
+
+export type { ParticipantClassificationSnapshot };
 
 export const PILOT_PARTICIPANT_PROFILE_UPDATE = {
   dataSource: PILOT_PARTICIPANT_PROFILE_WHERE.dataSource,
   dataKind: PILOT_PARTICIPANT_PROFILE_WHERE.dataKind,
 } as const;
-
-export type ParticipantClassificationSnapshot = {
-  dataSource: ParticipantDataSource;
-  dataKind: ParticipantDataKind;
-};
 
 export type MarkPilotParticipantError =
   | "not_found"
@@ -27,8 +35,8 @@ export type MarkPilotParticipantError =
 
 export type MarkPilotParticipantContext = {
   userId: string;
-  /** Admin performing the change (reserved for audit trail). */
-  actorUserId: string;
+  session: Session;
+  reason: ClassificationChangeReasonInput;
 };
 
 export type MarkPilotParticipantResult =
@@ -38,84 +46,86 @@ export type MarkPilotParticipantResult =
       previous: ParticipantClassificationSnapshot;
       next: ParticipantClassificationSnapshot;
     }
-  | { ok: false; error: MarkPilotParticipantError };
+  | ClassificationChangeFailure;
 
 export { canMarkAsPilotParticipant };
-
-/**
- * Reserved hook for a future audit trail. Classification changes should be
- * recorded here once persistence is added.
- */
-async function recordPilotClassificationChange(event: {
-  userId: string;
-  actorUserId: string;
-  previous: ParticipantClassificationSnapshot;
-  next: ParticipantClassificationSnapshot;
-}): Promise<void> {
-  void event;
-  // No-op until audit storage is implemented.
-}
 
 export async function markParticipantAsPilot(
   ctx: MarkPilotParticipantContext
 ): Promise<MarkPilotParticipantResult> {
-  const user = await prisma.user.findUnique({
-    where: { id: ctx.userId },
-    select: {
-      id: true,
-      role: true,
-      profile: {
-        select: {
-          id: true,
-          dataSource: true,
-          dataKind: true,
-        },
-      },
-    },
+  const loaded = await loadParticipantForClassificationChange({
+    ...ctx,
+    action: "mark_pilot",
+    permission: "participant:mark_pilot",
   });
+  if (!loaded.ok) {
+    if (
+      loaded.error === "not_found" ||
+      loaded.error === "not_participant" ||
+      loaded.error === "not_eligible"
+    ) {
+      return classificationChangeFailure(
+        loaded.error,
+        markPilotParticipantErrorMessage(loaded.error)
+      );
+    }
+    return loaded;
+  }
 
-  if (!user) {
-    return { ok: false, error: "not_found" };
-  }
-  if (user.role !== "PARTICIPANT") {
-    return { ok: false, error: "not_participant" };
-  }
-  if (!user.profile) {
-    return { ok: false, error: "not_eligible" };
-  }
-
+  const { profile } = loaded;
   const previous: ParticipantClassificationSnapshot = {
-    dataSource: user.profile.dataSource,
-    dataKind: user.profile.dataKind,
+    dataSource: profile.dataSource,
+    dataKind: profile.dataKind,
   };
 
   if (!canMarkAsPilotParticipant(previous)) {
-    if (
+    const error: MarkPilotParticipantError =
       previous.dataSource === PARTICIPANT_DATA_SOURCE.REDCAP &&
       previous.dataKind === PARTICIPANT_DATA_KIND.REAL
-    ) {
-      return { ok: false, error: "already_pilot" };
-    }
-    return { ok: false, error: "not_eligible" };
+        ? "already_pilot"
+        : "not_eligible";
+    return classificationChangeFailure(error, markPilotParticipantErrorMessage(error));
   }
 
   const next: ParticipantClassificationSnapshot = {
     ...PILOT_PARTICIPANT_PROFILE_UPDATE,
   };
 
-  await prisma.participantProfile.update({
-    where: { id: user.profile.id },
-    data: PILOT_PARTICIPANT_PROFILE_UPDATE,
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.participantProfile.updateMany({
+        where: {
+          id: profile.id,
+          dataSource: previous.dataSource,
+          dataKind: previous.dataKind,
+        },
+        data: PILOT_PARTICIPANT_PROFILE_UPDATE,
+      });
+      if (updated.count !== 1) throw new ClassificationConflictError();
 
-  await recordPilotClassificationChange({
-    userId: ctx.userId,
-    actorUserId: ctx.actorUserId,
-    previous,
-    next,
-  });
+      await createAdminAuditEventInTx(tx, {
+        session: ctx.session,
+        action: ADMIN_AUDIT_ACTIONS.PARTICIPANT_MARKED_PILOT,
+        targetType: "participant",
+        targetId: loaded.userId,
+        targetName: profile.studyRecordId,
+        metadata: classificationAuditMetadata({
+          studyRecordId: profile.studyRecordId,
+          field: "dataKind",
+          from: previous.dataKind,
+          to: next.dataKind,
+          reason: loaded.reason,
+        }),
+      });
+    });
+  } catch (e) {
+    if (e instanceof ClassificationConflictError) {
+      return classificationChangeFailure("conflict", CLASSIFICATION_CONFLICT_MESSAGE);
+    }
+    throw e;
+  }
 
-  return { ok: true, userId: ctx.userId, previous, next };
+  return { ok: true, userId: loaded.userId, previous, next };
 }
 
 export function markPilotParticipantErrorMessage(

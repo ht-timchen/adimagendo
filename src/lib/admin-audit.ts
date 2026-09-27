@@ -15,6 +15,10 @@ export const ADMIN_AUDIT_ACTIONS = {
   PARTICIPANT_PASSWORD_RESET: "participant.password_reset",
   PARTICIPANT_DEACTIVATED: "participant.deactivated",
   PARTICIPANT_ACTIVATED: "participant.activated",
+  PARTICIPANT_MARKED_TEST: "participant.marked_test",
+  PARTICIPANT_UNMARKED_TEST: "participant.unmarked_test",
+  PARTICIPANT_MARKED_PILOT: "participant.marked_pilot",
+  PARTICIPANT_TEST_ENROLLMENT_DATE_CHANGED: "participant.test_enrollment_date_changed",
   NOTIFICATION_BROADCAST_SENT: "notification.broadcast_sent",
 } as const;
 
@@ -36,33 +40,42 @@ export function snapshotActorFromSession(session: Session): {
   return { actorUserId, actorName, actorRole };
 }
 
-export async function recordAdminAuditEvent(input: {
+type AdminAuditEventInput = {
   session: Session;
   action: AdminAuditAction | string;
   targetType: string;
   targetId?: string | null;
   targetName?: string | null;
   metadata?: Record<string, unknown> | null;
-}): Promise<void> {
+};
+
+function buildAdminAuditEventData(
+  input: AdminAuditEventInput
+): Prisma.AdminAuditEventUncheckedCreateInput {
   const { actorUserId, actorName, actorRole } = snapshotActorFromSession(
     input.session
   );
+  return {
+    actorUserId,
+    actorName,
+    actorRole,
+    action: input.action,
+    targetType: input.targetType,
+    targetId: input.targetId ?? null,
+    targetName: input.targetName ?? null,
+    metadata:
+      input.metadata != null
+        ? (input.metadata as Prisma.InputJsonValue)
+        : undefined,
+  };
+}
 
+export async function recordAdminAuditEvent(
+  input: AdminAuditEventInput
+): Promise<void> {
   try {
     await prisma.adminAuditEvent.create({
-      data: {
-        actorUserId,
-        actorName,
-        actorRole,
-        action: input.action,
-        targetType: input.targetType,
-        targetId: input.targetId ?? null,
-        targetName: input.targetName ?? null,
-        metadata:
-          input.metadata != null
-            ? (input.metadata as Prisma.InputJsonValue)
-            : undefined,
-      },
+      data: buildAdminAuditEventData(input),
     });
   } catch (error) {
     console.error("[admin-audit] failed to record event", {
@@ -72,4 +85,15 @@ export async function recordAdminAuditEvent(input: {
       error,
     });
   }
+}
+
+/**
+ * Writes the audit event inside the caller's transaction. Unlike
+ * recordAdminAuditEvent, failures propagate so the audited change rolls back.
+ */
+export async function createAdminAuditEventInTx(
+  tx: Prisma.TransactionClient,
+  input: AdminAuditEventInput
+): Promise<void> {
+  await tx.adminAuditEvent.create({ data: buildAdminAuditEventData(input) });
 }

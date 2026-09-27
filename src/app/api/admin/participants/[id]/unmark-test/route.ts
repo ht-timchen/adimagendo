@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/admin-api-auth";
-import { markParticipantAsPilot } from "@/lib/participant/mark-pilot-participant";
+import { unmarkTestParticipant } from "@/lib/participant/mark-test-participant";
 import { classificationChangeErrorStatus } from "@/lib/participant/classification-change-common";
 import type { ClassificationChangeReasonInput } from "@/lib/participant/classification-change-reason";
 
@@ -9,7 +9,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await requirePermission("participant:mark_pilot");
+  const session = await requirePermission("participant:classify");
   if (!session) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -24,7 +24,7 @@ export async function POST(
   }
 
   try {
-    const result = await markParticipantAsPilot({
+    const result = await unmarkTestParticipant({
       userId: id,
       session,
       reason: body ?? {},
@@ -42,9 +42,9 @@ export async function POST(
 
     return NextResponse.json({ ok: true, userId: result.userId });
   } catch (e) {
-    console.error("POST /api/admin/participants/[id]/mark-pilot:", e);
+    console.error("POST /api/admin/participants/[id]/unmark-test:", e);
     return NextResponse.json(
-      { error: "Failed to mark participant as pilot" },
+      { error: "Failed to change test classification" },
       { status: 500 }
     );
   }

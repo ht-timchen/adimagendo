@@ -8,6 +8,7 @@ export type AdminPermission =
   | "participant:update"
   | "participant:reset_password"
   | "participant:mark_pilot"
+  | "participant:classify"
   | "checklist:read"
   | "checklist:update"
   | "post:read"
@@ -55,6 +56,7 @@ const ADMIN_PERMISSIONS: ReadonlySet<AdminPermission> = new Set([
 const ALL_PERMISSIONS: ReadonlySet<AdminPermission> = new Set([
   ...ADMIN_PERMISSIONS,
   "participant:mark_pilot",
+  "participant:classify",
   "notification:broadcast",
   "admin_user:create",
   "admin_user:update",

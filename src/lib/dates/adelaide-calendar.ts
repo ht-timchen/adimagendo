@@ -99,13 +99,44 @@ function adelaideOffsetMs(instantMs: number): number {
   return wallAsUtc - Math.floor(instantMs / 1000) * 1000;
 }
 
-/** The instant of 00:00 Adelaide time on the given calendar date. */
-export function adelaideMidnightUtc(date: CivilDate): Date {
-  const wallMs = Date.UTC(date.year, date.month - 1, date.day);
+function adelaideWallTimeUtc(date: CivilDate, hour: number): Date {
+  const wallMs = Date.UTC(date.year, date.month - 1, date.day, hour);
   let instant = wallMs - adelaideOffsetMs(wallMs);
   const corrected = wallMs - adelaideOffsetMs(instant);
   if (corrected !== instant) instant = corrected;
   return new Date(instant);
+}
+
+/** The instant of 00:00 Adelaide time on the given calendar date. */
+export function adelaideMidnightUtc(date: CivilDate): Date {
+  return adelaideWallTimeUtc(date, 0);
+}
+
+/**
+ * The instant of 12:00 Adelaide time on the given calendar date. Used to store
+ * date-only values: it falls on the same calendar day in UTC and in Adelaide.
+ */
+export function adelaideNoonUtc(date: CivilDate): Date {
+  return adelaideWallTimeUtc(date, 12);
+}
+
+/** Parses a strict "YYYY-MM-DD" calendar date; null if malformed or not a real date. */
+export function parseCivilDateYmd(value: string): CivilDate | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12) return null;
+  if (day < 1 || day > daysInMonth(year, month)) return null;
+  return { year, month, day };
+}
+
+/** "YYYY-MM-DD", e.g. for `<input type="date">` values. */
+export function formatCivilDateYmd(date: CivilDate): string {
+  const month = String(date.month).padStart(2, "0");
+  const day = String(date.day).padStart(2, "0");
+  return `${String(date.year).padStart(4, "0")}-${month}-${day}`;
 }
 
 /** "d MMM yyyy" (en-AU day-month order), e.g. "1 Jul 2026". */

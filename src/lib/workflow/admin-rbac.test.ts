@@ -49,6 +49,7 @@ const ADMIN_DENIED_PERMISSIONS = [
   "settings:manage",
   "import:manage",
   "participant:mark_pilot",
+  "participant:classify",
   "notification:broadcast",
 ] as const satisfies readonly AdminPermission[];
 
@@ -57,6 +58,7 @@ const ALL_DEFINED_PERMISSIONS = [
   ...USER_READ_PERMISSIONS,
   ...ADMIN_EXTRA_PERMISSIONS,
   "participant:mark_pilot",
+  "participant:classify",
   "notification:broadcast",
   "admin_user:create",
   "admin_user:update",

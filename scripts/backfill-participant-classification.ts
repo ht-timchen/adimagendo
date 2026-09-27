@@ -7,7 +7,7 @@ import {
   classifyProfileFromStudyRecordId,
   classifyRedcapSyncFromStudyRecordId,
 } from "../src/lib/participant/participant-data-classification";
-import { isLockedPilotClassification } from "../src/lib/participant/preserve-pilot-classification";
+import { isProtectedFromAutomaticClassification } from "../src/lib/participant/preserve-pilot-classification";
 
 const prisma = new PrismaClient();
 
@@ -17,10 +17,10 @@ async function main() {
   });
 
   let profileUpdates = 0;
-  let profileSkippedLocked = 0;
+  let profileSkippedProtected = 0;
   for (const profile of profiles) {
-    if (isLockedPilotClassification(profile)) {
-      profileSkippedLocked += 1;
+    if (isProtectedFromAutomaticClassification(profile)) {
+      profileSkippedProtected += 1;
       continue;
     }
     const next = classifyProfileFromStudyRecordId(profile.studyRecordId);
@@ -53,7 +53,9 @@ async function main() {
   }
 
   console.log(`Profiles reclassified: ${profileUpdates} of ${profiles.length}`);
-  console.log(`Profiles skipped (locked REAL pilot): ${profileSkippedLocked}`);
+  console.log(
+    `Profiles skipped (REDCap REAL pilot or TEST): ${profileSkippedProtected}`
+  );
   console.log(`REDCap sync rows reclassified: ${syncUpdates} of ${syncRows.length}`);
 }
 

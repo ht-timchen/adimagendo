@@ -5,10 +5,13 @@ import {
   addCivilDays,
   adelaideCivilDate,
   adelaideMidnightUtc,
+  adelaideNoonUtc,
   civilDaysBetween,
   compareCivilDates,
   formatAdelaideCivilDate,
   formatCivilDateDMY,
+  formatCivilDateYmd,
+  parseCivilDateYmd,
 } from "./adelaide-calendar";
 
 describe("adelaideCivilDate", () => {
@@ -132,5 +135,35 @@ describe("civil date helpers", () => {
   it("formats en-AU and dd/mm/yyyy", () => {
     assert.equal(formatAdelaideCivilDate({ year: 2026, month: 4, day: 1 }), "1 Apr 2026");
     assert.equal(formatCivilDateDMY({ year: 2026, month: 4, day: 1 }), "01/04/2026");
+  });
+});
+
+describe("parseCivilDateYmd / formatCivilDateYmd", () => {
+  it("round-trips YYYY-MM-DD", () => {
+    assert.deepEqual(parseCivilDateYmd("2026-06-22"), { year: 2026, month: 6, day: 22 });
+    assert.equal(formatCivilDateYmd({ year: 2026, month: 6, day: 2 }), "2026-06-02");
+    assert.deepEqual(parseCivilDateYmd("2028-02-29"), { year: 2028, month: 2, day: 29 });
+  });
+
+  it("rejects malformed or impossible dates", () => {
+    for (const value of ["2026-02-29", "2026-13-01", "2026-00-10", "2026-6-22", "22/06/2026", "2026-06-22T00:00", ""]) {
+      assert.equal(parseCivilDateYmd(value), null, value);
+    }
+  });
+});
+
+describe("adelaideNoonUtc", () => {
+  it("is 12:00 Adelaide time in ACST and ACDT", () => {
+    assert.equal(adelaideNoonUtc({ year: 2026, month: 6, day: 22 }).toISOString(), "2026-06-22T02:30:00.000Z");
+    assert.equal(adelaideNoonUtc({ year: 2026, month: 1, day: 15 }).toISOString(), "2026-01-15T01:30:00.000Z");
+  });
+
+  it("stays on the same Adelaide date on daylight-saving change days", () => {
+    for (const civil of [
+      { year: 2026, month: 4, day: 5 },
+      { year: 2026, month: 10, day: 4 },
+    ]) {
+      assert.deepEqual(adelaideCivilDate(adelaideNoonUtc(civil)), civil);
+    }
   });
 });
