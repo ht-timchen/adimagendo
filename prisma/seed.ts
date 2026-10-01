@@ -1,5 +1,6 @@
 import { ChecklistItemType, PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { planSeedAdmin } from "../src/lib/admin/seed-admin";
 import { assertProtocolValid, validateProtocol } from "./validate-protocol";
 import { deleteOrphanedParticipantChecklistItems } from "../src/lib/valid-checklist-items";
 import { BOOK_APPOINTMENT_ROWS, BOOK_APPOINTMENT_3Y_ROWS } from "../src/lib/checklist-booking-group";
@@ -21,7 +22,6 @@ function bookExternalUrl(templateKey: string): string | undefined {
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = "admin@adimagendo.local";
-const ADMIN_PASSWORD = "imagendoadmin";
 const ADMIN_NAME = "Admin";
 
 /** Placeholder REDCap URLs — replace per instrument when available. */
@@ -464,32 +464,51 @@ async function main() {
     });
   }
 
-  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  const admin = await prisma.user.upsert({
+  // Local dev admin: opt-in only (SEED_DEV_ADMIN=1) and never modifies an existing account.
+  const existingAdmin = await prisma.user.findUnique({
     where: { email: ADMIN_EMAIL },
-    create: {
-      email: ADMIN_EMAIL,
-      name: ADMIN_NAME,
-      passwordHash,
-      role: "ADMIN",
-      superAdmin: true,
-    },
-    update: { name: ADMIN_NAME, passwordHash, role: "ADMIN", superAdmin: true },
+    select: { id: true },
   });
-  await prisma.participantProfile.upsert({
-    where: { userId: admin.id },
-    create: {
-      userId: admin.id,
-      enrollmentDate: new Date(),
-      studyPhase: "admin",
-      dataSource: "LOCAL",
-      dataKind: "TEST",
-    },
-    update: {
-      dataSource: "LOCAL",
-      dataKind: "TEST",
-    },
-  });
+  const adminPlan = planSeedAdmin(process.env, existingAdmin !== null);
+  if (adminPlan.action === "skip") {
+    console.log("Skipping dev admin account (set SEED_DEV_ADMIN=1 to create it locally).");
+  } else {
+    let adminId = existingAdmin?.id;
+    if (adminPlan.action === "create") {
+      const created = await prisma.user.create({
+        data: {
+          email: ADMIN_EMAIL,
+          name: ADMIN_NAME,
+          passwordHash: await bcrypt.hash(adminPlan.password, 10),
+          role: "ADMIN",
+          superAdmin: true,
+        },
+      });
+      adminId = created.id;
+      console.log(`Created dev admin ${ADMIN_EMAIL}.`);
+      if (adminPlan.generated) {
+        console.log(`Generated password (shown once): ${adminPlan.password}`);
+      }
+    } else {
+      console.log(`Dev admin ${ADMIN_EMAIL} already exists; left unchanged.`);
+    }
+    if (adminId) {
+      await prisma.participantProfile.upsert({
+        where: { userId: adminId },
+        create: {
+          userId: adminId,
+          enrollmentDate: new Date(),
+          studyPhase: "admin",
+          dataSource: "LOCAL",
+          dataKind: "TEST",
+        },
+        update: {
+          dataSource: "LOCAL",
+          dataKind: "TEST",
+        },
+      });
+    }
+  }
 
   await prisma.checklistTemplate.deleteMany({
     where: { key: { in: DEPRECATED_CHECKLIST_KEYS } },
