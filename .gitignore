@@ -23,6 +23,8 @@
 # sqlite
 *.db
 *.db-journal
+*.db.bak*
+*.b64
 
 # uploads
 /uploads

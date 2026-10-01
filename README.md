@@ -50,10 +50,10 @@ npx prisma db push
 npm run db:seed
 ```
 
-This creates `prisma/dev.db` and seeds checklist/survey templates.
+This creates `prisma/dev.db` and seeds checklist/survey templates. It does **not** create an admin account unless you ask for one (see [Admin accounts](#admin-accounts)).
 
 - `db push` – Pushes the schema to the DB (no migrations).
-- `db:seed` – Inserts checklist and survey templates.
+- `db:seed` – Inserts checklist and survey templates. Run it only on a fresh, empty database: it overwrites existing templates.
 
 For migrations instead of push:
 
@@ -67,7 +67,7 @@ npx prisma migrate dev --name init
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Register a new account, then sign in to use the dashboard.
+Open [http://localhost:3000](http://localhost:3000). Register a new account, or create the local admin (see [Admin accounts](#admin-accounts)), then sign in to use the dashboard.
 
 ## Deploy to Railway (SQLite – lightweight prototype)
 
@@ -90,15 +90,11 @@ Railway runs your app in a container with a persistent volume, so you can keep u
    - **AUTH_URL** = your app URL, e.g. `https://adimagendo-production-xxxx.up.railway.app` (you can copy this from Railway after the first deploy and then update the variable).
 
 5. **Deploy**
-   - Railway will run `npm install`, `prisma generate`, `next build`, then on start `prisma db push` and `next start`. The schema is applied automatically on each start.
+   - Railway will run `npm install`, `prisma generate`, `next build`, then on start `prisma migrate deploy` (via `prestart`) and `next start`. Migrations are applied automatically on each start.
 
-6. **Seed the database once** (checklist and survey templates)
-   - Install the [Railway CLI](https://docs.railway.app/develop/cli) and run:
-     ```bash
-     railway link
-     railway run npm run db:seed
-     ```
-   - Or in the Railway dashboard: your service → **Settings** → run a one-off command: `npm run db:seed`.
+6. **First-time setup of a new, empty database only**
+   - Seed the checklist and survey templates once and create the first super admin. See [Admin accounts](#admin-accounts) for the exact steps.
+   - **Never run `npm run db:seed` on an environment that already has data** (staging or production): it overwrites templates.
 
 7. **Share the app**
    - Use the **Generate Domain** button (or the URL Railway gives you) and share that link so others can try the prototype.
@@ -113,7 +109,33 @@ Railway runs your app in a container with a persistent volume, so you can keep u
    - **DATABASE_URL** – Use a hosted database (e.g. Neon, Supabase for PostgreSQL; or Turso for SQLite-compatible). SQLite files do not work on Vercel serverless.
    - **AUTH_SECRET** – Generate with `openssl rand -base64 32`.
    - **AUTH_URL** – Your Vercel app URL, e.g. `https://adimagendo.vercel.app`.
-4. Deploy. After the first deploy, run `npx prisma db push` and `npm run db:seed` against the production `DATABASE_URL`.
+4. Deploy. After the first deploy, apply the schema with `npx prisma db push`. Seed templates and create the first admin only on a fresh database; see [Admin accounts](#admin-accounts).
+
+## Admin accounts
+
+The repository contains no usable admin password. Never commit one, and never put one in a README, chat or ticket.
+
+**Local development.** Create the local admin (`admin@adimagendo.local`) explicitly:
+
+```bash
+SEED_DEV_ADMIN=1 SEED_DEV_ADMIN_PASSWORD='choose-a-local-password' npm run db:seed
+```
+
+Without `SEED_DEV_ADMIN=1` the seed never touches the admin account. If the account already exists the seed leaves it unchanged, so it can never reset a password. If you omit `SEED_DEV_ADMIN_PASSWORD`, a random password is generated and printed once.
+
+**Staging / production.**
+1. First super admin on a **new, empty** database: run the seed once with `SEED_DEV_ADMIN=1` and a strong `SEED_DEV_ADMIN_PASSWORD` (16+ characters from a password manager). Enter it with `read -rs` so it stays out of shell history, and do not store it as a permanent variable.
+2. Create further staff from **People → Add person** (invite flow). Give each person a named account; do not share logins.
+3. Keep at least two super admins so one forgotten password does not lock everyone out. A super admin can reset another's password from the People page.
+
+**Changing or recovering the `admin@adimagendo.local` password** (works against an existing database, safe to repeat):
+
+```bash
+read -rs NEW_ADMIN_PASSWORD && export NEW_ADMIN_PASSWORD
+npm run admin:set-password; unset NEW_ADMIN_PASSWORD
+```
+
+The password must be at least 16 characters and must not contain the old default. On Railway, run this inside `railway ssh`. The command only changes the password hash; it does not create accounts.
 
 ## Scripts
 
@@ -124,7 +146,8 @@ Railway runs your app in a container with a persistent volume, so you can keep u
 | `npm run start` | Start production server |
 | `npm run db:generate` | Generate Prisma client |
 | `npm run db:push` | Push schema to DB    |
-| `npm run db:seed` | Seed checklist/survey templates |
+| `npm run db:seed` | Seed checklist/survey templates (fresh database only) |
+| `npm run admin:set-password` | Set the `admin@adimagendo.local` password from `NEW_ADMIN_PASSWORD` |
 
 ## Features (current)
 

@@ -36,7 +36,8 @@ Workflow rules:
 - ADMIN_CHECKLIST_STEP_TOTAL in src/lib/admin/checklist-progress.ts is hardcoded to 19. Any change to the number of Checklist Template entries in prisma/seed.ts must be manually reflected in this constant.
 - Checklist timing constants live in `src/lib/checklist/protocol-timing.ts`; the seed and app import them.
 - Change existing `ChecklistTemplate` rows with a data-only Prisma migration, and update `prisma/seed.ts` to match.
-- Never run `npm run db:seed` on staging or production (it overwrites templates and resets the default super admin password).
+- Never run `npm run db:seed` on staging or production (it overwrites templates). The only exception is first-time setup of a brand-new, empty database, run by a human. The seed no longer creates or resets the admin account unless `SEED_DEV_ADMIN=1` is set, and it never changes an existing account's password.
+- To set or recover the `admin@adimagendo.local` password, the human runs `npm run admin:set-password` with `NEW_ADMIN_PASSWORD` entered via `read -rs`. Never ask for, receive, log, or write that password anywhere.
 - Never run commands that change any database schema or data (prisma db execute, db push, migrate deploy, migrate dev, migrate resolve, seed). Write the migration file and tell Sunny the exact command to run.
 - Prefer small, reviewable diffs.
 
