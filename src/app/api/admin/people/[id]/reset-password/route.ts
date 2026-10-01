@@ -6,7 +6,6 @@ import {
   generateInviteToken,
   generateTemporaryPassword,
   isStaffUser,
-  PROTECTED_ADMIN_EMAIL,
 } from "@/lib/admin-people";
 import {
   buildStaffEmailDeliveryResponse,
@@ -36,13 +35,6 @@ export async function POST(
 
   if (!user || !isStaffUser(user.role)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (user.email.toLowerCase() === PROTECTED_ADMIN_EMAIL) {
-    return NextResponse.json(
-      { error: "Password for this account is managed in the database." },
-      { status: 403 }
-    );
   }
 
   if (!user.isActive) {

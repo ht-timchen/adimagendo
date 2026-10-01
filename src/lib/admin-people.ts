@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import { Role } from "@prisma/client";
 
 export const PROTECTED_ADMIN_EMAIL = "admin@adimagendo.local";
@@ -14,7 +14,7 @@ export function generateTemporaryPassword(length = 12): string {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
+    out += chars[randomInt(chars.length)];
   }
   return out;
 }

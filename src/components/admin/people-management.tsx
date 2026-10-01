@@ -540,15 +540,7 @@ function PeopleRowActions({
     },
   ];
 
-  if (protectedEmail) {
-    items.push({
-      key: "password-managed",
-      label: "Password (database-managed)",
-      icon: <KeyRound className="h-4 w-4" />,
-      disabled: true,
-      hint: "This account uses a seeded password and cannot receive reset emails.",
-    });
-  } else if (person.isActive) {
+  if (person.isActive) {
     items.push({
       key: "reset-password",
       label: "Reset password",
