@@ -19,6 +19,7 @@ export const ADMIN_AUDIT_ACTIONS = {
   PARTICIPANT_UNMARKED_TEST: "participant.unmarked_test",
   PARTICIPANT_MARKED_PILOT: "participant.marked_pilot",
   PARTICIPANT_TEST_ENROLLMENT_DATE_CHANGED: "participant.test_enrollment_date_changed",
+  PARTICIPANT_ENROLLMENT_DATE_BACKFILLED: "participant.enrollment_date_backfilled",
   NOTIFICATION_BROADCAST_SENT: "notification.broadcast_sent",
 } as const;
 

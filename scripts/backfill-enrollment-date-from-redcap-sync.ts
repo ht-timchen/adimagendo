@@ -6,18 +6,21 @@
  * Run a REDCap sync FIRST, on the fixed code, so the sync table holds corrected values;
  * this script copies whatever the sync table currently contains.
  * Profiles whose Day 0 was set with the admin test-enrolment-date tool are skipped.
+ * Each change applied with --apply also writes one AdminAuditEvent (old value, new value,
+ * reason) in the same transaction. Dry-run writes nothing.
  *
  * Dry-run by default: prints old and new values and writes nothing.
  * Usage: npx tsx scripts/backfill-enrollment-date-from-redcap-sync.ts [--apply]
  * Not part of any predeploy step; a human runs it deliberately.
  */
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { ADMIN_AUDIT_ACTIONS } from "../src/lib/admin-audit";
 import {
   adelaideCivilDate,
   formatCivilDateYmd,
 } from "../src/lib/dates/adelaide-calendar";
 import {
+  backfillAuditMetadata,
   overriddenStudyRecordIds,
   planEnrollmentBackfill,
 } from "../src/lib/redcap/enrollment-backfill";
@@ -84,15 +87,33 @@ async function main() {
   let written = 0;
   let raced = 0;
   for (const change of plan.changes) {
-    // Only write if the value is still what we planned from; otherwise something changed it meanwhile.
-    const result = await prisma.participantProfile.updateMany({
-      where: { id: change.profileId, enrollmentDate: change.from },
-      data: { enrollmentDate: change.to },
+    // The update and its audit event commit together. Only write if the value is still
+    // what we planned from; otherwise something changed it meanwhile.
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.participantProfile.updateMany({
+        where: { id: change.profileId, enrollmentDate: change.from },
+        data: { enrollmentDate: change.to },
+      });
+      if (result.count !== 1) return false;
+      await tx.adminAuditEvent.create({
+        data: {
+          actorUserId: null,
+          actorName: "System script (backfill-enrollment-date-from-redcap-sync)",
+          actorRole: "SYSTEM",
+          action: ADMIN_AUDIT_ACTIONS.PARTICIPANT_ENROLLMENT_DATE_BACKFILLED,
+          targetType: "participant",
+          targetId: change.studyRecordId,
+          metadata: backfillAuditMetadata(change) as Prisma.InputJsonValue,
+        },
+      });
+      return true;
     });
-    if (result.count === 1) written += 1;
+    if (updated) written += 1;
     else raced += 1;
   }
-  console.log(`\nApplied: ${written} updated, ${raced} left alone because the value changed meanwhile.`);
+  console.log(
+    `\nApplied: ${written} updated (each with an audit event), ${raced} left alone because the value changed meanwhile.`
+  );
 }
 
 main()

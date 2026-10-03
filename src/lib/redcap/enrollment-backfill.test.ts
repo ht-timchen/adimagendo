@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { overriddenStudyRecordIds, planEnrollmentBackfill } from "./enrollment-backfill";
+import {
+  BACKFILL_AUDIT_REASON,
+  backfillAuditMetadata,
+  overriddenStudyRecordIds,
+  planEnrollmentBackfill,
+} from "./enrollment-backfill";
 
 const wrong = new Date("2026-04-28T18:54:24.000Z");
 const right = new Date("2026-04-28T09:24:24.000Z");
@@ -66,4 +71,21 @@ test("reads study record IDs from audit metadata and ignores malformed rows", ()
     { metadata: "text" },
   ]);
   assert.deepEqual([...ids], ["4"]);
+});
+
+test("audit metadata records old value, new value and the reason", () => {
+  const metadata = backfillAuditMetadata({
+    profileId: "p1",
+    studyRecordId: "R1",
+    from: wrong,
+    to: right,
+  });
+  assert.deepEqual(metadata, {
+    studyRecordId: "R1",
+    field: "enrollmentDate",
+    from: "2026-04-28T18:54:24.000Z",
+    to: "2026-04-28T09:24:24.000Z",
+    reason: "BUG-004 backfill: REDCap time parsed as Adelaide local",
+  });
+  assert.equal(metadata.reason, BACKFILL_AUDIT_REASON);
 });

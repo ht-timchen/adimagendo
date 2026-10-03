@@ -77,6 +77,20 @@ export function planEnrollmentBackfill(
   return plan;
 }
 
+export const BACKFILL_AUDIT_REASON =
+  "BUG-004 backfill: REDCap time parsed as Adelaide local";
+
+/** Audit metadata for one applied backfill change (old and new values as ISO instants). */
+export function backfillAuditMetadata(change: BackfillChange): Record<string, unknown> {
+  return {
+    studyRecordId: change.studyRecordId,
+    field: "enrollmentDate",
+    from: change.from.toISOString(),
+    to: change.to.toISOString(),
+    reason: BACKFILL_AUDIT_REASON,
+  };
+}
+
 /** Study record IDs found in audit metadata of test enrolment date changes. */
 export function overriddenStudyRecordIds(
   events: readonly { metadata: unknown }[]
