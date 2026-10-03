@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { refreshTokenFromDatabase } from "@/lib/auth/session-revalidation";
 
 const authUrl = process.env.AUTH_URL;
 if (authUrl && !/^https?:\/\//i.test(authUrl)) {
@@ -64,7 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user }) {
       if (user) {
         const u = user as {
           id: string;
@@ -78,19 +79,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = u.role;
         token.active = u.active ?? true;
         token.superAdmin = u.superAdmin ?? false;
-      } else if (trigger === "update" && token.id) {
-        const db = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { email: true, role: true, isActive: true, superAdmin: true },
-        });
-        if (db) {
-          token.email = db.email;
-          token.active = db.isActive;
-          token.superAdmin = db.superAdmin;
-          token.role = db.superAdmin ? "SUPER_ADMIN" : db.role;
-        }
+        return token;
       }
-      return token;
+      // Every later session read: re-check the database so deactivation, deletion and
+      // role changes apply at once instead of when the token expires. Returning null
+      // ends the session.
+      return refreshTokenFromDatabase(token, (userId) =>
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, role: true, isActive: true, superAdmin: true },
+        })
+      );
     },
     async session({ session, token }) {
       if (session.user) {
