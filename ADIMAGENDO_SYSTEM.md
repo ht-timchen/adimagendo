@@ -178,7 +178,6 @@ Due text appears only on cards in "To do now": "Due by" for Level 1 items (basel
 - Confirming the last booking row moves the whole booking card into the collapsed "Completed" section, so the "Add it to your calendar below" message and button are no longer in view.
 - After REDCap closes a survey, the app shows a "closed" message but still allows self-reported completion (by design, display only).
 - The survey window is calculated from the app's unlock date. If REDCap releases a survey at a different time (e.g. a scheduled invitation later in the day), its real close time may differ from the date shown.
-- Profiles registered before the BUG-004 fix may hold an enrolment date shifted by 9.5 or 10.5 hours (a consent time late in the Adelaide day lands on the next day) until `scripts/backfill-enrollment-date-from-redcap-sync.ts` has been run. Remove this line once the backfill is done.
 - "Next: …", the admin phase label and next date assume sequential completion.
 - Declining ultrasound/MRI/blood means Level 1 can never complete; Level 3 still requires the optional 3-year imaging.
 - Some tests write to the database at `DATABASE_URL`; run them against a throwaway database.
