@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { classifyRedcapSyncFromStudyRecordId } from "@/lib/participant/participant-data-classification";
+import { ageAtDate } from "@/lib/redcap/age-at-date";
 import { parseRedcapDate, parseRedcapDob } from "@/lib/redcap/parse-redcap-date";
 
 type RedcapFlatRow = Record<string, string | undefined>;
@@ -53,15 +54,6 @@ function rowDebugFields(
     age: ageContext?.age ?? null,
     ageBand: ageContext?.ageBand ?? "unknown",
   };
-}
-
-function ageAtDate(dob: Date, reference: Date): number {
-  let age = reference.getFullYear() - dob.getFullYear();
-  const monthDiff = reference.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && reference.getDate() < dob.getDate())) {
-    age -= 1;
-  }
-  return age;
 }
 
 function resolveDateOfBirth(row: RedcapFlatRow): Date | null {
