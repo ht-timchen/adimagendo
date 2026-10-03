@@ -28,6 +28,7 @@
 
 # uploads
 /uploads
+/.test-uploads/
 
 # misc
 .DS_Store

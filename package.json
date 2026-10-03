@@ -16,7 +16,8 @@
     "db:seed": "prisma db seed",
     "admin:set-password": "tsx scripts/set-admin-password.ts",
     "icons:generate": "bash scripts/generate-pwa-icons.sh",
-    "test": "tsx --test src/lib/workflow/**/*.test.ts src/lib/checklist/**/*.test.ts src/lib/school-attendance-reminder/**/*.test.ts src/lib/medical-appointments-reminder/**/*.test.ts src/lib/reminder-cycle/**/*.test.ts src/lib/participant-api-auth.test.ts src/lib/documents/**/*.test.ts src/lib/participant-profile-display.test.ts src/lib/push/participant-push-access.test.ts src/lib/news/**/*.test.ts src/lib/dates/**/*.test.ts src/lib/admin/**/*.test.ts src/lib/participant/**/*.test.ts src/lib/redcap/**/*.test.ts"
+    "test": "tsx --test src/lib/workflow/**/*.test.ts src/lib/checklist/**/*.test.ts src/lib/school-attendance-reminder/**/*.test.ts src/lib/medical-appointments-reminder/**/*.test.ts src/lib/reminder-cycle/**/*.test.ts src/lib/participant-api-auth.test.ts src/lib/documents/**/*.test.ts src/lib/participant-profile-display.test.ts src/lib/push/participant-push-access.test.ts src/lib/news/**/*.test.ts src/lib/dates/**/*.test.ts src/lib/admin/**/*.test.ts src/lib/participant/**/*.test.ts src/lib/redcap/**/*.test.ts",
+    "test:tz": "DATABASE_URL=file:./test.db UPLOAD_DIR=./.test-uploads TZ=UTC npm test && DATABASE_URL=file:./test.db UPLOAD_DIR=./.test-uploads TZ=Australia/Adelaide npm test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -178,7 +178,7 @@ Due text appears only on cards in "To do now": "Due by" for Level 1 items (basel
 - Confirming the last booking row moves the whole booking card into the collapsed "Completed" section, so the "Add it to your calendar below" message and button are no longer in view.
 - After REDCap closes a survey, the app shows a "closed" message but still allows self-reported completion (by design, display only).
 - The survey window is calculated from the app's unlock date. If REDCap releases a survey at a different time (e.g. a scheduled invitation later in the day), its real close time may differ from the date shown.
-- The enrolment date is parsed in the REDCap sync route using the server time zone (S1-09); a consent time late in the Adelaide day may be stored as the next day. Fix deferred to a separate PR.
+- Profiles registered before the BUG-004 fix may hold an enrolment date shifted by 9.5 or 10.5 hours (a consent time late in the Adelaide day lands on the next day) until `scripts/backfill-enrollment-date-from-redcap-sync.ts` has been run. Remove this line once the backfill is done.
 - "Next: …", the admin phase label and next date assume sequential completion.
 - Declining ultrasound/MRI/blood means Level 1 can never complete; Level 3 still requires the optional 3-year imaging.
 - Some tests write to the database at `DATABASE_URL`; run them against a throwaway database.
@@ -380,6 +380,9 @@ POST https://surveys.adelaide.edu.au/redcap/api/
 ### REDCap Events
 baseline_arm_1, 3_months_arm_1, 6_months_arm_1, 9_months_arm_1,
 12_months_arm_1, 24_months_arm_1, 36_months_arm_1, final_data_arm_1
+
+### Date and Time Handling
+REDCap date-time exports have no time-zone offset and are interpreted as Australia/Adelaide local time (verified against records 13 and 47, Oct 2026). Re-verify after any REDCap or hosting migration by re-running test #15.
 
 ### REDCap Instruments (key ones)
 - prescreening_survey
