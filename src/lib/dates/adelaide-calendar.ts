@@ -99,12 +99,22 @@ function adelaideOffsetMs(instantMs: number): number {
   return wallAsUtc - Math.floor(instantMs / 1000) * 1000;
 }
 
-function adelaideWallTimeUtc(date: CivilDate, hour: number): Date {
-  const wallMs = Date.UTC(date.year, date.month - 1, date.day, hour);
+/** The instant of the given Adelaide wall-clock time on the given calendar date. */
+export function adelaideWallClockToUtc(
+  date: CivilDate,
+  hour: number,
+  minute = 0,
+  second = 0
+): Date {
+  const wallMs = Date.UTC(date.year, date.month - 1, date.day, hour, minute, second);
   let instant = wallMs - adelaideOffsetMs(wallMs);
   const corrected = wallMs - adelaideOffsetMs(instant);
   if (corrected !== instant) instant = corrected;
   return new Date(instant);
+}
+
+function adelaideWallTimeUtc(date: CivilDate, hour: number): Date {
+  return adelaideWallClockToUtc(date, hour);
 }
 
 /** The instant of 00:00 Adelaide time on the given calendar date. */

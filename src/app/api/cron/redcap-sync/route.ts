@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { classifyRedcapSyncFromStudyRecordId } from "@/lib/participant/participant-data-classification";
-
-function parseRedcapDate(val: string): Date | null {
-  if (!val || val.trim() === "") return null;
-  const d = new Date(val.trim());
-  return Number.isNaN(d.getTime()) ? null : d;
-}
+import { parseRedcapDate, parseRedcapDob } from "@/lib/redcap/parse-redcap-date";
 
 type RedcapFlatRow = Record<string, string | undefined>;
 
@@ -71,8 +66,8 @@ function ageAtDate(dob: Date, reference: Date): number {
 
 function resolveDateOfBirth(row: RedcapFlatRow): Date | null {
   return (
-    parseRedcapDate(str(row, "consent_dob_u18")) ??
-    parseRedcapDate(str(row, "consent_dob_over18"))
+    parseRedcapDob(str(row, "consent_dob_u18")) ??
+    parseRedcapDob(str(row, "consent_dob_over18"))
   );
 }
 
@@ -271,7 +266,7 @@ function classifyBaselineRow(row: RedcapFlatRow): {
     }
 
     const dateOfBirth =
-      parseRedcapDate(str(row, "consent_dob_u18")) ?? ageContext.dateOfBirth;
+      parseRedcapDob(str(row, "consent_dob_u18")) ?? ageContext.dateOfBirth;
     const enrollmentDate = calculateEnrolmentDate(
       "u18",
       participantConsentDate,
@@ -326,7 +321,7 @@ function classifyBaselineRow(row: RedcapFlatRow): {
   }
 
   const dateOfBirth =
-    parseRedcapDate(str(row, "consent_dob_over18")) ?? ageContext.dateOfBirth;
+    parseRedcapDob(str(row, "consent_dob_over18")) ?? ageContext.dateOfBirth;
 
   return {
     classification: "over18",
