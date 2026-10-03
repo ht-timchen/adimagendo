@@ -382,7 +382,7 @@ baseline_arm_1, 3_months_arm_1, 6_months_arm_1, 9_months_arm_1,
 12_months_arm_1, 24_months_arm_1, 36_months_arm_1, final_data_arm_1
 
 ### Date and Time Handling
-REDCap date-time exports have no time-zone offset and are interpreted as Australia/Adelaide local time (verified against records 13 and 47, Oct 2026). Re-verify after any REDCap or hosting migration by re-running test #15.
+REDCap date-time exports have no time-zone offset and are interpreted as Australia/Adelaide local time (verified against records 13 and 47, Oct 2026). Re-verify after any REDCap or hosting migration by re-running test case #15 in ADIMAGENDO_Test_Cases.xlsx.
 
 ### REDCap Instruments (key ones)
 - prescreening_survey
