@@ -21,7 +21,7 @@ export default async function AdminNotifyPage() {
             Broadcast
           </CardTitle>
           <CardDescription>
-            Creates one in-app notification per active participant. Participants see it under Notifications in the app; it is not a phone push or an email.
+            Creates one in-app notification per active participant and sends a phone push with the title to those who have turned on push. The message itself is read in the app, under Notifications. No email is sent.
           </CardDescription>
         </CardHeader>
         <CardContent>

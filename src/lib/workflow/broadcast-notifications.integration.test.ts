@@ -11,7 +11,10 @@ import {
 import {
   BroadcastInProgressError,
   broadcastToActiveParticipants,
+  type BroadcastPushSender,
 } from "@/lib/notifications/broadcast-service";
+import { sendPushToUsers } from "@/lib/push/send-to-user";
+import { WebPushError } from "web-push";
 
 assertTestDatabase();
 
@@ -20,6 +23,9 @@ assertTestDatabase();
  * The test database may hold other participants, so recipient counts are measured, not assumed.
  */
 const PREFIX = `bcast-${process.pid}-${Date.now()}`;
+
+/** Every call below passes a fake sender: these tests must never reach a real push service. */
+const noPush: BroadcastPushSender = async () => ({ sent: 0, removed: 0, failed: 0, usersWithSubscription: 0 });
 const sid = (name: string) => `${PREFIX}-${name}`.slice(0, 64).replace(/[^A-Za-z0-9-]/g, "-");
 
 let activeA: string;
@@ -66,6 +72,20 @@ after(async () => {
     .filter((e) => String((e.metadata as { title?: string } | null)?.title ?? "").startsWith(PREFIX))
     .map((e) => e.id);
   await prisma.adminAuditEvent.deleteMany({ where: { id: { in: mine } } });
+  const pushEvents = await prisma.adminAuditEvent.findMany({
+    where: { action: "notification.broadcast_push_sent" },
+    select: { id: true, metadata: true },
+  });
+  await prisma.adminAuditEvent.deleteMany({
+    where: {
+      id: {
+        in: pushEvents
+          .filter((e) => String((e.metadata as { submissionId?: string } | null)?.submissionId ?? "").startsWith(PREFIX))
+          .map((e) => e.id),
+      },
+    },
+  });
+  await prisma.pushSubscription.deleteMany({ where: { endpoint: { startsWith: `https://push.example.test/${PREFIX}` } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } });
   await prisma.$disconnect();
 });
@@ -75,14 +95,15 @@ describe("broadcastToActiveParticipants (real database)", () => {
     const title = `${PREFIX} recipients`;
     const expected = await activeParticipantCount();
 
-    const outcome = await broadcastToActiveParticipants(prisma, {
+    const outcome = await broadcastToActiveParticipants(prisma, { sendPush: noPush,
       title,
       body: "Line one\nLine two",
       submissionId: sid("recipients"),
       session,
     });
 
-    assert.deepEqual(outcome, { status: "created", count: expected });
+    assert.equal(outcome.status, "created");
+    assert.equal(outcome.status === "created" ? outcome.count : -1, expected);
     assert.equal(await countForTitle(activeA, title), 1);
     assert.equal(await countForTitle(activeB, title), 1);
     assert.equal(await countForTitle(inactive, title), 0, "deactivated participant gets nothing");
@@ -98,7 +119,7 @@ describe("broadcastToActiveParticipants (real database)", () => {
 
   it("records an audit event whose recipient count matches what was created", async () => {
     const title = `${PREFIX} audit`;
-    const outcome = await broadcastToActiveParticipants(prisma, { title, body: null, submissionId: sid("audit"), session });
+    const outcome = await broadcastToActiveParticipants(prisma, { sendPush: noPush, title, body: null, submissionId: sid("audit"), session });
     assert.equal(outcome.status, "created");
     const created = await prisma.notification.count({ where: { title } });
 
@@ -111,15 +132,15 @@ describe("broadcastToActiveParticipants (real database)", () => {
 
   it("the same submission id never creates a second set; a new id may repeat the same text", async () => {
     const title = `${PREFIX} repeat`;
-    const first = await broadcastToActiveParticipants(prisma, { title, body: null, submissionId: sid("repeat-1"), session });
+    const first = await broadcastToActiveParticipants(prisma, { sendPush: noPush, title, body: null, submissionId: sid("repeat-1"), session });
     assert.equal(first.status, "created");
     const afterFirst = await prisma.notification.count({ where: { title } });
 
-    const again = await broadcastToActiveParticipants(prisma, { title, body: null, submissionId: sid("repeat-1"), session });
+    const again = await broadcastToActiveParticipants(prisma, { sendPush: noPush, title, body: null, submissionId: sid("repeat-1"), session });
     assert.deepEqual(again, { status: "replayed", count: afterFirst });
     assert.equal(await prisma.notification.count({ where: { title } }), afterFirst, "no duplicates");
 
-    const deliberate = await broadcastToActiveParticipants(prisma, { title, body: null, submissionId: sid("repeat-2"), session });
+    const deliberate = await broadcastToActiveParticipants(prisma, { sendPush: noPush, title, body: null, submissionId: sid("repeat-2"), session });
     assert.equal(deliberate.status, "created");
     assert.equal(await prisma.notification.count({ where: { title } }), afterFirst * 2, "an intended re-send is allowed");
   });
@@ -144,7 +165,7 @@ describe("broadcastToActiveParticipants (real database)", () => {
     const input = { title, body: null, submissionId: sid("rollback"), session };
 
     await assert.rejects(
-      () => broadcastToActiveParticipants(prisma, { ...input, writeAudit: async () => { throw new Error("audit store unavailable"); } }),
+      () => broadcastToActiveParticipants(prisma, { sendPush: noPush, ...input, writeAudit: async () => { throw new Error("audit store unavailable"); } }),
       /audit store unavailable/
     );
     assert.equal(await prisma.notification.count({ where: { title } }), 0, "no notification without its audit record");
@@ -165,7 +186,7 @@ describe("broadcastToActiveParticipants (real database)", () => {
           notification: { createMany: async () => { created += 1; return { count: 0 }; } },
         }),
     };
-    const outcome = await broadcastToActiveParticipants(emptyDb as never, {
+    const outcome = await broadcastToActiveParticipants(emptyDb as never, { sendPush: noPush,
       title: "t",
       body: null,
       submissionId: sid("empty"),
@@ -224,5 +245,154 @@ describe("participant notifications (real database)", () => {
     assert.equal(await markNotificationRead(prisma, { userId: activeA, notificationId: level.id }), "ok");
     assert.equal(await markNotificationRead(prisma, { userId: activeA, notificationId: push.id }), "not-found");
     assert.equal((await prisma.notification.findUniqueOrThrow({ where: { id: push.id } })).read, false);
+  });
+});
+
+describe("phone push for a broadcast (real database, fake push service)", () => {
+  const endpoint = (name: string) => `https://push.example.test/${PREFIX}/${name}`;
+  const addSubscription = (userId: string, name: string) =>
+    prisma.pushSubscription.create({ data: { endpoint: endpoint(name), p256dh: "k", auth: "a", userId } });
+
+  it("sendPushToUsers reaches only the listed users' devices and drops subscriptions the push service has retired", async () => {
+    await addSubscription(activeA, "a1");
+    await addSubscription(activeA, "a2");
+    await addSubscription(activeB, "b-gone");
+    await addSubscription(staffUser, "staff-device");
+    const reached: string[] = [];
+
+    const result = await sendPushToUsers(
+      [activeA, activeB],
+      { title: " ", body: "t", url: "/x" },
+      {
+        deliver: async (sub) => {
+          reached.push(sub.endpoint);
+          if (sub.endpoint === endpoint("b-gone")) throw new WebPushError("Gone", 410, {}, "", sub.endpoint);
+        },
+      }
+    );
+
+    assert.deepEqual(reached.sort(), [endpoint("a1"), endpoint("a2"), endpoint("b-gone")].sort(), "never the staff device");
+    assert.equal(result.sent, 2);
+    assert.equal(result.removed, 1);
+    assert.equal(result.failed, 0);
+    assert.equal(result.usersWithSubscription, 2);
+    assert.equal(await prisma.pushSubscription.count({ where: { endpoint: endpoint("b-gone") } }), 0, "retired subscription removed");
+    assert.equal(await prisma.pushSubscription.count({ where: { endpoint: endpoint("staff-device") } }), 1, "untouched");
+  });
+
+  it("a transient failure is counted but the subscription is kept; sending stays within the concurrency limit", async () => {
+    await addSubscription(activeA, "c1");
+    await addSubscription(activeA, "c2");
+    await addSubscription(activeB, "c3");
+    let running = 0;
+    let peak = 0;
+
+    const result = await sendPushToUsers(
+      [activeA, activeB],
+      { title: " ", body: "t", url: "/x" },
+      {
+        concurrency: 2,
+        deliver: async (sub) => {
+          running += 1;
+          peak = Math.max(peak, running);
+          await new Promise((r) => setTimeout(r, 15));
+          running -= 1;
+          if (sub.endpoint === endpoint("c2")) throw new WebPushError("Server error", 500, {}, "", sub.endpoint);
+        },
+      }
+    );
+
+    assert.ok(result.failed >= 1);
+    assert.ok(peak <= 2, `peak concurrency ${peak}`);
+    assert.equal(await prisma.pushSubscription.count({ where: { endpoint: endpoint("c2") } }), 1, "kept after a 500");
+  });
+
+  it("with nobody to push to it does not touch the database or the network", async () => {
+    assert.deepEqual(await sendPushToUsers([], { title: " ", body: "t", url: "/x" }), {
+      sent: 0, removed: 0, failed: 0, usersWithSubscription: 0,
+    });
+  });
+
+  it("a broadcast pushes after the notifications are stored, to the recipients only, with the title only", async () => {
+    const title = `${PREFIX} push title`;
+    let calls = 0;
+    let storedWhenPushed = -1;
+    let pushedTo: readonly string[] = [];
+    let payload: unknown = null;
+    const sendPush: BroadcastPushSender = async (ids, p) => {
+      calls += 1;
+      pushedTo = ids;
+      payload = p;
+      storedWhenPushed = await prisma.notification.count({ where: { title } });
+      return { sent: 3, removed: 0, failed: 1, usersWithSubscription: 2 };
+    };
+
+    const outcome = await broadcastToActiveParticipants(prisma, {
+      title,
+      body: "SECRET-BODY-TEXT",
+      submissionId: sid("push-1"),
+      session,
+      sendPush,
+    });
+
+    const expected = await activeParticipantCount();
+    assert.equal(outcome.status, "created");
+    assert.equal(calls, 1);
+    assert.equal(storedWhenPushed, expected, "in-app notifications already existed when the push started");
+    assert.equal(pushedTo.length, expected);
+    assert.ok(pushedTo.includes(activeA) && pushedTo.includes(activeB));
+    assert.ok(!pushedTo.includes(inactive) && !pushedTo.includes(staffUser) && !pushedTo.includes(staffAdmin));
+    assert.deepEqual(payload, { title: " ", body: title, url: "/dashboard/notifications" });
+    assert.ok(!JSON.stringify(payload).includes("SECRET-BODY-TEXT"), "the message text never goes out in the push");
+    assert.deepEqual(outcome.status === "created" ? outcome.push : null, {
+      state: "sent", devices: 3, failed: 1, recipientsWithoutPush: expected - 2,
+    });
+
+    const events = await prisma.adminAuditEvent.findMany({ where: { action: "notification.broadcast_push_sent" } });
+    const event = events.find((e) => (e.metadata as { submissionId?: string } | null)?.submissionId === sid("push-1"));
+    assert.ok(event, "push result recorded");
+    assert.deepEqual(event.metadata, { submissionId: sid("push-1"), state: "sent", devices: 3, failed: 1, recipientsWithoutPush: expected - 2 });
+  });
+
+  it("a repeated submission never pushes again", async () => {
+    const title = `${PREFIX} push once`;
+    let calls = 0;
+    const sendPush: BroadcastPushSender = async () => { calls += 1; return { sent: 1, removed: 0, failed: 0, usersWithSubscription: 1 }; };
+    const input = { title, body: null, submissionId: sid("push-2"), session, sendPush };
+
+    await broadcastToActiveParticipants(prisma, input);
+    const again = await broadcastToActiveParticipants(prisma, input);
+
+    assert.equal(again.status, "replayed");
+    assert.equal(calls, 1);
+  });
+
+  it("if the push fails the in-app notifications stay and the admin is told the push failed", async () => {
+    const title = `${PREFIX} push fails`;
+    const outcome = await broadcastToActiveParticipants(prisma, {
+      title, body: null, submissionId: sid("push-3"), session,
+      sendPush: async () => { throw new Error("push service down"); },
+    });
+    assert.deepEqual(outcome, { status: "created", count: await activeParticipantCount(), push: { state: "failed" } });
+    assert.equal(await prisma.notification.count({ where: { title } }), await activeParticipantCount());
+
+    const notConfigured = await broadcastToActiveParticipants(prisma, {
+      title: `${PREFIX} push unconfigured`, body: null, submissionId: sid("push-4"), session,
+      sendPush: async () => { throw new Error("Push is not configured (VAPID keys or VAPID_MAILTO missing)"); },
+    });
+    assert.equal(notConfigured.status === "created" ? notConfigured.push?.state : null, "not-configured");
+  });
+
+  it("nothing is pushed when nothing was stored (audit failure, or no recipients)", async () => {
+    let calls = 0;
+    const sendPush: BroadcastPushSender = async () => { calls += 1; return { sent: 0, removed: 0, failed: 0, usersWithSubscription: 0 }; };
+
+    await assert.rejects(() =>
+      broadcastToActiveParticipants(prisma, {
+        title: `${PREFIX} no push on rollback`, body: null, submissionId: sid("push-5"), session, sendPush,
+        writeAudit: async () => { throw new Error("audit store unavailable"); },
+      })
+    );
+    assert.equal(calls, 0);
   });
 });

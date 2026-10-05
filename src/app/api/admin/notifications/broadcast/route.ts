@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       ok: true,
       status: outcome.status,
       count: outcome.status === "no-recipients" ? 0 : outcome.count,
+      ...(outcome.status === "created" && outcome.push ? { push: outcome.push } : {}),
     });
   } catch (e) {
     if (e instanceof BroadcastInProgressError) {

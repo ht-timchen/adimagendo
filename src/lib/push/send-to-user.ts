@@ -114,3 +114,81 @@ export async function sendPushToAllUsers(
 
   return { sent, removed, failed };
 }
+
+export type PushSubscriptionTarget = { endpoint: string; p256dh: string; auth: string };
+
+/** Sends one wire payload to one subscription. Throws a WebPushError on failure. */
+export type PushDelivery = (subscription: PushSubscriptionTarget, wirePayload: string) => Promise<void>;
+
+export type PushToUsersResult = PushSendResult & {
+  /** Distinct users who have at least one stored subscription. */
+  usersWithSubscription: number;
+};
+
+const DEFAULT_PUSH_CONCURRENCY = 8;
+const PUSH_REQUEST_TIMEOUT_MS = 10_000;
+
+/**
+ * Push to every subscription of the given users, a few at a time. A subscription the push
+ * service reports as gone (404/410) is removed. `sent` means the push service accepted the
+ * message: it says nothing about whether the phone showed it. Pass `deliver` to avoid the
+ * network (tests); otherwise VAPID must be configured or this throws "Push is not configured".
+ */
+export async function sendPushToUsers(
+  userIds: readonly string[],
+  payload: PushPayload,
+  options: { deliver?: PushDelivery; concurrency?: number } = {}
+): Promise<PushToUsersResult> {
+  if (userIds.length === 0) return { sent: 0, removed: 0, failed: 0, usersWithSubscription: 0 };
+
+  let deliver = options.deliver;
+  if (!deliver) {
+    ensureVapidConfigured();
+    deliver = async (subscription, wirePayload) => {
+      await sendNotification(
+        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
+        wirePayload,
+        { timeout: PUSH_REQUEST_TIMEOUT_MS }
+      );
+    };
+  }
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { userId: { in: [...userIds] } },
+  });
+  const wirePayload = JSON.stringify(payload);
+  let sent = 0;
+  let removed = 0;
+  let failed = 0;
+  let next = 0;
+
+  async function worker() {
+    for (;;) {
+      const sub = subscriptions[next++];
+      if (!sub) return;
+      try {
+        await deliver!(sub, wirePayload);
+        sent += 1;
+      } catch (err) {
+        const status = err instanceof WebPushError ? err.statusCode : undefined;
+        if (status === 404 || status === 410) {
+          await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => undefined);
+          removed += 1;
+        } else {
+          failed += 1;
+          console.error("Push send error:", status ?? (err instanceof Error ? err.name : "unknown"));
+        }
+      }
+    }
+  }
+
+  const workers = Math.min(options.concurrency ?? DEFAULT_PUSH_CONCURRENCY, subscriptions.length);
+  await Promise.all(Array.from({ length: workers }, worker));
+
+  return {
+    sent,
+    removed,
+    failed,
+    usersWithSubscription: new Set(subscriptions.map((sub) => sub.userId)).size,
+  };
+}

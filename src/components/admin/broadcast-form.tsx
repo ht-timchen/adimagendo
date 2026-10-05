@@ -7,10 +7,11 @@ import {
   BROADCAST_TITLE_MAX,
   broadcastResultMessage,
   type BroadcastOutcome,
+  type BroadcastPushSummary,
 } from "@/lib/notifications/broadcast-notifications";
 import { cn } from "@/lib/utils";
 
-type Feedback = { tone: "success" | "info" | "error"; text: string };
+type Feedback = { tone: "success" | "info" | "warning" | "error"; text: string };
 
 function newSubmissionId(): string {
   try {
@@ -23,6 +24,7 @@ function newSubmissionId(): string {
 const FEEDBACK_CLASS: Record<Feedback["tone"], string> = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-900",
   info: "border-slate-200 bg-slate-50 text-slate-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-900",
   error: "border-rose-200 bg-rose-50 text-rose-800",
 };
 
@@ -57,6 +59,7 @@ export function BroadcastForm() {
         error?: string;
         status?: BroadcastOutcome["status"];
         count?: number;
+        push?: BroadcastPushSummary;
       } | null;
 
       if (!res.ok || !data?.status) {
@@ -72,7 +75,11 @@ export function BroadcastForm() {
       }
 
       const outcome: BroadcastOutcome =
-        data.status === "no-recipients" ? { status: "no-recipients" } : { status: data.status, count: data.count ?? 0 };
+        data.status === "no-recipients"
+          ? { status: "no-recipients" }
+          : data.status === "created"
+            ? { status: "created", count: data.count ?? 0, push: data.push }
+            : { status: data.status, count: data.count ?? 0 };
       setFeedback(broadcastResultMessage(outcome));
       if (outcome.status !== "no-recipients") {
         setTitle("");

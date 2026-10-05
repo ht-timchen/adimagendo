@@ -22,6 +22,7 @@ export const ADMIN_AUDIT_ACTIONS = {
   PARTICIPANT_ENROLLMENT_DATE_BACKFILLED: "participant.enrollment_date_backfilled",
   ENROLMENT_LINK_RETRIEVED: "enrolment.link_retrieved",
   NOTIFICATION_BROADCAST_SENT: "notification.broadcast_sent",
+  NOTIFICATION_BROADCAST_PUSH_SENT: "notification.broadcast_push_sent",
 } as const;
 
 export type AdminAuditAction =

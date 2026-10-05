@@ -1,11 +1,14 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { Session } from "next-auth";
-import { ADMIN_AUDIT_ACTIONS, createAdminAuditEventInTx } from "@/lib/admin-audit";
+import { ADMIN_AUDIT_ACTIONS, createAdminAuditEventInTx, recordAdminAuditEvent } from "@/lib/admin-audit";
 import {
   BROADCAST_NOTIFICATION_TYPE,
+  buildBroadcastPushPayload,
   type BroadcastInput,
   type BroadcastOutcome,
+  type BroadcastPushSummary,
 } from "@/lib/notifications/broadcast-notifications";
+import { sendPushToUsers, type PushPayload, type PushToUsersResult } from "@/lib/push/send-to-user";
 
 type BroadcastDb = Pick<PrismaClient, "$transaction" | "adminAuditEvent">;
 
@@ -22,6 +25,34 @@ const writeBroadcastAudit: BroadcastAuditWriter = (tx, { session, title, recipie
     targetName: "All participants",
     metadata: { title, recipientCount, submissionId },
   });
+
+export type BroadcastPushSender = (userIds: readonly string[], payload: PushPayload) => Promise<PushToUsersResult>;
+
+/**
+ * Phone push for a broadcast that has already been stored. Best effort: it never undoes the
+ * in-app notifications, and "sent" only means the push service accepted the message.
+ */
+async function pushToRecipients(
+  recipientIds: readonly string[],
+  title: string,
+  sendPush: BroadcastPushSender
+): Promise<BroadcastPushSummary> {
+  try {
+    const result = await sendPush(recipientIds, buildBroadcastPushPayload(title));
+    return {
+      state: "sent",
+      devices: result.sent,
+      failed: result.failed,
+      recipientsWithoutPush: recipientIds.length - result.usersWithSubscription,
+    };
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith("Push is not configured")) {
+      return { state: "not-configured" };
+    }
+    console.error("Broadcast push failed:", e instanceof Error ? e.name : "unknown error");
+    return { state: "failed" };
+  }
+}
 
 /** Submission ids being processed right now in this server process (guards a double click). */
 const inFlight = new Set<string>();
@@ -64,10 +95,16 @@ async function findCompletedBroadcast(
  */
 export async function broadcastToActiveParticipants(
   db: BroadcastDb,
-  input: BroadcastInput & { session: Session; writeAudit?: BroadcastAuditWriter }
+  input: BroadcastInput & {
+    session: Session;
+    writeAudit?: BroadcastAuditWriter;
+    /** Phone push after the in-app notifications are stored. Defaults to real Web Push. */
+    sendPush?: BroadcastPushSender;
+  }
 ): Promise<BroadcastOutcome> {
   const { title, body, submissionId, session } = input;
   const writeAudit = input.writeAudit ?? writeBroadcastAudit;
+  const sendPush = input.sendPush ?? ((ids, payload) => sendPushToUsers(ids, payload));
 
   if (inFlight.has(submissionId)) throw new BroadcastInProgressError();
   inFlight.add(submissionId);
@@ -75,24 +112,45 @@ export async function broadcastToActiveParticipants(
     const earlier = await findCompletedBroadcast(db, submissionId);
     if (earlier !== null) return { status: "replayed", count: earlier };
 
-    return await db.$transaction(async (tx): Promise<BroadcastOutcome> => {
-      const recipients = await tx.user.findMany({
-        where: { role: "PARTICIPANT", isActive: true },
-        select: { id: true },
-      });
-      if (recipients.length === 0) return { status: "no-recipients" };
+    const stored = await db.$transaction(
+      async (tx): Promise<{ recipientIds: string[]; count: number } | null> => {
+        const recipients = await tx.user.findMany({
+          where: { role: "PARTICIPANT", isActive: true },
+          select: { id: true },
+        });
+        if (recipients.length === 0) return null;
 
-      const created = await tx.notification.createMany({
-        data: recipients.map((user) => ({
-          userId: user.id,
-          title,
-          body,
-          type: BROADCAST_NOTIFICATION_TYPE,
-        })),
-      });
-      await writeAudit(tx, { session, title, recipientCount: created.count, submissionId });
-      return { status: "created", count: created.count };
+        const created = await tx.notification.createMany({
+          data: recipients.map((user) => ({
+            userId: user.id,
+            title,
+            body,
+            type: BROADCAST_NOTIFICATION_TYPE,
+          })),
+        });
+        await writeAudit(tx, { session, title, recipientCount: created.count, submissionId });
+        return { recipientIds: recipients.map((user) => user.id), count: created.count };
+      }
+    );
+    if (!stored) return { status: "no-recipients" };
+
+    // Only after the notifications are safely stored, and only for this first send:
+    // a replay returned above and never pushes again.
+    const push = await pushToRecipients(stored.recipientIds, title, sendPush);
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.NOTIFICATION_BROADCAST_PUSH_SENT,
+      targetType: "notification",
+      targetName: "All participants",
+      metadata: {
+        submissionId,
+        state: push.state,
+        ...(push.state === "sent"
+          ? { devices: push.devices, failed: push.failed, recipientsWithoutPush: push.recipientsWithoutPush }
+          : {}),
+      },
     });
+    return { status: "created", count: stored.count, push };
   } finally {
     inFlight.delete(submissionId);
   }

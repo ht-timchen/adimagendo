@@ -57,20 +57,75 @@ export function validateBroadcastInput(
   return { ok: true, input: { title, body: body || null, submissionId } };
 }
 
+/** What happened to the phone push that goes out with a broadcast. */
+export type BroadcastPushSummary =
+  | { state: "sent"; devices: number; failed: number; recipientsWithoutPush: number }
+  | { state: "not-configured" }
+  | { state: "failed" };
+
 export type BroadcastOutcome =
-  | { status: "created"; count: number }
+  | { status: "created"; count: number; push?: BroadcastPushSummary }
   | { status: "replayed"; count: number }
   | { status: "no-recipients" };
 
-function participants(count: number): string {
-  return `${count} active participant${count === 1 ? "" : "s"}`;
+/** Where tapping the phone push leads: the message itself is read in the app. */
+export const BROADCAST_PUSH_URL = "/dashboard/notifications";
+
+/**
+ * Phone push for a broadcast: the title only. The text is shown the same way as a single-
+ * participant push without a message (blank title, text as body); the full message is read
+ * in the app after tapping.
+ */
+export function buildBroadcastPushPayload(title: string): { title: string; body: string; url: string } {
+  return { title: " ", body: title, url: BROADCAST_PUSH_URL };
 }
 
-/** Message shown to the admin. It states what was written, never that anyone has read it. */
-export function broadcastResultMessage(outcome: BroadcastOutcome): { tone: "success" | "info"; text: string } {
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function participants(count: number): string {
+  return plural(count, "active participant", "active participants");
+}
+
+function pushSentence(push: BroadcastPushSummary): { text: string; ok: boolean } {
+  switch (push.state) {
+    case "not-configured":
+      return { text: "Phone push could not be sent because push isn't set up on this server.", ok: false };
+    case "failed":
+      return { text: "Phone push could not be sent. The in-app notifications are in place.", ok: false };
+    case "sent": {
+      if (push.devices === 0 && push.failed === 0) {
+        return { text: "No participant has turned on phone push yet, so nothing was pushed.", ok: true };
+      }
+      if (push.devices === 0) {
+        return { text: `Phone push could not be sent (${plural(push.failed, "device", "devices")} failed).`, ok: false };
+      }
+      const parts = [`Phone push sent to ${plural(push.devices, "device", "devices")}`];
+      if (push.recipientsWithoutPush > 0) {
+        parts.push(`${plural(push.recipientsWithoutPush, "participant hasn't", "participants haven't")} turned on push`);
+      }
+      if (push.failed > 0) parts.push(`${plural(push.failed, "device", "devices")} could not be reached`);
+      return { text: `${parts.join("; ")}.`, ok: push.failed === 0 };
+    }
+  }
+}
+
+/**
+ * Message shown to the admin. It states what was created and what was handed to the push
+ * service, never that anyone received or read it.
+ */
+export function broadcastResultMessage(outcome: BroadcastOutcome): {
+  tone: "success" | "info" | "warning";
+  text: string;
+} {
   switch (outcome.status) {
-    case "created":
-      return { tone: "success", text: `Notification created for ${participants(outcome.count)}.` };
+    case "created": {
+      const base = `Notification created for ${participants(outcome.count)}.`;
+      if (!outcome.push) return { tone: "success", text: base };
+      const push = pushSentence(outcome.push);
+      return { tone: push.ok ? "success" : "warning", text: `${base} ${push.text}` };
+    }
     case "replayed":
       return {
         tone: "success",

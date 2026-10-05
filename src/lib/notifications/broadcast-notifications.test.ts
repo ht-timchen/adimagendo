@@ -4,8 +4,11 @@ import type { Session } from "next-auth";
 import { hasPermission } from "@/lib/admin-rbac";
 import {
   BROADCAST_BODY_MAX,
+  BROADCAST_PUSH_URL,
+  buildBroadcastPushPayload,
   BROADCAST_TITLE_MAX,
   broadcastResultMessage,
+  type BroadcastPushSummary,
   formatUnreadBadge,
   isParticipantReadableNotificationType,
   notificationsLinkAriaLabel,
@@ -86,4 +89,47 @@ test("a participant may mark Level completion messages and broadcasts as read, n
   for (const type of ["admin_push", "appointment", "survey", "", null, undefined]) {
     assert.equal(isParticipantReadableNotificationType(type), false, String(type));
   }
+});
+
+test("the phone push carries the title only and opens the notifications page", () => {
+  assert.deepEqual(buildBroadcastPushPayload("Clinic closed Friday"), {
+    title: " ",
+    body: "Clinic closed Friday",
+    url: BROADCAST_PUSH_URL,
+  });
+  assert.equal(BROADCAST_PUSH_URL, "/dashboard/notifications");
+  assert.ok(!JSON.stringify(buildBroadcastPushPayload("t")).includes("Line two"), "message text is never in the push");
+});
+
+test("result message reports the push separately and honestly", () => {
+  const created = (push: BroadcastPushSummary) =>
+    broadcastResultMessage({ status: "created", count: 12, push });
+
+  assert.deepEqual(created({ state: "sent", devices: 7, failed: 0, recipientsWithoutPush: 5 }), {
+    tone: "success",
+    text: "Notification created for 12 active participants. Phone push sent to 7 devices; 5 participants haven't turned on push.",
+  });
+  assert.equal(
+    created({ state: "sent", devices: 1, failed: 0, recipientsWithoutPush: 1 }).text,
+    "Notification created for 12 active participants. Phone push sent to 1 device; 1 participant hasn't turned on push."
+  );
+  assert.equal(
+    created({ state: "sent", devices: 12, failed: 0, recipientsWithoutPush: 0 }).text,
+    "Notification created for 12 active participants. Phone push sent to 12 devices."
+  );
+  assert.match(created({ state: "sent", devices: 0, failed: 0, recipientsWithoutPush: 12 }).text, /No participant has turned on phone push yet/);
+  const partial = created({ state: "sent", devices: 6, failed: 2, recipientsWithoutPush: 0 });
+  assert.equal(partial.tone, "warning");
+  assert.match(partial.text, /2 devices could not be reached/);
+  assert.equal(created({ state: "sent", devices: 0, failed: 3, recipientsWithoutPush: 0 }).tone, "warning");
+  assert.equal(created({ state: "not-configured" }).tone, "warning");
+  assert.match(created({ state: "not-configured" }).text, /^Notification created for 12 active participants\. Phone push could not be sent/);
+  assert.match(created({ state: "failed" }).text, /in-app notifications are in place/);
+  for (const push of [
+    { state: "sent", devices: 7, failed: 0, recipientsWithoutPush: 5 },
+    { state: "sent", devices: 6, failed: 2, recipientsWithoutPush: 0 },
+  ] as const) {
+    assert.doesNotMatch(created(push).text, /\b(delivered|received|read)\b/i);
+  }
+  assert.equal(broadcastResultMessage({ status: "created", count: 3 }).text, "Notification created for 3 active participants.");
 });
