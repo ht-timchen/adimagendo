@@ -10,8 +10,6 @@ import {
 } from "@/lib/participant-dashboard-ui";
 import {
   ListChecks,
-  Calendar,
-  FileText,
   ChevronRight,
   CalendarClock,
 } from "lucide-react";
@@ -216,28 +214,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card className={participantDashboardCardClassName}>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Quick actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2">
-          <Link
-            href="/dashboard/symptoms"
-            className="inline-flex h-10 items-center justify-start rounded-lg border border-[#c9e4de] bg-white px-4 text-[#1E5D50] hover:bg-[#f1faf7]"
-          >
-            <Calendar className="mr-2 h-4 w-4" />
-            Log symptoms
-          </Link>
-          <Link
-            href="/dashboard/surveys"
-            className="inline-flex h-10 items-center justify-start rounded-lg border border-[#c9e4de] bg-white px-4 text-[#1E5D50] hover:bg-[#f1faf7]"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Complete survey
-          </Link>
-        </CardContent>
-      </Card>
 
       {recentSymptoms.length > 0 && (
         <Card className={participantDashboardCardClassName}>

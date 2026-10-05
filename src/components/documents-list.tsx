@@ -11,7 +11,6 @@ type Document = {
   id: string;
   title: string;
   type: string;
-  isReferral: boolean;
   createdAt: string;
 };
 
@@ -36,45 +35,10 @@ export function DocumentsList({ refreshKey = 0 }: { refreshKey?: number }) {
     };
   }, [refreshKey]);
 
-  const referrals = docs.filter((d) => d.isReferral);
-  const reportCards = docs.filter((d) => !d.isReferral && d.type === "REPORT_CARD");
+  const reportCards = docs.filter((d) => d.type === "REPORT_CARD");
 
   return (
     <div className="space-y-6">
-      <Card className={participantDashboardCardClassName}>
-        <CardHeader>
-          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Referrals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className={cn("text-sm", participantDashboardMutedClassName)}>Loading…</p>
-          ) : referrals.length === 0 ? (
-            <p className={cn("text-sm", participantDashboardMutedClassName)}>
-              No referrals yet. The study team can send referrals to you here.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {referrals.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/85 px-3 py-2"
-                >
-                  <span className="flex items-center gap-2 text-sm">
-                    <FileText className="h-4 w-4" />
-                    {d.title}
-                  </span>
-                  <a href={`/api/documents/${d.id}/download`} download>
-                    <Button variant="ghost" size="sm">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
       <Card className={participantDashboardCardClassName}>
         <CardHeader>
           <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Your uploads (report cards)</CardTitle>
