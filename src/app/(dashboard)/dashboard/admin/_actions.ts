@@ -3,7 +3,6 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
@@ -100,76 +99,6 @@ export async function notifyParticipantAction(formData: FormData) {
   });
   revalidatePath("/dashboard/admin/participants");
   redirect("/dashboard/admin/participants");
-}
-
-export async function resetParticipantPasswordAction(formData: FormData) {
-  const session = await requirePermissionOrRedirect("participant:reset_password");
-  const userId = String(formData.get("userId") ?? "");
-  if (!userId) redirect("/dashboard/admin/participants?error=missing-user");
-  const u = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true, email: true, name: true },
-  });
-  if (!u || u.role !== "PARTICIPANT") redirect("/dashboard/admin/participants?error=invalid-user");
-  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-  let temp = "";
-  for (let i = 0; i < 12; i++) temp += chars[Math.floor(Math.random() * chars.length)];
-  const passwordHash = await bcrypt.hash(temp, 10);
-  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
-  await recordAdminAuditEvent({
-    session,
-    action: ADMIN_AUDIT_ACTIONS.PARTICIPANT_PASSWORD_RESET,
-    targetType: "participant",
-    targetId: userId,
-    targetName: u.name?.trim() || u.email,
-  });
-  const jar = await cookies();
-  jar.set("admin_pw_flash", JSON.stringify({ userId, password: temp }), {
-    httpOnly: true,
-    maxAge: 300,
-    path: "/dashboard/admin/participants",
-    sameSite: "lax",
-  });
-  revalidatePath("/dashboard/admin/participants");
-  redirect("/dashboard/admin/participants");
-}
-
-export async function dismissPasswordFlashAction() {
-  await requirePermissionOrRedirect("participant:read");
-  const jar = await cookies();
-  jar.delete("admin_pw_flash");
-  redirect("/dashboard/admin/participants");
-}
-
-export async function createAdminPersonAction(formData: FormData) {
-  const session = await requirePermissionOrRedirect("admin_user:create");
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  if (!name || !email || password.length < 8) redirect("/dashboard/admin/people?error=invalid-fields");
-  const exists = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (exists) redirect("/dashboard/admin/people?error=email-in-use");
-  const passwordHash = await bcrypt.hash(password, 10);
-  const created = await prisma.user.create({
-    data: {
-      email,
-      name,
-      passwordHash,
-      role: "ADMIN",
-      isActive: true,
-      superAdmin: false,
-    },
-  });
-  await recordAdminAuditEvent({
-    session,
-    action: ADMIN_AUDIT_ACTIONS.STAFF_CREATED,
-    targetType: "staff",
-    targetId: created.id,
-    targetName: name,
-    metadata: { email, role: "ADMIN" },
-  });
-  revalidatePath("/dashboard/admin/people");
-  redirect("/dashboard/admin/people");
 }
 
 export async function setAdminActiveAction(formData: FormData) {
