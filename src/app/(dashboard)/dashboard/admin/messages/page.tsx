@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { formatAdelaideDateTime } from "@/lib/dates/adelaide-calendar";
 import { MarkContactMessagesSeen } from "@/components/admin/mark-contact-messages-seen";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Mail } from "lucide-react";
@@ -72,13 +73,7 @@ export default async function AdminMessagesPage() {
                         <p title={msg.message}>{preview(msg.message)}</p>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                        {msg.createdAt.toLocaleString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatAdelaideDateTime(msg.createdAt)}
                       </td>
                     </tr>
                   );

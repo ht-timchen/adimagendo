@@ -7,6 +7,7 @@ import { deleteNewsPostAction } from "../_actions";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { hasPermission } from "@/lib/admin-rbac";
+import { formatAdelaideDate, formatAdelaideDateTime } from "@/lib/dates/adelaide-calendar";
 
 export default async function AdminNewsPage() {
   const session = await auth();
@@ -73,13 +74,7 @@ export default async function AdminNewsPage() {
                       </p>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                      {post.updatedAt.toLocaleString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatAdelaideDateTime(post.updatedAt)}
                     </td>
                     <td className="px-4 py-3">
                       {post.published ? (
@@ -87,7 +82,7 @@ export default async function AdminNewsPage() {
                           Published
                           {post.publishedAt ? (
                             <span className="ml-1 font-normal text-emerald-700">
-                              · {post.publishedAt.toLocaleDateString()}
+                              · {formatAdelaideDate(post.publishedAt)}
                             </span>
                           ) : null}
                         </span>

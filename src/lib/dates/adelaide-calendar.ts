@@ -160,3 +160,49 @@ export function formatCivilDateDMY(date: CivilDate): string {
   const month = String(date.month).padStart(2, "0");
   return `${day}/${month}/${date.year}`;
 }
+
+const SHOWN_WHEN_INVALID = "—";
+
+const dateTimeFormatter = new Intl.DateTimeFormat("en-AU", {
+  timeZone: ADELAIDE_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const dateOnlyFormatter = new Intl.DateTimeFormat("en-AU", {
+  timeZone: ADELAIDE_TIME_ZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+const timeOnlyFormatter = new Intl.DateTimeFormat("en-AU", {
+  timeZone: ADELAIDE_TIME_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/**
+ * Display helpers for an INSTANT (a moment in time: a message sent, a post published).
+ * They always use Australia/Adelaide, so a server running in UTC and a browser in Adelaide
+ * show the same thing. Do not use them for date-only values (a date of birth stored as UTC
+ * midnight, a diary day stored at midday): those are calendar days, not moments.
+ *
+ * "5 Oct 2026, 4:58 pm"
+ */
+export function formatAdelaideDateTime(instant: Date): string {
+  return Number.isNaN(instant.getTime()) ? SHOWN_WHEN_INVALID : dateTimeFormatter.format(instant);
+}
+
+/** "5 Oct 2026", the Adelaide calendar day of an instant. */
+export function formatAdelaideDate(instant: Date): string {
+  return Number.isNaN(instant.getTime()) ? SHOWN_WHEN_INVALID : dateOnlyFormatter.format(instant);
+}
+
+/** "4:58 pm" */
+export function formatAdelaideTime(instant: Date): string {
+  return Number.isNaN(instant.getTime()) ? SHOWN_WHEN_INVALID : timeOnlyFormatter.format(instant);
+}

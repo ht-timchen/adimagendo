@@ -13,6 +13,7 @@ import {
   participantDashboardPageTitleClassName,
 } from "@/lib/participant-dashboard-ui";
 import { cn } from "@/lib/utils";
+import { formatAdelaideDate } from "@/lib/dates/adelaide-calendar";
 
 export default async function NewsPage() {
   const session = await auth();
@@ -84,7 +85,7 @@ export default async function NewsPage() {
                           participantDashboardMutedClassName
                         )}
                       >
-                        {post.publishedAt.toLocaleDateString()}
+                        {formatAdelaideDate(post.publishedAt)}
                       </p>
                     ) : null}
                   </CardHeader>

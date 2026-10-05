@@ -17,6 +17,7 @@ import {
 } from "@/lib/participant-dashboard-ui";
 import { requireActiveParticipantPage } from "@/lib/participant-page-access";
 import { cn } from "@/lib/utils";
+import { formatAdelaideDateTime, formatAdelaideTime } from "@/lib/dates/adelaide-calendar";
 import { CalendarClock, ChevronLeft } from "lucide-react";
 
 export default async function AppointmentsPage() {
@@ -103,15 +104,8 @@ export default async function AppointmentsPage() {
                       </CardTitle>
                       <p className={cn("flex items-center gap-1.5 text-sm", participantDashboardMutedClassName)}>
                         <CalendarClock className="h-4 w-4 shrink-0" />
-                        {displayStart.toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                        {a.endAt
-                          ? ` – ${a.endAt.toLocaleTimeString(undefined, {
-                              timeStyle: "short",
-                            })}`
-                          : null}
+                        {formatAdelaideDateTime(displayStart)}
+                        {a.endAt ? ` – ${formatAdelaideTime(a.endAt)}` : null}
                       </p>
                       {displayLocation ? (
                         <p className={cn("text-sm", participantDashboardMutedClassName)}>

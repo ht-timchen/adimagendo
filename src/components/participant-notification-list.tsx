@@ -4,22 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ADELAIDE_TIME_ZONE } from "@/lib/dates/adelaide-calendar";
+import { formatAdelaideDateTime } from "@/lib/dates/adelaide-calendar";
 import type { ParticipantNotificationItem } from "@/lib/notifications/broadcast-notifications";
 import {
   participantDashboardCardClassName,
   participantDashboardMutedClassName,
 } from "@/lib/participant-dashboard-ui";
 import { cn } from "@/lib/utils";
-
-const sentAtFormat = new Intl.DateTimeFormat("en-AU", {
-  timeZone: ADELAIDE_TIME_ZONE,
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 
 export function ParticipantNotificationList({ items }: { items: ParticipantNotificationItem[] }) {
   const router = useRouter();
@@ -91,7 +82,7 @@ export function ParticipantNotificationList({ items }: { items: ParticipantNotif
                   ) : null}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <time dateTime={item.createdAt} className={cn("text-xs", participantDashboardMutedClassName)}>
-                      {sentAtFormat.format(new Date(item.createdAt))}
+                      {formatAdelaideDateTime(new Date(item.createdAt))}
                     </time>
                     {!read ? (
                       <Button

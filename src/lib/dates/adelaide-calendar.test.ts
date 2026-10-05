@@ -9,6 +9,9 @@ import {
   civilDaysBetween,
   compareCivilDates,
   formatAdelaideCivilDate,
+  formatAdelaideDate,
+  formatAdelaideDateTime,
+  formatAdelaideTime,
   formatCivilDateDMY,
   formatCivilDateYmd,
   parseCivilDateYmd,
@@ -165,5 +168,41 @@ describe("adelaideNoonUtc", () => {
     ]) {
       assert.deepEqual(adelaideCivilDate(adelaideNoonUtc(civil)), civil);
     }
+  });
+});
+
+// The expected strings below are what Node 22 (ICU 76, CLDR 46) prints for en-AU: a plain space
+// before a lowercase "pm". An ICU/CLDR version that prints a narrow no-break space (U+202F) there
+// would need these strings updated; the format itself is deliberately not bent to match.
+describe("formatAdelaideDateTime / formatAdelaideDate / formatAdelaideTime", () => {
+  const cases: Array<[string, string, string, string]> = [
+    ["2026-10-05T06:28:00Z", "5 Oct 2026, 4:58 pm", "5 Oct 2026", "4:58 pm"], // ACDT, UTC+10:30
+    ["2026-08-07T04:54:00Z", "7 Aug 2026, 2:24 pm", "7 Aug 2026", "2:24 pm"], // ACST, UTC+9:30
+    ["2026-10-03T16:00:00Z", "4 Oct 2026, 1:30 am", "4 Oct 2026", "1:30 am"], // just before daylight saving starts
+    ["2026-10-03T17:00:00Z", "4 Oct 2026, 3:30 am", "4 Oct 2026", "3:30 am"], // after the 2:00 -> 3:00 jump
+  ];
+
+  for (const [iso, dateTime, date, time] of cases) {
+    it(`${iso} is shown in Adelaide time`, () => {
+      assert.equal(formatAdelaideDateTime(new Date(iso)), dateTime);
+      assert.equal(formatAdelaideDate(new Date(iso)), date);
+      assert.equal(formatAdelaideTime(new Date(iso)), time);
+    });
+  }
+
+  it("does not depend on the timezone of the machine (the original bug)", () => {
+    // 5 Oct 16:58 Adelaide was shown as "06:28 AM" on a UTC server.
+    assert.notEqual(formatAdelaideDateTime(new Date("2026-10-05T06:28:00Z")), "Oct 5, 2026, 06:28 AM");
+    assert.match(formatAdelaideDateTime(new Date("2026-10-05T06:28:00Z")), /4:58 pm$/);
+  });
+
+  it("a late-evening UTC instant is already the next day in Adelaide", () => {
+    assert.equal(formatAdelaideDate(new Date("2026-04-27T22:30:00Z")), "28 Apr 2026");
+  });
+
+  it("an invalid date shows a dash instead of throwing", () => {
+    assert.equal(formatAdelaideDateTime(new Date("not a date")), "—");
+    assert.equal(formatAdelaideDate(new Date("not a date")), "—");
+    assert.equal(formatAdelaideTime(new Date("not a date")), "—");
   });
 });

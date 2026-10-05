@@ -11,6 +11,7 @@ import {
   participantDashboardPageClassName,
 } from "@/lib/participant-dashboard-ui";
 import { cn } from "@/lib/utils";
+import { formatAdelaideDate } from "@/lib/dates/adelaide-calendar";
 import { ArrowLeft } from "lucide-react";
 
 export default async function NewsPostDetailPage({
@@ -50,7 +51,7 @@ export default async function NewsPostDetailPage({
           </CardTitle>
           {post.publishedAt ? (
             <p className={cn("text-xs", participantDashboardMutedClassName)}>
-              {post.publishedAt.toLocaleDateString()}
+              {formatAdelaideDate(post.publishedAt)}
             </p>
           ) : null}
         </CardHeader>
