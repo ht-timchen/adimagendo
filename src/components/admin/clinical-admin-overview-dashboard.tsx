@@ -594,14 +594,17 @@ export function ClinicalAdminOverviewDashboard({
             <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
               <CardContent className="p-5">
                 <FileText className="mb-3 h-5 w-5 text-violet-600" />
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Surveys Completed</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Survey checklist completions</p>
                 <p className="mt-1 text-3xl font-bold tabular-nums text-slate-900">{data.kpi.surveysCompleted}</p>
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                  <span>Submitted QoL surveys</span>
+                  <span>Marked complete in Study Buddy during this period</span>
                   <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600">
                     <TrendingUp className="h-3.5 w-3.5" /> Up
                   </span>
                 </div>
+                <p className="mt-2 text-[11px] leading-snug text-slate-400">
+                  Based on app checklist records; not verified against REDCap submissions.
+                </p>
               </CardContent>
             </Card>
           </section>
