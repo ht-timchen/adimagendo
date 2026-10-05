@@ -1,17 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, Link as LinkIcon } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import {
+  replaceLinkConfirmation,
+  rowPrimaryAction,
+  rowStatusPresentation,
+  type EnrolmentRowState,
+  type RowStatusTone,
+} from "@/lib/enrolment/enrolment-row-state";
 
 export type EnrolmentTokenRow = {
   id: string;
-  token: string;
   studyRecordId: string;
   expiresAt: string;
   usedAt: string | null;
@@ -40,8 +47,6 @@ type GeneratedLink = {
   expiresAt: string;
   participantLabel: string | null;
 };
-
-type LinkStatusKind = "used" | "active" | "expired" | "none";
 
 function formatDateTime(iso: string): string {
   return formatImportedAt(iso);
@@ -96,33 +101,17 @@ function tokenStatusBadgeClass(status: EnrolmentTokenRow["status"]): string {
 }
 
 function tokenStatusLabel(status: EnrolmentTokenRow["status"]): string {
-  if (status === "used") return "Activated";
+  if (status === "used") return "Used";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function linkStatusForRecord(
-  studyRecordId: string,
-  tokens: EnrolmentTokenRow[]
-): LinkStatusKind {
-  const relevant = tokens.filter((t) => t.studyRecordId === studyRecordId);
-  if (relevant.some((t) => t.status === "used")) return "used";
-  if (relevant.some((t) => t.status === "active")) return "active";
-  if (relevant.some((t) => t.status === "expired")) return "expired";
-  return "none";
-}
-
-function linkStatusBadge(kind: LinkStatusKind): { label: string; className: string } {
-  switch (kind) {
-    case "used":
-      return { label: "Activated", className: "bg-violet-100 text-violet-800" };
-    case "active":
-      return { label: "Active", className: "bg-emerald-100 text-emerald-800" };
-    case "expired":
-      return { label: "Expired", className: "bg-slate-100 text-slate-600" };
-    default:
-      return { label: "—", className: "" };
-  }
-}
+const STATUS_TONE_CLASS: Record<RowStatusTone, string> = {
+  none: "text-slate-500",
+  success: "bg-emerald-100 text-emerald-800",
+  accent: "bg-violet-100 text-violet-800",
+  danger: "bg-rose-100 text-rose-800",
+  muted: "bg-slate-100 text-slate-600",
+};
 
 function redcapTypeBadge(type: string | null): { label: string; className: string } {
   if (type === "over18") {
@@ -137,11 +126,11 @@ function redcapTypeBadge(type: string | null): { label: string; className: strin
 export function EnrolmentClient({
   initialTokens,
   redcapParticipants,
-  boundStudyRecordIds: initialBoundStudyRecordIds,
+  rowStates,
 }: {
   initialTokens: EnrolmentTokenRow[];
   redcapParticipants: RedcapParticipantRow[];
-  boundStudyRecordIds: string[];
+  rowStates: Record<string, EnrolmentRowState>;
 }) {
   const router = useRouter();
   const [studyRecordId, setStudyRecordId] = useState("");
@@ -155,9 +144,9 @@ export function EnrolmentClient({
   const [copied, setCopied] = useState(false);
   const [tokens, setTokens] = useState<EnrolmentTokenRow[]>(initialTokens);
   const [participants, setParticipants] = useState(redcapParticipants);
-  const [boundStudyRecordIds, setBoundStudyRecordIds] = useState(
-    () => new Set(initialBoundStudyRecordIds)
-  );
+  const [copiedRecordId, setCopiedRecordId] = useState<string | null>(null);
+  const [confirmRecordId, setConfirmRecordId] = useState<string | null>(null);
+  const [createdRecordId, setCreatedRecordId] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [linkStatusLegendOpen, setLinkStatusLegendOpen] = useState(false);
   const [origin, setOrigin] = useState("");
@@ -170,10 +159,6 @@ export function EnrolmentClient({
   useEffect(() => {
     setParticipants(redcapParticipants);
   }, [redcapParticipants]);
-
-  useEffect(() => {
-    setBoundStudyRecordIds(new Set(initialBoundStudyRecordIds));
-  }, [initialBoundStudyRecordIds]);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -192,15 +177,7 @@ export function EnrolmentClient({
 
   const enrolmentUrl = generated && origin ? `${origin}/enrol/${generated.token}` : "";
 
-  const refreshTokens = useCallback(async () => {
-    try {
-      const res = await fetch("/api/admin/enrolment-token");
-      if (!res.ok) return;
-      const data = (await res.json()) as EnrolmentTokenRow[];
-      setTokens(data);
-    } catch {
-      /* ignore */
-    }
+  const refreshTokens = useCallback(() => {
     router.refresh();
   }, [router]);
 
@@ -236,7 +213,9 @@ export function EnrolmentClient({
         participantLabel: label,
       });
       setCopied(false);
-      await refreshTokens();
+      setConfirmRecordId(null);
+      setCreatedRecordId(recordId);
+      refreshTokens();
       return true;
     } catch {
       setError("Network error. Please try again.");
@@ -256,6 +235,28 @@ export function EnrolmentClient({
     setBusy(true);
     await generateLinkForRecord(id, participantLabel.trim() || null);
     setBusy(false);
+  }
+
+  async function copyLinkForRecord(recordId: string) {
+    setError(null);
+    setBusyRecordId(recordId);
+    try {
+      const res = await fetch(`/api/admin/enrolment-token?studyRecordId=${encodeURIComponent(recordId)}`);
+      const tokens = (await res.json().catch(() => [])) as { token?: string; status?: string }[];
+      const active = res.ok && Array.isArray(tokens) ? tokens.find((t) => t.status === "active" && t.token) : undefined;
+      if (!active?.token) {
+        setError("There is no active enrolment link for this participant any more. Generate a new one.");
+        router.refresh();
+        return;
+      }
+      await navigator.clipboard.writeText(`${window.location.origin}/enrol/${active.token}`);
+      setCopiedRecordId(recordId);
+      window.setTimeout(() => setCopiedRecordId((v) => (v === recordId ? null : v)), 2000);
+    } catch {
+      setError("Could not copy to clipboard.");
+    } finally {
+      setBusyRecordId(null);
+    }
   }
 
   async function runSync() {
@@ -353,11 +354,11 @@ export function EnrolmentClient({
                     className="relative px-4 py-3"
                   >
                     <span className="inline-flex items-center gap-1">
-                      Enrolment Link Status
+                      Status
                       <button
                         type="button"
                         className="inline-flex h-5 w-5 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                        aria-label="Enrolment link status legend"
+                        aria-label="Status legend"
                         aria-expanded={linkStatusLegendOpen}
                         onClick={() => setLinkStatusLegendOpen((v) => !v)}
                       >
@@ -367,29 +368,26 @@ export function EnrolmentClient({
                     {linkStatusLegendOpen ? (
                       <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-normal normal-case tracking-normal text-slate-700 shadow-lg">
                         <ul className="space-y-2">
-                          <li className="flex items-start gap-2">
-                            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
-                            <span>
-                              <span className="font-medium">active</span> — Awaiting registration
-                            </span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />
-                            <span>
-                              <span className="font-medium">activated</span> — Registered
-                            </span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-400" />
-                            <span>
-                              <span className="font-medium">expired</span> — Link expired (valid for
-                              30 days)
-                            </span>
-                          </li>
+                          {(
+                            [
+                              ["bg-emerald-500", "Enrolment link active", "Awaiting registration"],
+                              ["bg-violet-500", "Registered", "Account created from the link"],
+                              ["bg-rose-500", "Account deactivated", "Registered; sign-in is switched off"],
+                              ["bg-slate-400", "Enrolment link expired", "Links are valid for 30 days"],
+                            ] as const
+                          ).map(([dot, name, meaning]) => (
+                            <li key={name} className="flex items-start gap-2">
+                              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                              <span>
+                                <span className="font-medium">{name}</span> — {meaning}
+                              </span>
+                            </li>
+                          ))}
                           <li className="flex items-start gap-2 border-t border-slate-100 pt-2">
                             <span className="mt-1.5 text-slate-400">—</span>
                             <span>
-                              <span className="font-medium">—</span> — Not sent
+                              <span className="font-medium">No enrolment link</span> — None generated
+                              yet
                             </span>
                           </li>
                         </ul>
@@ -403,8 +401,10 @@ export function EnrolmentClient({
                 {participantRows.map((p) => {
                   const name =
                     [p.firstName, p.lastName].filter(Boolean).join(" ").trim() || "—";
-                  const linkKind = linkStatusForRecord(p.studyRecordId, tokens);
-                  const linkBadge = linkStatusBadge(linkKind);
+                  const rowState: EnrolmentRowState = rowStates[p.studyRecordId] ?? { kind: "no-link" };
+                  const status = rowStatusPresentation(rowState);
+                  const primaryAction = rowPrimaryAction(rowState);
+                  const rowBusy = busyRecordId === p.studyRecordId;
                   const typeBadge = redcapTypeBadge(p.redcapType);
                   const label =
                     [p.firstName, p.lastName].filter(Boolean).join(" ").trim() || null;
@@ -438,34 +438,100 @@ export function EnrolmentClient({
                         {formatImportedAt(p.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        {linkKind === "none" ? (
-                          <span className="text-slate-500">—</span>
+                        {status.tone === "none" ? (
+                          <span className={STATUS_TONE_CLASS.none}>{status.label}</span>
                         ) : (
                           <span
                             className={cn(
                               "inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium",
-                              linkBadge.className
+                              STATUS_TONE_CLASS[status.tone]
                             )}
                           >
-                            {linkBadge.label}
+                            {status.label}
                           </span>
                         )}
+                        {rowState.kind === "link-active" ? (
+                          <div className="mt-1 text-xs text-slate-500">
+                            Expires {formatImportedAt(rowState.expiresAt)}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {boundStudyRecordIds.has(p.studyRecordId) ? (
-                          <span className="text-sm font-medium text-violet-700">
-                            Account activated
-                          </span>
+                        {primaryAction === "view" ? (
+                          <Link
+                            href={`/dashboard/admin/participants/${encodeURIComponent(p.studyRecordId)}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl")}
+                          >
+                            View participant
+                          </Link>
+                        ) : primaryAction === "copy" ? (
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl"
+                                disabled={rowBusy}
+                                onClick={() => copyLinkForRecord(p.studyRecordId)}
+                              >
+                                {copiedRecordId === p.studyRecordId ? "Copied" : "Copy enrolment link"}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="rounded-xl text-slate-600"
+                                disabled={rowBusy}
+                                onClick={() => setConfirmRecordId(p.studyRecordId)}
+                              >
+                                Generate new link
+                              </Button>
+                            </div>
+                            {createdRecordId === p.studyRecordId ? (
+                              <span className="text-xs font-medium text-emerald-700">
+                                New enrolment link created
+                              </span>
+                            ) : null}
+                            {confirmRecordId === p.studyRecordId ? (
+                              <div className="max-w-xs rounded-lg bg-amber-50 p-3 text-left">
+                                <p className="text-xs text-amber-900">
+                                  {replaceLinkConfirmation(label, p.studyRecordId)}
+                                </p>
+                                <div className="mt-2 flex gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    onClick={() => setConfirmRecordId(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={rowBusy}
+                                    onClick={() => generateLinkForRecord(p.studyRecordId, label)}
+                                  >
+                                    {rowBusy ? "Generating…" : "Generate enrolment link"}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
                         ) : (
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             className="rounded-xl"
-                            disabled={busyRecordId === p.studyRecordId}
+                            disabled={rowBusy}
                             onClick={() => generateLinkForRecord(p.studyRecordId, label)}
                           >
-                            {busyRecordId === p.studyRecordId ? "Generating…" : "Generate Link"}
+                            {rowBusy ? "Generating…" : "Generate enrolment link"}
                           </Button>
                         )}
                       </td>

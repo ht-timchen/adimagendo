@@ -1,32 +1,8 @@
-import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/admin-api-auth";
+import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
 import { prisma } from "@/lib/db";
-
-function deriveTokenStatus(usedAt: Date | null, expiresAt: Date): "used" | "expired" | "active" {
-  if (usedAt) return "used";
-  if (expiresAt < new Date()) return "expired";
-  return "active";
-}
-
-function serializeToken(row: {
-  id: string;
-  token: string;
-  studyRecordId: string;
-  expiresAt: Date;
-  usedAt: Date | null;
-  createdAt: Date;
-}) {
-  return {
-    id: row.id,
-    token: row.token,
-    studyRecordId: row.studyRecordId,
-    expiresAt: row.expiresAt.toISOString(),
-    usedAt: row.usedAt?.toISOString() ?? null,
-    createdAt: row.createdAt.toISOString(),
-    status: deriveTokenStatus(row.usedAt, row.expiresAt),
-  };
-}
+import { issueEnrolmentToken, listEnrolmentTokens } from "@/lib/enrolment/enrolment-token-service";
 
 export async function GET(req: Request) {
   const session = await requirePermission("enrolment:manage");
@@ -34,23 +10,22 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const studyRecordId = new URL(req.url).searchParams.get("studyRecordId")?.trim();
+  const studyRecordId = new URL(req.url).searchParams.get("studyRecordId")?.trim() || undefined;
+  const tokens = await listEnrolmentTokens(prisma, { studyRecordId });
 
-  const tokens = await prisma.enrolmentToken.findMany({
-    where: studyRecordId ? { studyRecordId } : undefined,
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: {
-      id: true,
-      token: true,
-      studyRecordId: true,
-      expiresAt: true,
-      usedAt: true,
-      createdAt: true,
-    },
-  });
+  // Handing out the secret link is recorded. The record only says the link was retrieved:
+  // it never contains the link or token, and it does not mean the link reached the participant.
+  if (studyRecordId && tokens.some((t) => t.token)) {
+    await recordAdminAuditEvent({
+      session,
+      action: ADMIN_AUDIT_ACTIONS.ENROLMENT_LINK_RETRIEVED,
+      targetType: "participant",
+      targetId: studyRecordId,
+      metadata: { studyRecordId },
+    });
+  }
 
-  return NextResponse.json(tokens.map(serializeToken));
+  return NextResponse.json(tokens);
 }
 
 export async function POST(req: Request) {
@@ -78,32 +53,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "studyRecordId is required" }, { status: 400 });
   }
 
-  const now = new Date();
-  const expiresAt = new Date(now);
-  expiresAt.setDate(expiresAt.getDate() + 30);
-
-  await prisma.enrolmentToken.deleteMany({
-    where: {
-      studyRecordId,
-      usedAt: null,
-      expiresAt: { gt: now },
-    },
-  });
-
-  const token = randomBytes(32).toString("hex");
-
-  const created = await prisma.enrolmentToken.create({
-    data: {
-      token,
-      studyRecordId,
-      expiresAt,
-      createdBy: session.user.id,
-    },
-  });
+  const result = await issueEnrolmentToken(prisma, { studyRecordId, createdBy: session.user.id });
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        error: "This participant has already registered, so a new enrolment link can't be created.",
+        code: result.code,
+      },
+      { status: 409 }
+    );
+  }
 
   return NextResponse.json({
-    token: created.token,
-    studyRecordId: created.studyRecordId,
-    expiresAt: created.expiresAt.toISOString(),
+    token: result.token,
+    studyRecordId: result.studyRecordId,
+    expiresAt: result.expiresAt.toISOString(),
   });
 }

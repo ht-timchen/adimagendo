@@ -3,17 +3,13 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { hasPermission } from "@/lib/admin-rbac";
+import { deriveTokenStatus } from "@/lib/admin/participant-detail-status";
+import { deriveEnrolmentRowState, type EnrolmentRowState } from "@/lib/enrolment/enrolment-row-state";
 import {
   EnrolmentClient,
   type EnrolmentTokenRow,
   type RedcapParticipantRow,
 } from "./EnrolmentClient";
-
-function deriveTokenStatus(usedAt: Date | null, expiresAt: Date): EnrolmentTokenRow["status"] {
-  if (usedAt) return "used";
-  if (expiresAt < new Date()) return "expired";
-  return "active";
-}
 
 export default async function AdminEnrolmentPage() {
   const session = await auth();
@@ -24,12 +20,12 @@ export default async function AdminEnrolmentPage() {
     redirect("/dashboard/admin");
   }
 
+  const now = new Date();
   const rows = await prisma.enrolmentToken.findMany({
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {
       id: true,
-      token: true,
       studyRecordId: true,
       expiresAt: true,
       usedAt: true,
@@ -37,14 +33,14 @@ export default async function AdminEnrolmentPage() {
     },
   });
 
+  // The secret in each link is never sent to the browser with this list.
   const initialTokens: EnrolmentTokenRow[] = rows.map((row) => ({
     id: row.id,
-    token: row.token,
     studyRecordId: row.studyRecordId,
     expiresAt: row.expiresAt.toISOString(),
     usedAt: row.usedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
-    status: deriveTokenStatus(row.usedAt, row.expiresAt),
+    status: deriveTokenStatus(row.usedAt, row.expiresAt, now),
   }));
 
   const redcapRows = await prisma.redcapParticipantSync.findMany({
@@ -66,17 +62,42 @@ export default async function AdminEnrolmentPage() {
     createdAt: p.createdAt.toISOString(),
   }));
 
+  // Status per participant comes from every token and the linked account of that record,
+  // not from the 50 most recent tokens listed below the table.
   const studyRecordIds = redcapRows.map((p) => p.studyRecordId);
-  const boundProfiles =
+  const [profiles, recordTokens] =
     studyRecordIds.length > 0
-      ? await prisma.participantProfile.findMany({
-          where: { studyRecordId: { in: studyRecordIds } },
-          select: { studyRecordId: true },
-        })
-      : [];
-  const boundStudyRecordIds = boundProfiles
-    .map((p) => p.studyRecordId)
-    .filter((id): id is string => id != null);
+      ? await Promise.all([
+          prisma.participantProfile.findMany({
+            where: { studyRecordId: { in: studyRecordIds } },
+            select: { studyRecordId: true, user: { select: { isActive: true } } },
+          }),
+          prisma.enrolmentToken.findMany({
+            where: { studyRecordId: { in: studyRecordIds } },
+            select: { studyRecordId: true, usedAt: true, revokedAt: true, expiresAt: true },
+          }),
+        ])
+      : [[], []];
+
+  const accountByRecord = new Map(
+    profiles.flatMap((p) => (p.studyRecordId ? [[p.studyRecordId, p.user] as const] : []))
+  );
+  const tokensByRecord = new Map<string, typeof recordTokens>();
+  for (const token of recordTokens) {
+    const list = tokensByRecord.get(token.studyRecordId);
+    if (list) list.push(token);
+    else tokensByRecord.set(token.studyRecordId, [token]);
+  }
+  const rowStates: Record<string, EnrolmentRowState> = Object.fromEntries(
+    studyRecordIds.map((id) => [
+      id,
+      deriveEnrolmentRowState({
+        account: accountByRecord.get(id) ?? null,
+        tokens: tokensByRecord.get(id) ?? [],
+        now,
+      }),
+    ])
+  );
 
   return (
     <div className="mx-auto max-w-[90rem] space-y-8">
@@ -97,7 +118,7 @@ export default async function AdminEnrolmentPage() {
       <EnrolmentClient
         initialTokens={initialTokens}
         redcapParticipants={redcapParticipants}
-        boundStudyRecordIds={boundStudyRecordIds}
+        rowStates={rowStates}
       />
     </div>
   );

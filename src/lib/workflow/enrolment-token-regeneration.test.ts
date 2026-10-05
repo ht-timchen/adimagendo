@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readFile } from "node:fs/promises";
 import { deriveTokenStatus } from "@/lib/admin/participant-detail-status";
+import { deriveEnrolmentRowState } from "@/lib/enrolment/enrolment-row-state";
 
-const ROUTE_PATH = "src/app/api/admin/enrolment-token/route.ts";
-const CLIENT_PATH = "src/app/(dashboard)/dashboard/admin/actions/enrolment/EnrolmentClient.tsx";
+const SERVICE_PATH = "src/lib/enrolment/enrolment-token-service.ts";
 const ROW_ACTIONS_PATH = "src/components/admin/participant-row-actions.tsx";
 
 async function readSource(path: string): Promise<string> {
@@ -13,14 +13,14 @@ async function readSource(path: string): Promise<string> {
 
 describe("enrolment token regeneration contract", () => {
   it("creates a new 64-char token with ~30 day expiry", async () => {
-    const source = await readSource(ROUTE_PATH);
+    const source = await readSource(SERVICE_PATH);
 
     assert.match(source, /randomBytes\(32\)\.toString\("hex"\)/);
     assert.match(source, /expiresAt\.setDate\(expiresAt\.getDate\(\) \+ 30\)/);
   });
 
   it("regeneration delete predicate removes only unused active tokens", async () => {
-    const source = await readSource(ROUTE_PATH);
+    const source = await readSource(SERVICE_PATH);
 
     assert.match(source, /deleteMany\(\{/);
     assert.match(source, /studyRecordId,/);
@@ -39,18 +39,25 @@ describe("enrolment token regeneration contract", () => {
     assert.equal(deriveTokenStatus(null, future, now), "active");
   });
 
-  it("admin enrolment dashboard aggregation prioritizes used > active > expired > none", async () => {
-    const source = await readSource(CLIENT_PATH);
+  it("admin enrolment dashboard status: a linked account wins, then active > used > revoked > expired > none", () => {
+    const now = new Date("2026-06-29T12:00:00.000Z");
+    const future = new Date("2026-07-10T12:00:00.000Z");
+    const past = new Date("2026-06-01T12:00:00.000Z");
+    const t = (o: { usedAt?: Date; revokedAt?: Date; expiresAt?: Date }) => ({
+      usedAt: o.usedAt ?? null,
+      revokedAt: o.revokedAt ?? null,
+      expiresAt: o.expiresAt ?? future,
+    });
+    const kind = (account: { isActive: boolean } | null, tokens: ReturnType<typeof t>[]) =>
+      deriveEnrolmentRowState({ account, tokens, now }).kind;
 
-    const usedIndex = source.indexOf('if (relevant.some((t) => t.status === "used"))');
-    const activeIndex = source.indexOf('if (relevant.some((t) => t.status === "active"))');
-    const expiredIndex = source.indexOf('if (relevant.some((t) => t.status === "expired"))');
-
-    assert.ok(usedIndex > -1, "missing used-priority check");
-    assert.ok(activeIndex > -1, "missing active-priority check");
-    assert.ok(expiredIndex > -1, "missing expired-priority check");
-    assert.ok(usedIndex < activeIndex, "used should be prioritized before active");
-    assert.ok(activeIndex < expiredIndex, "active should be prioritized before expired");
+    assert.equal(kind({ isActive: true }, [t({ usedAt: past })]), "registered");
+    assert.equal(kind({ isActive: false }, []), "deactivated");
+    assert.equal(kind(null, [t({ usedAt: past }), t({})]), "link-active");
+    assert.equal(kind(null, [t({ usedAt: past })]), "link-used");
+    assert.equal(kind(null, [t({ revokedAt: past, expiresAt: past })]), "link-revoked");
+    assert.equal(kind(null, [t({ expiresAt: past })]), "link-expired");
+    assert.equal(kind(null, []), "no-link");
   });
 
   it("participant row actions reuses active link before generating new one", async () => {
