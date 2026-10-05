@@ -12,17 +12,14 @@ import {
 import { cn } from "@/lib/utils";
 
 type Props = {
+  templateId: string;
   surveyUrl: string;
   triggerLabel?: string;
   disabled?: boolean;
-} & (
-  | { templateId: string; surveyId?: never }
-  | { surveyId: string; templateId?: never }
-);
+};
 
 export function ChecklistSurveySheet({
   templateId,
-  surveyId,
   surveyUrl,
   triggerLabel = "Complete survey",
   disabled: disabledProp = false,
@@ -64,23 +61,11 @@ export function ChecklistSurveySheet({
     setIsSaving(true);
     setError(null);
     try {
-      const res = templateId
-        ? await fetch("/api/checklist/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ templateId }),
-          })
-        : await fetch(`/api/surveys/${surveyId}/submit`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              answers: {
-                selfReportedCompletion: true,
-                source: "survey_sheet_confirm_dialog",
-                confirmedAt: new Date().toISOString(),
-              },
-            }),
-          });
+      const res = await fetch("/api/checklist/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId }),
+      });
       if (!res.ok) {
         let responseBody: unknown = null;
         try {

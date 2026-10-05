@@ -8,7 +8,6 @@ import {
   Activity,
   BookOpen,
   CalendarClock,
-  ClipboardList,
   FileText,
   Inbox,
   LayoutDashboard,
@@ -41,7 +40,6 @@ const participantPrimaryTabs = [
 const participantMoreItems = [
   { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/absences", label: "Diary", icon: BookOpen },
-  { href: "/dashboard/surveys", label: "Surveys", icon: ClipboardList },
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
   { href: "/dashboard/contact", label: "Contact", icon: Mail },
   { href: "/dashboard/news", label: "News", icon: Newspaper },
