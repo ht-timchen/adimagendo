@@ -79,6 +79,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.role = u.role;
         token.active = u.active ?? true;
         token.superAdmin = u.superAdmin ?? false;
+        token.authTime = Date.now();
         return token;
       }
       // Every later session read: re-check the database so deactivation, deletion and
@@ -87,7 +88,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return refreshTokenFromDatabase(token, (userId) =>
         prisma.user.findUnique({
           where: { id: userId },
-          select: { email: true, role: true, isActive: true, superAdmin: true },
+          select: {
+            email: true,
+            role: true,
+            isActive: true,
+            superAdmin: true,
+            sessionsRevokedAt: true,
+          },
         })
       );
     },

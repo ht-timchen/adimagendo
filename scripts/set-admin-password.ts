@@ -1,6 +1,7 @@
 /**
  * Set a new password for the bootstrap super admin (admin@adimagendo.local).
- * Safe to re-run, e.g. when the password is forgotten. Only passwordHash is changed.
+ * Safe to re-run, e.g. when the password is forgotten. Only passwordHash is changed, and every
+ * session signed in before now is ended (sessionsRevokedAt).
  *
  * The password is read from NEW_ADMIN_PASSWORD (never from argv, so it stays out of
  * shell history). Remove that variable again once the script has run.
@@ -8,6 +9,7 @@
  */
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { sessionRevocationData } from "../src/lib/auth/session-revocation";
 import {
   BOOTSTRAP_ADMIN_EMAIL,
   validateNewAdminPassword,
@@ -36,7 +38,7 @@ async function main() {
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash },
+    data: { passwordHash, ...sessionRevocationData() },
   });
 
   console.log(`Password updated for ${user.email}. Now remove NEW_ADMIN_PASSWORD.`);

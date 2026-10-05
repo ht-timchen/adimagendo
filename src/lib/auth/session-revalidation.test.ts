@@ -20,6 +20,7 @@ const row = (overrides: Partial<SessionUserRow> = {}): SessionUserRow => ({
   role: "ADMIN",
   isActive: true,
   superAdmin: false,
+  sessionsRevokedAt: null,
   ...overrides,
 });
 
@@ -122,4 +123,58 @@ test("a token without an id is left alone and the database is not queried", asyn
   });
   assert.equal(next, token);
   assert.equal(queried, false);
+});
+
+// --- session revocation after an admin password reset ---------------------------------
+
+const REVOKED_AT = new Date("2026-10-05T03:00:00.000Z");
+const BEFORE = REVOKED_AT.getTime() - 60_000; // signed in a minute before the reset
+const AFTER = REVOKED_AT.getTime() + 60_000; // signed in a minute after the reset
+const participantToken = { id: "p1", email: "p@example.test", role: "PARTICIPANT", active: true, superAdmin: false };
+const participantRow = (overrides: Partial<SessionUserRow> = {}) =>
+  row({ email: "p@example.test", role: "PARTICIPANT", ...overrides });
+
+for (const [who, baseToken, makeRow] of [
+  ["staff", adminToken, row],
+  ["participant", participantToken, participantRow],
+] as const) {
+  test(`${who}: nothing revoked, so a token with or without authTime keeps the session (deploy logs nobody out)`, () => {
+    assert.ok(revalidateToken({ ...baseToken, authTime: BEFORE }, makeRow()));
+    assert.ok(revalidateToken({ ...baseToken }, makeRow()));
+  });
+
+  test(`${who}: signed in before the reset ends the session`, () => {
+    assert.equal(revalidateToken({ ...baseToken, authTime: BEFORE }, makeRow({ sessionsRevokedAt: REVOKED_AT })), null);
+  });
+
+  test(`${who}: a token without authTime ends the session once a reset has happened`, () => {
+    assert.equal(revalidateToken({ ...baseToken }, makeRow({ sessionsRevokedAt: REVOKED_AT })), null);
+  });
+
+  test(`${who}: signing in again after the reset keeps the session`, () => {
+    const kept = revalidateToken({ ...baseToken, authTime: AFTER }, makeRow({ sessionsRevokedAt: REVOKED_AT }));
+    assert.ok(kept);
+    assert.equal(kept.authTime, AFTER, "authTime must survive revalidation unchanged");
+  });
+}
+
+test("a sign-in at the very same millisecond as the reset is kept", () => {
+  assert.ok(revalidateToken({ ...adminToken, authTime: REVOKED_AT.getTime() }, row({ sessionsRevokedAt: REVOKED_AT })));
+});
+
+test("a revoked session ends even for a deactivated participant (revocation is checked first)", () => {
+  assert.equal(
+    revalidateToken(
+      { ...participantToken, authTime: BEFORE },
+      participantRow({ isActive: false, sessionsRevokedAt: REVOKED_AT })
+    ),
+    null
+  );
+});
+
+test("a revocation only affects the user it was written for", async () => {
+  const revokedUser = row({ sessionsRevokedAt: REVOKED_AT });
+  const otherUser = row();
+  assert.equal(await refreshTokenFromDatabase({ ...adminToken, authTime: BEFORE }, async () => revokedUser), null);
+  assert.ok(await refreshTokenFromDatabase({ ...adminToken, authTime: BEFORE }, async () => otherUser));
 });

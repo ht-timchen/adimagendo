@@ -17,6 +17,7 @@ import {
   STAFF_EMAIL_UNAVAILABLE_USER_MSG,
 } from "@/lib/mail";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
+import { sessionRevocationData } from "@/lib/auth/session-revocation";
 
 export async function POST(
   _req: Request,
@@ -56,6 +57,7 @@ export async function POST(
         where: { id },
         data: {
           passwordHash,
+          ...sessionRevocationData(),
           inviteToken: null,
           inviteTokenExpiry: null,
         },
@@ -80,7 +82,7 @@ export async function POST(
 
     await prisma.user.update({
       where: { id },
-      data: { inviteToken: token, inviteTokenExpiry },
+      data: { inviteToken: token, inviteTokenExpiry, ...sessionRevocationData() },
     });
 
     const mail = await sendInviteEmail({

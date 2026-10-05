@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/admin-api-auth";
 import { generateTemporaryPassword } from "@/lib/admin-people";
 import { ADMIN_AUDIT_ACTIONS, recordAdminAuditEvent } from "@/lib/admin-audit";
+import { sessionRevocationData } from "@/lib/auth/session-revocation";
 
 export async function POST(
   _req: Request,
@@ -35,7 +36,7 @@ export async function POST(
 
     await prisma.user.update({
       where: { id },
-      data: { passwordHash, inviteToken: null, inviteTokenExpiry: null },
+      data: { passwordHash, ...sessionRevocationData(), inviteToken: null, inviteTokenExpiry: null },
     });
 
     await recordAdminAuditEvent({

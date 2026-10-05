@@ -4,6 +4,8 @@ export type SessionUserRow = {
   role: string;
   isActive: boolean;
   superAdmin: boolean;
+  /** Set when an admin resets the password; null means no session has been revoked. */
+  sessionsRevokedAt: Date | null;
 };
 
 type TokenLike = {
@@ -12,12 +14,16 @@ type TokenLike = {
   role?: string;
   active?: boolean;
   superAdmin?: boolean;
+  /** Date.now() at sign-in. Unlike the JWT `iat`, it is not refreshed when the cookie is re-signed. */
+  authTime?: number;
 };
 
 /**
  * Bring a session token in line with the current User row.
  *
  * - User deleted, or a staff account deactivated: null, which ends the session.
+ * - Sessions signed in before `sessionsRevokedAt` (an admin password reset) end. Only checked when
+ *   the column is set, so a token without `authTime` is fine until the first reset.
  * - A deactivated participant keeps the token with active=false, so the existing
  *   participant guards still show /account-deactivated (pages) or 403 (API).
  * - Role, superAdmin and email always come from the database, so a demotion
@@ -28,6 +34,10 @@ export function revalidateToken<T extends TokenLike>(
   user: SessionUserRow | null
 ): T | null {
   if (!user) return null;
+  if (user.sessionsRevokedAt) {
+    const signedInAt = token.authTime;
+    if (signedInAt === undefined || signedInAt < user.sessionsRevokedAt.getTime()) return null;
+  }
   const isStaff = user.superAdmin || user.role !== "PARTICIPANT";
   if (!user.isActive && isStaff) return null;
   return {

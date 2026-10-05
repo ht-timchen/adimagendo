@@ -21,5 +21,6 @@ declare module "next-auth/jwt" {
     role?: string;
     active?: boolean;
     superAdmin?: boolean;
+    authTime?: number;
   }
 }
