@@ -40,24 +40,35 @@ export function deriveEnrolmentRowState(input: {
 
 export type RowStatusTone = "none" | "success" | "accent" | "danger" | "muted";
 
+/**
+ * One status column: Study Buddy registration and account access only. "-" covers both
+ * "no link yet" and "the link has lapsed"; the action tells the coordinator what to do.
+ */
 export function rowStatusPresentation(state: EnrolmentRowState): { label: string; tone: RowStatusTone } {
   switch (state.kind) {
-    case "no-link":
-      return { label: "No enrolment link", tone: "none" };
     case "link-active":
-      return { label: "Enrolment link active", tone: "success" };
-    case "link-expired":
-      return { label: "Enrolment link expired", tone: "muted" };
-    case "link-revoked":
-      return { label: "Enrolment link revoked", tone: "muted" };
-    case "link-used":
-      return { label: "Enrolment link used", tone: "accent" };
+      return { label: "Pending", tone: "success" };
     case "registered":
       return { label: "Registered", tone: "accent" };
     case "deactivated":
-      return { label: "Account deactivated", tone: "danger" };
+      return { label: "Deactivated", tone: "danger" };
+    case "no-link":
+    case "link-expired":
+    case "link-revoked":
+    case "link-used":
+      return { label: "-", tone: "none" };
   }
 }
+
+export const STATUS_COLUMN_HELP =
+  "Shows Study Buddy registration and account access. This does not indicate study consent, withdrawal or study completion.";
+
+export const STATUS_LEGEND: ReadonlyArray<{ label: string; tone: RowStatusTone; meaning: string }> = [
+  { label: "Registered", tone: "accent", meaning: "Account created and active" },
+  { label: "Pending", tone: "success", meaning: "A valid enrolment link exists; no account yet" },
+  { label: "Deactivated", tone: "danger", meaning: "Account created; sign-in is switched off" },
+  { label: "-", tone: "none", meaning: "No valid enrolment link" },
+];
 
 /** "generate" = make a link, "copy" = copy the current link, "view" = open the participant. */
 export type RowPrimaryAction = "generate" | "copy" | "view";

@@ -13,6 +13,8 @@ import {
   replaceLinkConfirmation,
   rowPrimaryAction,
   rowStatusPresentation,
+  STATUS_COLUMN_HELP,
+  STATUS_LEGEND,
   type EnrolmentRowState,
   type RowStatusTone,
 } from "@/lib/enrolment/enrolment-row-state";
@@ -367,29 +369,21 @@ export function EnrolmentClient({
                     </span>
                     {linkStatusLegendOpen ? (
                       <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 text-left text-xs font-normal normal-case tracking-normal text-slate-700 shadow-lg">
-                        <ul className="space-y-2">
-                          {(
-                            [
-                              ["bg-emerald-500", "Enrolment link active", "Awaiting registration"],
-                              ["bg-violet-500", "Registered", "Account created from the link"],
-                              ["bg-rose-500", "Account deactivated", "Registered; sign-in is switched off"],
-                              ["bg-slate-400", "Enrolment link expired", "Links are valid for 30 days"],
-                            ] as const
-                          ).map(([dot, name, meaning]) => (
-                            <li key={name} className="flex items-start gap-2">
-                              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${dot}`} />
-                              <span>
-                                <span className="font-medium">{name}</span> — {meaning}
+                        <p className="mb-2">{STATUS_COLUMN_HELP}</p>
+                        <ul className="space-y-2 border-t border-slate-100 pt-2">
+                          {STATUS_LEGEND.map((item) => (
+                            <li key={item.label} className="flex items-start gap-2">
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                                  STATUS_TONE_CLASS[item.tone]
+                                )}
+                              >
+                                {item.label}
                               </span>
+                              <span>{item.meaning}</span>
                             </li>
                           ))}
-                          <li className="flex items-start gap-2 border-t border-slate-100 pt-2">
-                            <span className="mt-1.5 text-slate-400">—</span>
-                            <span>
-                              <span className="font-medium">No enrolment link</span> — None generated
-                              yet
-                            </span>
-                          </li>
                         </ul>
                       </div>
                     ) : null}
@@ -466,28 +460,24 @@ export function EnrolmentClient({
                           </Link>
                         ) : primaryAction === "copy" ? (
                           <div className="flex flex-col items-end gap-2">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="rounded-xl"
-                                disabled={rowBusy}
-                                onClick={() => copyLinkForRecord(p.studyRecordId)}
-                              >
-                                {copiedRecordId === p.studyRecordId ? "Copied" : "Copy enrolment link"}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="rounded-xl text-slate-600"
-                                disabled={rowBusy}
-                                onClick={() => setConfirmRecordId(p.studyRecordId)}
-                              >
-                                Generate new link
-                              </Button>
-                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl"
+                              disabled={rowBusy}
+                              onClick={() => copyLinkForRecord(p.studyRecordId)}
+                            >
+                              {copiedRecordId === p.studyRecordId ? "Copied" : "Copy enrolment link"}
+                            </Button>
+                            <button
+                              type="button"
+                              className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-800 disabled:opacity-50"
+                              disabled={rowBusy}
+                              onClick={() => setConfirmRecordId(p.studyRecordId)}
+                            >
+                              Replace link
+                            </button>
                             {createdRecordId === p.studyRecordId ? (
                               <span className="text-xs font-medium text-emerald-700">
                                 New enrolment link created
@@ -516,7 +506,7 @@ export function EnrolmentClient({
                                     disabled={rowBusy}
                                     onClick={() => generateLinkForRecord(p.studyRecordId, label)}
                                   >
-                                    {rowBusy ? "Generating…" : "Generate enrolment link"}
+                                    {rowBusy ? "Replacing…" : "Replace link"}
                                   </Button>
                                 </div>
                               </div>

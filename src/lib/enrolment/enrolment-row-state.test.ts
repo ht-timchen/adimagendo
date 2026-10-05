@@ -5,6 +5,8 @@ import {
   replaceLinkConfirmation,
   rowPrimaryAction,
   rowStatusPresentation,
+  STATUS_COLUMN_HELP,
+  STATUS_LEGEND,
   type RowStateToken,
 } from "./enrolment-row-state";
 
@@ -58,12 +60,31 @@ test("the expiry shown is the one of the link that is actually usable", () => {
   assert.deepEqual(state(null, [sooner, later]), { kind: "link-active", expiresAt: day(20).toISOString() });
 });
 
-test("status wording", () => {
-  assert.deepEqual(rowStatusPresentation({ kind: "no-link" }), { label: "No enrolment link", tone: "none" });
-  assert.deepEqual(rowStatusPresentation({ kind: "link-active", expiresAt: "x" }), { label: "Enrolment link active", tone: "success" });
-  assert.deepEqual(rowStatusPresentation({ kind: "link-expired" }), { label: "Enrolment link expired", tone: "muted" });
+test("status wording: one column, and only registration and access", () => {
+  assert.deepEqual(rowStatusPresentation({ kind: "link-active", expiresAt: "x" }), { label: "Pending", tone: "success" });
   assert.deepEqual(rowStatusPresentation({ kind: "registered" }), { label: "Registered", tone: "accent" });
-  assert.deepEqual(rowStatusPresentation({ kind: "deactivated" }), { label: "Account deactivated", tone: "danger" });
+  assert.deepEqual(rowStatusPresentation({ kind: "deactivated" }), { label: "Deactivated", tone: "danger" });
+});
+
+test("no link, an expired link and any other lapsed link all show a dash", () => {
+  for (const kind of ["no-link", "link-expired", "link-revoked", "link-used"] as const) {
+    assert.deepEqual(rowStatusPresentation({ kind }), { label: "-", tone: "none" }, kind);
+  }
+});
+
+test("the status words never reuse the Participants page verb 'Activate'", () => {
+  const labels = (["no-link", "link-expired", "link-revoked", "link-used", "registered", "deactivated"] as const)
+    .map((kind) => rowStatusPresentation({ kind }).label)
+    .concat(rowStatusPresentation({ kind: "link-active", expiresAt: "x" }).label);
+  assert.ok(labels.every((label) => !/activate/i.test(label) || label === "Deactivated"));
+});
+
+test("the Status help text says what the column is not", () => {
+  assert.equal(
+    STATUS_COLUMN_HELP,
+    "Shows Study Buddy registration and account access. This does not indicate study consent, withdrawal or study completion."
+  );
+  assert.deepEqual(STATUS_LEGEND.map((item) => item.label), ["Registered", "Pending", "Deactivated", "-"]);
 });
 
 test("the next action for each state", () => {
