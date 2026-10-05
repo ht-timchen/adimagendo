@@ -18,12 +18,16 @@ export function DashboardLayoutChrome({
   user,
   newNewsCount = 0,
   showNewsBell = false,
+  unreadNotificationCount = 0,
+  showNotificationsLink = false,
   showProfileLink = false,
 }: {
   children: React.ReactNode;
   user: ChromeUser;
   newNewsCount?: number;
   showNewsBell?: boolean;
+  unreadNotificationCount?: number;
+  showNotificationsLink?: boolean;
   showProfileLink?: boolean;
 }) {
   const pathname = usePathname() ?? "";
@@ -61,6 +65,8 @@ export function DashboardLayoutChrome({
             user={user}
             newNewsCount={newNewsCount}
             showNewsBell={showNewsBell}
+            unreadNotificationCount={unreadNotificationCount}
+            showNotificationsLink={showNotificationsLink}
             showProfileLink={showProfileLink}
           />
         </div>

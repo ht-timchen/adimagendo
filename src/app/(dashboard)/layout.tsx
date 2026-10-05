@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { DashboardLayoutChrome } from "@/components/dashboard-layout-chrome";
 import { getParticipantNewNewsCount } from "@/lib/news/news-badge";
+import { getParticipantUnreadBroadcastCount } from "@/lib/notifications/broadcast-notifications";
 
 export default async function DashboardLayout({
   children,
@@ -32,11 +33,17 @@ export default async function DashboardLayout({
     ? await getParticipantNewNewsCount(session.user.id)
     : 0;
 
+  const unreadNotificationCount = isParticipantOnly
+    ? await getParticipantUnreadBroadcastCount(prisma, session.user.id)
+    : 0;
+
   return (
     <DashboardLayoutChrome
       user={session.user}
       newNewsCount={newNewsCount}
       showNewsBell={isParticipantOnly}
+      unreadNotificationCount={unreadNotificationCount}
+      showNotificationsLink={isParticipantOnly}
       showProfileLink={isParticipantOnly}
     >
       {children}

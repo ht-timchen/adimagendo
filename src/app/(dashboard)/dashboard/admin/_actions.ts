@@ -57,35 +57,6 @@ export async function updateNewsPostAction(formData: FormData) {
   redirect("/dashboard/admin/news");
 }
 
-export async function notifyAllParticipantsAction(formData: FormData) {
-  const session = await requirePermissionOrRedirect("notification:broadcast");
-  const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
-  if (!title) redirect("/dashboard/admin/actions/notify?error=missing-title");
-  const ids = await prisma.user.findMany({
-    where: { role: "PARTICIPANT", isActive: true },
-    select: { id: true },
-  });
-  await prisma.notification.createMany({
-    data: ids.map((u) => ({
-      userId: u.id,
-      title,
-      body: body || null,
-      type: "admin_broadcast",
-    })),
-  });
-  await recordAdminAuditEvent({
-    session,
-    action: ADMIN_AUDIT_ACTIONS.NOTIFICATION_BROADCAST_SENT,
-    targetType: "notification",
-    targetName: "All participants",
-    metadata: { title, recipientCount: ids.length },
-  });
-  revalidatePath("/dashboard/admin/actions/notify");
-  revalidatePath("/dashboard/admin");
-  redirect("/dashboard/admin/actions/notify");
-}
-
 export async function notifyParticipantAction(formData: FormData) {
   await requirePermissionOrRedirect("notification:send");
   const userId = String(formData.get("userId") ?? "");

@@ -10,6 +10,7 @@ import {
   CalendarClock,
   ClipboardList,
   FileText,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { Button } from "@/components/ui/button";
 import { ParticipantNewsBell } from "@/components/participant-news-bell";
+import { ParticipantNotificationsLink } from "@/components/participant-notifications-link";
 
 const participantPrimaryTabs = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -43,6 +45,7 @@ const participantMoreItems = [
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
   { href: "/dashboard/contact", label: "Contact", icon: Mail },
   { href: "/dashboard/news", label: "News", icon: Newspaper },
+  { href: "/dashboard/notifications", label: "Notifications", icon: Inbox },
 ] as const;
 
 const adminNavItem = { href: "/dashboard/admin", label: "Admin", icon: Shield };
@@ -99,12 +102,17 @@ export function DashboardNav({
   mobile,
   newNewsCount = 0,
   showNewsBell = false,
+  unreadNotificationCount = 0,
+  showNotificationsLink = false,
   showProfileLink = false,
 }: {
   user: { name?: string | null; email?: string | null; role?: string };
   mobile?: boolean;
   newNewsCount?: number;
   showNewsBell?: boolean;
+  /** Participant-only: unread admin broadcasts (separate from the News count). */
+  unreadNotificationCount?: number;
+  showNotificationsLink?: boolean;
   /** Participant-only: name links to /dashboard/profile */
   showProfileLink?: boolean;
 }) {
@@ -275,6 +283,9 @@ export function DashboardNav({
         </div>
       </div>
       {showNewsBell ? <ParticipantNewsBell newNewsCount={newNewsCount} /> : null}
+      {showNotificationsLink ? (
+        <ParticipantNotificationsLink unreadCount={unreadNotificationCount} />
+      ) : null}
       {showProfileLink ? (
         <Link
           href="/dashboard/profile"

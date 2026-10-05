@@ -1,17 +1,11 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { notifyAllParticipantsAction } from "../../_actions";
+import { BroadcastForm } from "@/components/admin/broadcast-form";
 import { requirePermissionOrRedirect } from "@/lib/people-admin-auth";
 
-export default async function AdminNotifyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+export default async function AdminNotifyPage() {
   await requirePermissionOrRedirect("notification:broadcast");
-  const sp = await searchParams;
 
   return (
     <div className="mx-auto max-w-lg space-y-8">
@@ -20,32 +14,18 @@ export default async function AdminNotifyPage({
         <p className="mt-1 text-sm text-slate-600">Broadcast an in-app notification to all active participants.</p>
       </div>
 
-      {sp.error === "missing-title" ? (
-        <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">Title is required.</p>
-      ) : null}
-
       <Card className="rounded-xl border-0 bg-white shadow-md shadow-slate-200/60">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Bell className="h-5 w-5 text-brand" />
             Broadcast
           </CardTitle>
-          <CardDescription>Creates one notification per active participant.</CardDescription>
+          <CardDescription>
+            Creates one in-app notification per active participant. Participants see it under Notifications in the app; it is not a phone push or an email.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={notifyAllParticipantsAction} className="flex flex-col gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-slate-500">Title</label>
-              <input name="title" required className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-semibold uppercase text-slate-500">Message (optional)</label>
-              <textarea name="body" rows={4} className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm" />
-            </div>
-            <Button type="submit" className="w-fit rounded-xl">
-              Send to all
-            </Button>
-          </form>
+          <BroadcastForm />
         </CardContent>
       </Card>
 
