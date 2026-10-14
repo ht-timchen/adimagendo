@@ -4,6 +4,15 @@ import { isLevelCompleteNotificationType } from "@/lib/checklist/level-complete-
 /** In-app notification created by an admin broadcast to all active participants. */
 export const BROADCAST_NOTIFICATION_TYPE = "admin_broadcast";
 
+/** In-app notification carrying an admin's reply to one participant's contact message. */
+export const CONTACT_REPLY_NOTIFICATION_TYPE = "contact_reply";
+
+/** Types listed on the participant Notifications page and counted in the unread badge. */
+const PARTICIPANT_INBOX_NOTIFICATION_TYPES = [
+  BROADCAST_NOTIFICATION_TYPE,
+  CONTACT_REPLY_NOTIFICATION_TYPE,
+];
+
 export const BROADCAST_TITLE_MAX = 120;
 export const BROADCAST_BODY_MAX = 2000;
 const UNREAD_BADGE_MAX_DISPLAY = 9;
@@ -15,7 +24,11 @@ export function isBroadcastNotificationType(type: string | null | undefined): bo
 /** Types a participant may mark as read through /api/notifications/[id]/read. */
 export function isParticipantReadableNotificationType(type: string | null | undefined): boolean {
   if (!type) return false;
-  return isLevelCompleteNotificationType(type) || isBroadcastNotificationType(type);
+  return (
+    isLevelCompleteNotificationType(type) ||
+    isBroadcastNotificationType(type) ||
+    type === CONTACT_REPLY_NOTIFICATION_TYPE
+  );
 }
 
 export function formatUnreadBadge(count: number): string | null {
@@ -142,27 +155,40 @@ export type ParticipantNotificationItem = {
   body: string | null;
   createdAt: string;
   read: boolean;
+  /** Subject of the participant's own contact message this replies to; null for broadcasts. */
+  replyToSubject: string | null;
 };
 
 type ReadDb = Pick<PrismaClient, "notification">;
 
+/** Unread broadcasts and contact replies for this user. */
 export async function getParticipantUnreadBroadcastCount(db: ReadDb, userId: string): Promise<number> {
   return db.notification.count({
-    where: { userId, type: BROADCAST_NOTIFICATION_TYPE, read: false },
+    where: { userId, type: { in: PARTICIPANT_INBOX_NOTIFICATION_TYPES }, read: false },
   });
 }
 
-/** Newest first. Only this user's broadcasts; other notification types are not listed. */
+/**
+ * Newest first. Only this user's broadcasts and contact replies; other notification types
+ * are not listed.
+ */
 export async function listParticipantBroadcasts(
   db: ReadDb,
   userId: string,
   take = 50
 ): Promise<ParticipantNotificationItem[]> {
   const rows = await db.notification.findMany({
-    where: { userId, type: BROADCAST_NOTIFICATION_TYPE },
+    where: { userId, type: { in: PARTICIPANT_INBOX_NOTIFICATION_TYPES } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take,
-    select: { id: true, title: true, body: true, read: true, createdAt: true },
+    select: {
+      id: true,
+      title: true,
+      body: true,
+      read: true,
+      createdAt: true,
+      contactReply: { select: { contactMessage: { select: { subject: true } } } },
+    },
   });
   return rows.map((row) => ({
     id: row.id,
@@ -170,6 +196,7 @@ export async function listParticipantBroadcasts(
     body: row.body,
     read: row.read,
     createdAt: row.createdAt.toISOString(),
+    replyToSubject: row.contactReply?.contactMessage.subject ?? null,
   }));
 }
 

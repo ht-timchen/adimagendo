@@ -104,6 +104,7 @@ model User {
   milestones        ParticipantMilestone[]
   reminderCycles    ReminderCycle[]
   adminAuditEvents  AdminAuditEvent[] @relation("AdminAuditActor")
+  contactMessageReplies ContactMessageReply[] @relation("ContactMessageReplyAdmin")
 }
 
 model AdminAuditEvent {
@@ -419,7 +420,8 @@ model Notification {
   emailSent Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contactReply ContactMessageReply?
 }
 
 model ContactMessage {
@@ -430,7 +432,28 @@ model ContactMessage {
   category  String?  // General, Technical, etc.
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies ContactMessageReply[]
+}
+
+/// An admin's reply to one contact message. The title and body live on the Notification
+/// the participant receives; this row links that Notification to the message it answers.
+model ContactMessageReply {
+  id               String   @id @default(cuid())
+  contactMessageId String
+  /// Null once the admin account is deleted; adminName keeps who sent it.
+  adminUserId      String?
+  adminName        String
+  notificationId   String   @unique
+  /// From the reply form; the same id twice (double click, retry) creates one reply.
+  submissionId     String   @unique
+  createdAt        DateTime @default(now())
+
+  contactMessage ContactMessage @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+  admin          User?          @relation("ContactMessageReplyAdmin", fields: [adminUserId], references: [id], onDelete: SetNull)
+  notification   Notification   @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([contactMessageId, createdAt])
 }
 
 model NewsPost {

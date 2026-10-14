@@ -23,6 +23,7 @@ export const ADMIN_AUDIT_ACTIONS = {
   ENROLMENT_LINK_RETRIEVED: "enrolment.link_retrieved",
   NOTIFICATION_BROADCAST_SENT: "notification.broadcast_sent",
   NOTIFICATION_BROADCAST_PUSH_SENT: "notification.broadcast_push_sent",
+  CONTACT_MESSAGE_REPLIED: "contact_message.replied",
 } as const;
 
 export type AdminAuditAction =
