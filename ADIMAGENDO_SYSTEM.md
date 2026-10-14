@@ -257,6 +257,7 @@ automatically at the right moment, not triggered manually by participants.
 | Appointment reminder | Day before scheduled appointment | ❌ Deferred (no scheduledStartAt) |
 | Admin broadcast | Manual send from notify page | ✅ Implemented |
 | Per-participant | Manual send from participants table | ✅ Implemented |
+| Contact reply | Admin replies to one contact message (`/dashboard/admin/messages/[id]`, permission `contact_message:reply`). In-app Notification type `contact_reply` for the message author only, plus a title-only push; no email | ✅ Implemented |
 
 #### Separate from In-app Notifications
 - Admin broadcast (notify page) creates Notification records in DB (in-app feed)

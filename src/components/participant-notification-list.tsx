@@ -67,6 +67,11 @@ export function ParticipantNotificationList({ items }: { items: ParticipantNotif
                 )}
               >
                 <CardContent className="space-y-2 p-4">
+                  {item.replyToSubject ? (
+                    <p className={cn("break-words text-xs", participantDashboardMutedClassName)}>
+                      Re: {item.replyToSubject}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                     <h2 className="min-w-0 break-words text-base font-semibold text-[#17483F]">{item.title}</h2>
                     {!read ? (

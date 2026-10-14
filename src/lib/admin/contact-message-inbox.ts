@@ -29,6 +29,32 @@ export type ContactMessageSummary = {
 
 export type ContactMessageRow = ContactMessageSummary & {
   participant: { id: string; name: string | null; email: string };
+  /** At least one admin reply has been sent for this message. */
+  replied: boolean;
+};
+
+export type ContactMessageStatusFilter = "all" | "awaiting";
+
+/** "awaiting" from the URL; anything else shows all messages. */
+export function parseContactMessageStatusFilter(raw: string | undefined): ContactMessageStatusFilter {
+  return raw === "awaiting" ? "awaiting" : "all";
+}
+
+/** Admin-facing read status of a reply. Only "Mark as read" sets it, not viewing the page. */
+export function contactReplyReadLabel(read: boolean): string {
+  return read ? "Marked as read" : "Not marked as read yet";
+}
+
+/** One admin reply as shown on the message page. Title and body come from its Notification. */
+export type ContactMessageReplyView = {
+  id: string;
+  adminName: string;
+  createdAt: Date;
+  title: string;
+  /** Plain text. Render it as text, never as HTML. */
+  body: string | null;
+  /** The participant tapped "Mark as read" on the notification. */
+  read: boolean;
 };
 
 export const OTHER_MESSAGES_LIMIT = 20;
@@ -57,6 +83,10 @@ export type ContactMessageDetail = {
       studyRecordId: string | null;
     };
   };
+  /** False when the participant's account is deactivated; replies are then refused. */
+  participantActive: boolean;
+  /** Admin replies to this message, oldest first. */
+  replies: ContactMessageReplyView[];
   /** The same participant's other messages, newest first, at most OTHER_MESSAGES_LIMIT. */
   otherMessages: ContactMessageSummary[];
 };
@@ -74,7 +104,17 @@ export async function getContactMessageDetail(
           id: true,
           name: true,
           email: true,
+          isActive: true,
           profile: { select: { studyRecordId: true } },
+        },
+      },
+      replies: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          adminName: true,
+          createdAt: true,
+          notification: { select: { title: true, body: true, read: true } },
         },
       },
     },
@@ -102,6 +142,15 @@ export async function getContactMessageDetail(
         studyRecordId: found.user.profile?.studyRecordId?.trim() || null,
       },
     },
+    participantActive: found.user.isActive,
+    replies: found.replies.map((reply) => ({
+      id: reply.id,
+      adminName: reply.adminName,
+      createdAt: reply.createdAt,
+      title: reply.notification.title,
+      body: reply.notification.body,
+      read: reply.notification.read,
+    })),
     otherMessages: others.map((m) => ({
       id: m.id,
       subject: m.subject,
@@ -115,10 +164,11 @@ export async function getContactMessageDetail(
 /**
  * The inbox, newest first. With `participantUserId` only that participant's messages are
  * returned and `participant` says who they are. An id that matches nobody is ignored: the
- * full inbox comes back and `participant` is null.
+ * full inbox comes back and `participant` is null. `status: "awaiting"` keeps only messages
+ * without a reply; it combines with the participant filter.
  */
 export async function listContactMessages(
-  options: { participantUserId?: string } = {},
+  options: { participantUserId?: string; status?: ContactMessageStatusFilter } = {},
   db: InboxDb = prisma
 ): Promise<{
   messages: ContactMessageRow[];
@@ -134,9 +184,15 @@ export async function listContactMessages(
       : null;
 
   const rows = await db.contactMessage.findMany({
-    where: participant ? { userId: participant.id } : undefined,
+    where: {
+      ...(participant ? { userId: participant.id } : {}),
+      ...(options.status === "awaiting" ? { replies: { none: {} } } : {}),
+    },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      _count: { select: { replies: true } },
+    },
   });
 
   return {
@@ -148,6 +204,7 @@ export async function listContactMessages(
       createdAt: row.createdAt,
       preview: previewMessage(row.message),
       participant: row.user,
+      replied: row._count.replies > 0,
     })),
   };
 }

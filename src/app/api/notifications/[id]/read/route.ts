@@ -5,8 +5,9 @@ import { markNotificationRead } from "@/lib/notifications/broadcast-notification
 
 /**
  * Mark one of the signed-in participant's own notifications as read: Level completion
- * messages and admin broadcasts. Another user's notification, an unknown id or any other
- * type answers 404. Marking an already-read notification is safe.
+ * messages, admin broadcasts and replies to the participant's contact messages. Another
+ * user's notification, an unknown id or any other type answers 404. Marking an already-read
+ * notification is safe.
  */
 export async function POST(
   _req: Request,
