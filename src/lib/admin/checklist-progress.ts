@@ -75,17 +75,11 @@ function resolveMultiKeyCurrentStepName(
   subSteps: readonly { key: string; bookLabel: string; bookedLabel: string }[],
   completedKeys: Set<string>
 ): string {
-  let lastBookedLabel: string | null = null;
-
   for (const sub of subSteps) {
-    if (!completedKeys.has(sub.key)) {
-      if (lastBookedLabel) return lastBookedLabel;
-      return sub.bookLabel;
-    }
-    lastBookedLabel = sub.bookedLabel;
+    if (!completedKeys.has(sub.key)) return sub.bookLabel;
   }
 
-  return lastBookedLabel ?? subSteps[0]?.bookLabel ?? "In progress";
+  return subSteps[subSteps.length - 1]?.bookedLabel ?? "In progress";
 }
 
 function resolveCurrentStepName(

@@ -88,6 +88,40 @@ describe("computeAdminChecklistProgress", () => {
     assert.equal(progress.total, 19);
     assert.equal(progress.currentStepName, "Book ultrasound");
   });
+
+  it("names the first unfinished booking, not the last finished one", () => {
+    const done = new Set(["qol_baseline", "book_ultrasound", "book_mri"]);
+    const items = ALL_SEED_TEMPLATE_KEYS.map((key) =>
+      item(key, done.has(key) ? "COMPLETED" : "PENDING")
+    );
+    assert.equal(computeAdminChecklistProgress(items).currentStepName, "Book blood test");
+
+    const outOfOrder = new Set(["qol_baseline", "book_mri"]);
+    const outOfOrderItems = ALL_SEED_TEMPLATE_KEYS.map((key) =>
+      item(key, outOfOrder.has(key) ? "COMPLETED" : "PENDING")
+    );
+    assert.equal(
+      computeAdminChecklistProgress(outOfOrderItems).currentStepName,
+      "Book ultrasound"
+    );
+  });
+
+  it("names the first unfinished confirmation, not the last finished one", () => {
+    const done = new Set([
+      "qol_baseline",
+      "book_ultrasound",
+      "book_mri",
+      "book_bloods",
+      "pre_tvus_survey",
+      "ultrasound_completed",
+      "post_tvus_survey",
+      "confirm_blood_test",
+    ]);
+    const items = ALL_SEED_TEMPLATE_KEYS.map((key) =>
+      item(key, done.has(key) ? "COMPLETED" : "PENDING")
+    );
+    assert.equal(computeAdminChecklistProgress(items).currentStepName, "Confirm MRI");
+  });
 });
 
 describe("computeCohortChecklistCompletionPct", () => {
