@@ -29,7 +29,7 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: "/icon-192x192.png?v=2",
+      icon: "/icons/rose/icon-192x192.png?v=4",
       data: { url },
     })
   );

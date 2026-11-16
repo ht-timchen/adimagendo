@@ -4,23 +4,23 @@
   "description": "Study participant app for ADIMAGENDO",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#eedcda",
+  "theme_color": "#eedcda",
   "icons": [
     {
-      "src": "/icon-192x192.png?v=2",
+      "src": "/icons/rose/icon-192x192.png?v=4",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png?v=2",
+      "src": "/icons/rose/icon-512x512.png?v=4",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png?v=2",
+      "src": "/icons/rose/icon-maskable-512x512.png?v=4",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
