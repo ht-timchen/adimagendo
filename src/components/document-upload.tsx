@@ -122,7 +122,7 @@ export function DocumentUpload({ onUpload }: { onUpload?: () => void }) {
             </p>
           ) : null}
           {success ? (
-            <p className="text-sm font-medium text-[#2F8F7A]" role="status">
+            <p className="text-sm font-medium text-participant-primary" role="status">
               {success}
             </p>
           ) : null}
@@ -148,7 +148,7 @@ export function DocumentUpload({ onUpload }: { onUpload?: () => void }) {
               type="file"
               accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
               onChange={handleFileChange}
-              className="mt-1 block w-full text-sm text-[#2A6F60] file:mr-3 file:rounded-md file:border file:border-[#2F8F7A]/30 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#1E5D50] hover:file:bg-[#f1faf7]"
+              className="mt-1 block w-full text-sm text-participant-muted file:mr-3 file:rounded-md file:border file:border-participant-primary/30 file:bg-participant-card file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-participant-primary-active hover:file:bg-participant-page"
             />
             {selectedFile ? (
               <p className={cn("mt-2 text-sm", participantDashboardMutedClassName)}>

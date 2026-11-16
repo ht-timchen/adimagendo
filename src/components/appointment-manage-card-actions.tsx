@@ -165,7 +165,7 @@ export function AppointmentManageCardActions({ appointment: initial }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 border-t border-[#2F8F7A]/20 pt-3">
+    <div className="flex flex-wrap gap-2 border-t border-participant-primary/20 pt-3">
       <Button type="button" size="sm" variant="outline" onClick={openEdit}>
         Edit appointment
       </Button>

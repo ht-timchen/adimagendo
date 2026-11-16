@@ -20,7 +20,7 @@ export function ChecklistLevel2Section({
 }: Props) {
   return (
     <section className={participantDashboardSectionClassName}>
-      <div className="space-y-1 border-b border-[#2F8F7A]/20 pb-3">
+      <div className="space-y-1 border-b border-participant-primary/20 pb-3">
         <h2
           className={cn(
             "flex items-center gap-2 text-lg font-semibold",

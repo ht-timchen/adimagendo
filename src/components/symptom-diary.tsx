@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatCivilDateDMY, parseCivilDateYmd } from "@/lib/dates/adelaide-calendar";
 import {
   participantDashboardBodyClassName,
   participantDashboardCalendarDayClassName,
@@ -47,6 +48,11 @@ type SymptomEntry = {
   symptoms: string[];
   notes: string | null;
 };
+
+function formatSelectedDateDMY(ymd: string): string {
+  const civil = parseCivilDateYmd(ymd);
+  return civil ? formatCivilDateDMY(civil) : ymd;
+}
 
 export function SymptomDiary() {
   const [currentMonth, setCurrentMonth] = useState(() => format(new Date(), "yyyy-MM"));
@@ -202,7 +208,8 @@ export function SymptomDiary() {
         <Card className={participantDashboardCardClassName}>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
-              {format(parseISO(selectedDate), "EEEE, MMM d, yyyy")}
+              {format(parseISO(selectedDate), "EEEE")},{" "}
+              {formatSelectedDateDMY(selectedDate)}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -226,8 +233,8 @@ export function SymptomDiary() {
                     className={cn(
                       "cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors",
                       form.symptoms.includes(opt)
-                        ? "border-[#2F8F7A]/40 bg-[#2F8F7A]/15 text-[#17483F]"
-                        : "border-[#2F8F7A]/20 bg-white/70 text-[#17483F]"
+                        ? "border-participant-primary/40 bg-participant-primary/15 text-participant-ink"
+                        : "border-participant-primary/20 bg-participant-card text-participant-ink"
                     )}
                   >
                     <input

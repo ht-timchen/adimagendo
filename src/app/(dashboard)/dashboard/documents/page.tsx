@@ -16,7 +16,7 @@ export default async function DocumentsPage() {
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Documents</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Upload report cards.
         </p>
       </div>

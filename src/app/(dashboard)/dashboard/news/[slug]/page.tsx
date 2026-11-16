@@ -33,9 +33,9 @@ export default async function NewsPostDetailPage({
       <Link
         href="/dashboard/news"
         className={cn(
-          "inline-flex items-center gap-1 text-sm font-medium text-[#2F8F7A]",
+          "inline-flex items-center gap-1 text-sm font-medium text-participant-primary",
           "underline-offset-2 hover:underline focus-visible:outline-none",
-          "focus-visible:ring-2 focus-visible:ring-[#2F8F7A]/40 focus-visible:ring-offset-2"
+          "focus-visible:ring-2 focus-visible:ring-participant-primary/40 focus-visible:ring-offset-2"
         )}
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -58,7 +58,7 @@ export default async function NewsPostDetailPage({
         <CardContent>
           <div
             className={cn(
-              "whitespace-pre-wrap text-sm leading-relaxed text-[#17483F]"
+              "whitespace-pre-wrap text-sm leading-relaxed text-participant-ink"
             )}
           >
             {post.content}

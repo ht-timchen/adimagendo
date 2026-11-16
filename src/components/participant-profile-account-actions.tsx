@@ -25,18 +25,18 @@ export function ParticipantProfileAccountActions() {
           type="button"
           variant="outline"
           disabled
-          className="shrink-0 border-[#2F8F7A]/40 text-[#1E5D50]"
+          className="shrink-0 border-participant-primary/40 text-participant-primary-active"
           aria-disabled="true"
         >
           <KeyRound className="mr-2 h-4 w-4" />
           Change password
         </Button>
       </div>
-      <div className="border-t border-[#2F8F7A]/15 pt-4">
+      <div className="border-t border-participant-primary/15 pt-4">
         <Button
           type="button"
           variant="outline"
-          className="border-[#2F8F7A]/40 text-[#1E5D50] hover:bg-[#e8f3f0]"
+          className="border-participant-primary/40 text-participant-primary-active hover:bg-participant-surface"
           onClick={() => signOut({ callbackUrl: "/" })}
         >
           <LogOut className="mr-2 h-4 w-4" />

@@ -16,7 +16,7 @@ export default async function AbsencesPage() {
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Diary</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Record days you were absent from work or school.
         </p>
       </div>

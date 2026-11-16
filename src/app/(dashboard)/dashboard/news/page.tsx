@@ -32,7 +32,7 @@ export default async function NewsPage() {
       <MarkNewsViewedOnVisit />
       <div>
         <h1 className={participantDashboardPageTitleClassName}>News & updates</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Study news, recruitment info, and announcements.
         </p>
       </div>
@@ -58,7 +58,7 @@ export default async function NewsPage() {
                 href={`/dashboard/news/${post.slug}`}
                 className={cn(
                   "block rounded-xl focus-visible:outline-none",
-                  "focus-visible:ring-2 focus-visible:ring-[#2F8F7A]/45 focus-visible:ring-offset-2",
+                  "focus-visible:ring-2 focus-visible:ring-participant-primary/45 focus-visible:ring-offset-2",
                   "hover:opacity-95"
                 )}
                 aria-label={`Open news post: ${post.title}`}
@@ -100,7 +100,7 @@ export default async function NewsPage() {
                     </p>
                     <p
                       className={cn(
-                        "mt-2 text-xs font-medium text-[#2F8F7A]"
+                        "mt-2 text-xs font-medium text-participant-primary"
                       )}
                     >
                       Read full post

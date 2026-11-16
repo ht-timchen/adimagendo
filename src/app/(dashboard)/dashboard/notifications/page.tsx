@@ -27,7 +27,7 @@ export default async function NotificationsPage() {
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Notifications</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Messages from the study team.
           {unread > 0 ? ` You have ${unread} unread.` : ""}
         </p>

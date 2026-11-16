@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
@@ -5,6 +6,18 @@ import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { DashboardLayoutChrome } from "@/components/dashboard-layout-chrome";
 import { getParticipantNewNewsCount } from "@/lib/news/news-badge";
 import { getParticipantUnreadBroadcastCount } from "@/lib/notifications/broadcast-notifications";
+
+/** Rose for participants only. Admin keeps root/white — no admin layout change. */
+export async function generateViewport(): Promise<Viewport> {
+  const session = await auth();
+  const isParticipantOnly =
+    !!session?.user &&
+    session.user.role === "PARTICIPANT" &&
+    !isAdminDashboardRole(session);
+  return {
+    themeColor: isParticipantOnly ? "#eedcda" : "#ffffff",
+  };
+}
 
 export default async function DashboardLayout({
   children,

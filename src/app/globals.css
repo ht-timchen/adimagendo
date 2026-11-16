@@ -3,18 +3,140 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Shared brand (admin, auth, enrolment). Remapped to participant pink inside the participant shell below. */
+  --brand: #2f8f7a;
+  --brand-hover: #277866;
+  --brand-active: #216657;
+  --brand-surface: #e8f3f0;
+  --brand-surface-strong: #d4ebe5;
+
+  /* Participant palette (dusty rose). Text tokens meet WCAG AA on page, card, surface, surface-strong and tint. */
+  --participant-primary: #7e5055;
+  --participant-primary-hover: #6c4549;
+  --participant-primary-active: #5d3b3f;
+  --participant-heading: #4a2a2e;
+  --participant-ink: #45302f;
+  --participant-muted: #675a5a;
+  --participant-surface: #f4e8e6;
+  --participant-surface-strong: #eedad7;
+  --participant-tint: #e8d0d0;
+  --participant-page: #eedcda;
+  --participant-card: rgb(250 243 241 / 0.75);
+  --participant-shadow: 0 2px 12px rgb(74 42 46 / 0.07);
+  /* Decoration only (fills, icon strokes); below AA for text. */
+  --participant-accent: #a86b72;
+  /* Filled buttons (蘇芳香 #a86965 darkened for AA): white text 4.68:1, 5.52:1, 6.15:1. */
+  --participant-button: #a26360;
+  --participant-button-hover: #935956;
+  --participant-button-active: #895350;
+  /* Disabled buttons: text 5.55:1 on the fill. */
+  --participant-button-disabled: #e8d0ce;
+  --participant-button-disabled-text: #6c4549;
+  --participant-button-disabled-border: #dcbdba;
+  /* Status: deeper rose for success/confirmed (text 6.84:1, check icon 4.67:1 on surface), sand for waiting/pending (6.67:1). */
+  --participant-success: #5d3b3f;
+  --participant-success-surface: #ecd3d0;
+  --participant-success-border: #d4aeaa;
+  --participant-success-dot: #7e5055;
+  --participant-pending: #674a22;
+  --participant-pending-surface: #f3e7d6;
+  --participant-pending-border: #ddc6a4;
+  --participant-pending-dot: #a57c45;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-brand: #2f8f7a;
-  --color-brand-hover: #277866;
-  --color-brand-active: #216657;
-  --color-brand-surface: #e8f3f0;
-  --color-brand-surface-strong: #d4ebe5;
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-active: var(--brand-active);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-strong: var(--brand-surface-strong);
+  --color-participant-primary: var(--participant-primary);
+  --color-participant-primary-hover: var(--participant-primary-hover);
+  --color-participant-primary-active: var(--participant-primary-active);
+  --color-participant-heading: var(--participant-heading);
+  --color-participant-ink: var(--participant-ink);
+  --color-participant-muted: var(--participant-muted);
+  --color-participant-surface: var(--participant-surface);
+  --color-participant-surface-strong: var(--participant-surface-strong);
+  --color-participant-tint: var(--participant-tint);
+  --color-participant-page: var(--participant-page);
+  --color-participant-card: var(--participant-card);
+  --color-participant-accent: var(--participant-accent);
+  --color-participant-button: var(--participant-button);
+  --color-participant-button-hover: var(--participant-button-hover);
+  --color-participant-button-active: var(--participant-button-active);
+  --color-participant-success: var(--participant-success);
+  --color-participant-success-surface: var(--participant-success-surface);
+  --color-participant-success-border: var(--participant-success-border);
+  --color-participant-success-dot: var(--participant-success-dot);
+  --color-participant-pending: var(--participant-pending);
+  --color-participant-pending-surface: var(--participant-pending-surface);
+  --color-participant-pending-border: var(--participant-pending-border);
+  --color-participant-pending-dot: var(--participant-pending-dot);
+  /* Button default variant fill; follows --brand unless a shell sets --button-fill. */
+  --color-button-fill: var(--button-fill, var(--brand));
+  --color-button-fill-hover: var(--button-fill-hover, var(--brand-hover));
+  --color-button-fill-active: var(--button-fill-active, var(--brand-active));
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* Participant shell and its portals: shared components (Button default/link) pick up the participant palette. */
+.dashboard-participant-light,
+.participant-portal-light {
+  --brand: var(--participant-primary);
+  --brand-hover: var(--participant-primary-hover);
+  --brand-active: var(--participant-primary-active);
+  --brand-surface: var(--participant-surface);
+  --brand-surface-strong: var(--participant-surface-strong);
+  --button-fill: var(--participant-button);
+  --button-fill-hover: var(--participant-button-hover);
+  --button-fill-active: var(--participant-button-active);
+}
+
+/* Button outline/ghost/secondary ship slate borders and hovers; use rose inside the shell. */
+.dashboard-participant-light button,
+.participant-portal-light button {
+  --color-slate-50: color-mix(in srgb, var(--participant-primary) 10%, transparent);
+  --color-slate-100: color-mix(in srgb, var(--participant-primary) 10%, transparent);
+  --color-slate-200: color-mix(in srgb, var(--participant-primary) 30%, transparent);
+}
+
+.dashboard-participant-light button.bg-white,
+.participant-portal-light button.bg-white {
+  --color-white: var(--participant-card);
+}
+
+/* One disabled style for every participant button. Unlayered, so it wins over the variant utilities. */
+.dashboard-participant-light button:disabled,
+.dashboard-participant-light button[aria-disabled="true"],
+.participant-portal-light button:disabled,
+.participant-portal-light button[aria-disabled="true"] {
+  opacity: 1;
+  border-color: var(--participant-button-disabled-border);
+  background-color: var(--participant-button-disabled);
+  color: var(--participant-button-disabled-text);
+  cursor: not-allowed;
+}
+
+.dashboard-participant-light button:disabled:not(.border),
+.dashboard-participant-light button[aria-disabled="true"]:not(.border),
+.participant-portal-light button:disabled:not(.border),
+.participant-portal-light button[aria-disabled="true"]:not(.border) {
+  box-shadow: inset 0 0 0 1px var(--participant-button-disabled-border);
+}
+
+/* Lock icon rendered by Button when disabled; shown only in the participant shell. */
+.button-disabled-lock {
+  display: none;
+}
+
+.dashboard-participant-light .button-disabled-lock,
+.participant-portal-light .button-disabled-lock {
+  display: block;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,13 +147,31 @@
 
   .dashboard-participant-light {
     --background: #f8fafc;
-    --foreground: #17483f;
+    --foreground: var(--participant-ink);
   }
 }
 
 .dashboard-participant-light {
   color-scheme: light;
-  color: #17483f;
+  color: var(--participant-ink);
+}
+
+.dashboard-participant-light h1,
+.dashboard-participant-light h2,
+.participant-portal-light h1,
+.participant-portal-light h2 {
+  font-family: var(--font-lora), Georgia, "Times New Roman", serif;
+}
+
+.dashboard-participant-light :focus-visible,
+.participant-portal-light :focus-visible {
+  outline-color: var(--participant-primary);
+}
+
+/* Button ghost/outline/secondary variants ship a slate ring; unlayered, so this wins over the utility. */
+.dashboard-participant-light .focus-visible\:ring-slate-400:focus-visible,
+.participant-portal-light .focus-visible\:ring-slate-400:focus-visible {
+  --tw-ring-color: var(--participant-primary);
 }
 
 /* Shared UI (Card, Input, Button) still ship dark: utilities; force light inside participant shell */
@@ -40,8 +180,8 @@
   .dashboard-participant-light .rounded-lg.border,
   .participant-portal-light.rounded-xl.border,
   .participant-portal-light.rounded-lg.border {
-    border-color: rgb(47 143 122 / 0.2) !important;
-    background-color: rgb(255 255 255 / 0.85) !important;
+    border-color: color-mix(in srgb, var(--participant-primary) 20%, transparent) !important;
+    background-color: var(--participant-card) !important;
     backdrop-filter: blur(12px);
   }
 
@@ -51,16 +191,16 @@
   .participant-portal-light input:not([type="checkbox"]):not([type="radio"]),
   .participant-portal-light textarea,
   .participant-portal-light select {
-    border-color: rgb(47 143 122 / 0.2) !important;
-    background-color: rgb(255 255 255 / 0.85) !important;
-    color: #17483f !important;
+    border-color: color-mix(in srgb, var(--participant-primary) 20%, transparent) !important;
+    background-color: var(--participant-card) !important;
+    color: var(--participant-ink) !important;
   }
 
   .dashboard-participant-light input::placeholder,
   .dashboard-participant-light textarea::placeholder,
   .participant-portal-light input::placeholder,
   .participant-portal-light textarea::placeholder {
-    color: rgb(31 92 80 / 0.7) !important;
+    color: var(--participant-muted) !important;
   }
 
   .dashboard-participant-light .text-slate-500,
@@ -71,19 +211,19 @@
   .participant-portal-light .text-slate-600,
   .participant-portal-light .text-slate-700,
   .participant-portal-light .text-slate-900 {
-    color: #17483f !important;
+    color: var(--participant-ink) !important;
   }
 
-  .dashboard-participant-light button.border,
-  .participant-portal-light button.border {
-    border-color: rgb(47 143 122 / 0.3) !important;
-    background-color: rgb(255 255 255 / 0.85) !important;
-    color: #17483f !important;
+  .dashboard-participant-light button.border:not(:disabled):not([aria-disabled="true"]),
+  .participant-portal-light button.border:not(:disabled):not([aria-disabled="true"]) {
+    border-color: color-mix(in srgb, var(--participant-primary) 30%, transparent) !important;
+    background-color: var(--participant-card) !important;
+    color: var(--participant-ink) !important;
   }
 
-  .dashboard-participant-light button.border:hover,
-  .participant-portal-light button.border:hover {
-    background-color: rgb(47 143 122 / 0.1) !important;
+  .dashboard-participant-light button.border:not(:disabled):not([aria-disabled="true"]):hover,
+  .participant-portal-light button.border:not(:disabled):not([aria-disabled="true"]):hover {
+    background-color: color-mix(in srgb, var(--participant-primary) 10%, transparent) !important;
   }
 
   .dashboard-participant-light .dark\:text-slate-100,
@@ -92,7 +232,7 @@
   .participant-portal-light .dark\:text-slate-100,
   .participant-portal-light .dark\:text-slate-400,
   .participant-portal-light .dark\:text-slate-300 {
-    color: #17483f !important;
+    color: var(--participant-ink) !important;
   }
 }
 

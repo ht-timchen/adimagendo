@@ -53,7 +53,7 @@ export function DocumentsList({ refreshKey = 0 }: { refreshKey?: number }) {
               {reportCards.map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/85 px-3 py-2"
+                  className="flex items-center justify-between rounded-lg border border-participant-primary/20 bg-participant-card px-3 py-2"
                 >
                   <span className="flex items-center gap-2 text-sm">
                     <FileText className="h-4 w-4" />

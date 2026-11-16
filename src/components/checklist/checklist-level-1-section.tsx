@@ -33,13 +33,13 @@ export function ChecklistLevel1Section({
 
   return (
     <section className={participantDashboardSectionClassName}>
-      <div className="space-y-1 border-b border-[#2F8F7A]/20 pb-3">
+      <div className="space-y-1 border-b border-participant-primary/20 pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <h2 className={cn("text-lg font-semibold", participantDashboardHeadingClassName)}>
             Level 1
           </h2>
           {sectionDueLabel ? (
-            <span className="text-xs font-medium text-[#2F8F7A]">{sectionDueLabel}</span>
+            <span className="text-xs font-medium text-participant-primary">{sectionDueLabel}</span>
           ) : null}
         </div>
         <p className={cn("text-sm", participantDashboardMutedClassName)}>

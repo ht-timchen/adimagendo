@@ -49,7 +49,10 @@ import {
   type ChecklistTimeGate,
 } from "@/lib/checklist/checklist-sections";
 import { cn } from "@/lib/utils";
+import { checklistItemAnchorId } from "@/lib/participant/search-index";
+import { ChecklistHashTarget } from "@/components/checklist/checklist-hash-target";
 import {
+  participantChecklistAnchorClassName,
   participantDashboardCardClassName,
   participantDashboardHeadingClassName,
   participantDashboardMutedClassName,
@@ -82,19 +85,18 @@ const LEVEL_3_KEY_SET = new Set<string>(LEVEL_3_REQUIRED_TEMPLATE_KEYS);
 
 const BOOK_GROUP_HEADER = {
   title: "Book your appointments",
-  description:
-    "Book your ultrasound, MRI, and blood test appointments. These can be booked in any order. Your Pre-TVUS survey will unlock once your ultrasound appointment date and time are confirmed.",
+  helpText:
+    "Book your ultrasound, MRI, and blood test appointments. Your Pre-TVUS survey will unlock once your ultrasound appointment date and time are confirmed.",
 };
 
 const BOOK_GROUP_3Y_HEADER = {
   title: "Book your 2.5-year appointments",
-  description:
-    "Book your ultrasound and MRI appointments for the long-term follow-up window. These can be booked in any order.",
+  helpText: "Book your ultrasound and MRI appointments for the long-term follow-up window.",
 };
 
 const BOOK_GROUP_HEADERS: Record<
   string,
-  { title: string; description: string }
+  { title: string; helpText: string }
 > = {
   [BOOK_APPOINTMENTS_GROUP_KEY]: BOOK_GROUP_HEADER,
   [BOOK_APPOINTMENTS_3Y_GROUP_KEY]: BOOK_GROUP_3Y_HEADER,
@@ -449,7 +451,7 @@ export default async function ChecklistPage() {
           <ChecklistBookingGroupCard
             key={groupKey}
             title={header.title}
-            description={header.description}
+            helpText={header.helpText}
             rows={rows}
             isLocked={!groupUnlock.unlocked}
             lockReasons={groupUnlock.reasons}
@@ -512,7 +514,7 @@ export default async function ChecklistPage() {
         key={t.id}
         className={cn(
           participantDashboardCardClassName,
-          isComplete && "border-[#2F8F7A]/40"
+          isComplete && "border-participant-primary/40"
         )}
       >
         <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
@@ -520,8 +522,8 @@ export default async function ChecklistPage() {
             <div
               className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                 isComplete
-                  ? "bg-brand text-white"
-                  : "border border-[#2F8F7A]/30"
+                  ? "bg-participant-primary text-white"
+                  : "border border-participant-primary/30"
               }`}
             >
               {isComplete ? <Check className="h-4 w-4" /> : null}
@@ -537,7 +539,7 @@ export default async function ChecklistPage() {
                 </p>
               )}
               {showDue && dueLabel && !isComplete ? (
-                <p className="mt-1 text-xs text-[#2F8F7A]">
+                <p className="mt-1 text-xs text-participant-primary">
                   {dueLabel}
                 </p>
               ) : null}
@@ -625,8 +627,16 @@ export default async function ChecklistPage() {
     if (card) cards.push(card);
   }
   const sections = groupChecklistCards(cards);
-  const renderCard = (c: ChecklistCard) =>
-    c.render({ showDue: showsDueDate(sections.sectionOf.get(c.key)) });
+  const renderCard = (c: ChecklistCard) => (
+    <div
+      key={c.key}
+      id={checklistItemAnchorId(c.key)}
+      tabIndex={-1}
+      className={participantChecklistAnchorClassName}
+    >
+      {c.render({ showDue: showsDueDate(sections.sectionOf.get(c.key)) })}
+    </div>
+  );
   const level1Summary = getLevel1SummaryText({
     completedCount: LEVEL_1_REQUIRED_TEMPLATE_KEYS.filter((key) =>
       completedTemplateKeys.has(key)
@@ -645,10 +655,11 @@ export default async function ChecklistPage() {
 
   return (
     <ChecklistCelebrationRoot>
+    <ChecklistHashTarget />
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Your checklist</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Complete each item as you progress through the study.
         </p>
       </div>
@@ -685,7 +696,7 @@ export default async function ChecklistPage() {
               <p
                 key="level-1-summary"
                 className={cn(
-                  "rounded-2xl border border-[#2F8F7A]/20 bg-white/85 px-4 py-3 text-sm font-medium",
+                  "rounded-2xl border border-participant-primary/20 bg-participant-card px-4 py-3 text-sm font-medium",
                   participantDashboardHeadingClassName
                 )}
               >
@@ -706,7 +717,7 @@ export default async function ChecklistPage() {
                 sections.todoVisible.map(renderCard)
               )}
               {sections.todoHiddenClosingSoon.length > 0 ? (
-                <p className="text-sm text-[#17483F]">
+                <p className="text-sm text-participant-ink">
                   Also closing soon:{" "}
                   {sections.todoHiddenClosingSoon
                     .map(closingSoonSummaryText)

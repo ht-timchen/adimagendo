@@ -6,7 +6,6 @@ import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import {
   Activity,
-  BookOpen,
   CalendarClock,
   FileText,
   Inbox,
@@ -17,40 +16,55 @@ import {
   Menu,
   MoreHorizontal,
   Newspaper,
+  NotebookPen,
   Shield,
   User,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAdminDashboardRole } from "@/lib/admin-rbac";
 import { Button } from "@/components/ui/button";
 import { ParticipantNewsBell } from "@/components/participant-news-bell";
 import { ParticipantNotificationsLink } from "@/components/participant-notifications-link";
+import { participantFocusRingClassName } from "@/lib/participant-dashboard-ui";
+import {
+  PARTICIPANT_APPOINTMENTS_PATH,
+  PARTICIPANT_CHECKLIST_PATH,
+  PARTICIPANT_DIARY_PATH,
+  PARTICIPANT_HOME_PATH,
+  PARTICIPANT_PROFILE_PATH,
+  PARTICIPANT_SYMPTOMS_PATH,
+} from "@/lib/participant-routes";
 
-const participantPrimaryTabs = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/checklist", label: "Checklist", icon: ListChecks },
+type NavItem = { href: string; label: string; icon: LucideIcon };
+
+const participantPrimaryTabs: readonly NavItem[] = [
+  { href: PARTICIPANT_HOME_PATH, label: "Dashboard", icon: LayoutDashboard },
+  { href: PARTICIPANT_CHECKLIST_PATH, label: "Checklist", icon: ListChecks },
   {
-    href: "/dashboard/appointments",
+    href: PARTICIPANT_APPOINTMENTS_PATH,
     label: "Appointments",
     icon: CalendarClock,
   },
-  { href: "/dashboard/symptoms", label: "Symptoms", icon: Activity },
-] as const;
+  { href: PARTICIPANT_SYMPTOMS_PATH, label: "Symptoms", icon: Activity },
+];
 
-const participantMoreItems = [
-  { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/absences", label: "Diary", icon: BookOpen },
+const participantMoreItems: readonly NavItem[] = [
+  { href: PARTICIPANT_PROFILE_PATH, label: "Profile", icon: User },
+  { href: PARTICIPANT_DIARY_PATH, label: "Diary", icon: NotebookPen },
   { href: "/dashboard/documents", label: "Documents", icon: FileText },
   { href: "/dashboard/contact", label: "Contact", icon: Mail },
   { href: "/dashboard/news", label: "News", icon: Newspaper },
   { href: "/dashboard/notifications", label: "Notifications", icon: Inbox },
-] as const;
+];
 
-const adminNavItem = { href: "/dashboard/admin", label: "Admin", icon: Shield };
+const adminNavItem: NavItem = { href: "/dashboard/admin", label: "Admin", icon: Shield };
 
 const moreHrefs = new Set(
   participantMoreItems.map((item) => item.href)
 );
+
+const NAV_ICON_STROKE = 1.5;
 
 function isPrimaryActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") {
@@ -65,6 +79,11 @@ function isMoreActive(pathname: string): boolean {
   );
 }
 
+const mobileTabClassName =
+  "flex flex-auto flex-col items-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[12px] min-[360px]:text-[13px] font-medium leading-tight whitespace-nowrap transition-colors";
+const mobileTabActiveClassName = "bg-participant-surface-strong text-participant-primary-active";
+const mobileTabIdleClassName = "text-participant-muted hover:text-participant-ink";
+
 function NavTabLink({
   href,
   label,
@@ -74,7 +93,7 @@ function NavTabLink({
 }: {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   active: boolean;
   onClick?: () => void;
 }) {
@@ -82,18 +101,24 @@ function NavTabLink({
     <Link
       href={href}
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
-        active
-          ? "text-[#2F8F7A]"
-          : "text-[#2A6F60]/70 hover:text-[#17483F]"
+        mobileTabClassName,
+        participantFocusRingClassName,
+        active ? mobileTabActiveClassName : mobileTabIdleClassName
       )}
     >
-      <Icon className="h-5 w-5" />
-      <span className="max-w-[4.5rem] truncate">{label}</span>
+      <Icon className="h-5 w-5" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
+      <span>{label}</span>
     </Link>
   );
 }
+
+const desktopTabClassName =
+  "inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors";
+const desktopTabActiveClassName = "bg-participant-surface-strong text-participant-primary-active";
+const desktopTabIdleClassName =
+  "text-participant-ink hover:bg-participant-surface hover:text-participant-primary";
 
 export function DashboardNav({
   user,
@@ -126,6 +151,7 @@ export function DashboardNav({
   }, [pathname]);
 
   if (mobile) {
+    const moreActive = isMoreActive(pathname) || moreOpen;
     return (
       <>
         {moreOpen ? (
@@ -138,7 +164,7 @@ export function DashboardNav({
         ) : null}
         {moreOpen ? (
           <div
-            className="dashboard-bottom-nav-safe fixed bottom-16 left-0 right-0 z-30 border-t border-[#2F8F7A]/20 bg-white/95 px-2 py-2 shadow-lg backdrop-blur md:hidden"
+            className="dashboard-bottom-nav-safe fixed bottom-20 left-3 right-3 z-30 rounded-2xl border border-participant-primary/20 bg-participant-surface/95 px-2 py-2 shadow-lg backdrop-blur md:hidden"
             role="menu"
             aria-label="More"
           >
@@ -151,15 +177,17 @@ export function DashboardNav({
                     key={item.href}
                     href={item.href}
                     role="menuitem"
+                    aria-current={active ? "page" : undefined}
                     onClick={() => setMoreOpen(false)}
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      participantFocusRingClassName,
                       active
-                        ? "bg-brand-surface text-[#2F8F7A]"
-                        : "text-[#1E5D50] hover:bg-[#f1faf7]"
+                        ? "bg-participant-surface-strong text-participant-primary-active"
+                        : "text-participant-ink hover:bg-participant-page"
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
                     {item.label}
                   </Link>
                 );
@@ -167,7 +195,7 @@ export function DashboardNav({
             </div>
           </div>
         ) : null}
-        <div className="flex w-full justify-around py-2">
+        <div className="flex w-full gap-0.5 rounded-2xl border border-participant-primary/15 bg-participant-surface/95 p-1 shadow-(--participant-shadow) backdrop-blur">
           {participantPrimaryTabs.map((item) => (
             <NavTabLink
               key={item.href}
@@ -181,15 +209,14 @@ export function DashboardNav({
             type="button"
             onClick={() => setMoreOpen((open) => !open)}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors",
-              isMoreActive(pathname) || moreOpen
-                ? "text-[#2F8F7A]"
-                : "text-[#2A6F60]/70 hover:text-[#17483F]"
+              mobileTabClassName,
+              participantFocusRingClassName,
+              moreActive ? mobileTabActiveClassName : mobileTabIdleClassName
             )}
             aria-expanded={moreOpen}
             aria-haspopup="menu"
           >
-            <MoreHorizontal className="h-5 w-5" />
+            <MoreHorizontal className="h-5 w-5" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
             <span>More</span>
           </button>
         </div>
@@ -201,6 +228,7 @@ export function DashboardNav({
     ...(isAdminUser ? [adminNavItem] : []),
     ...participantPrimaryTabs,
   ];
+  const desktopMoreActive = isMoreActive(pathname) || desktopMoreOpen;
 
   return (
     <div className="flex items-center gap-2">
@@ -209,42 +237,36 @@ export function DashboardNav({
           const Icon = item.icon;
           const active = isPrimaryActive(pathname, item.href);
           return (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={active ? "secondary" : "ghost"}
-                size="sm"
-                className={cn(
-                  active
-                    ? "bg-brand-surface text-[#2F8F7A]"
-                    : "text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
-                )}
-              >
-                <Icon className="mr-1 h-4 w-4" />
-                {item.label}
-              </Button>
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                desktopTabClassName,
+                participantFocusRingClassName,
+                active ? desktopTabActiveClassName : desktopTabIdleClassName
+              )}
+            >
+              <Icon className="h-4 w-4" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
+              {item.label}
             </Link>
           );
         })}
         <div className="relative">
-          <Button
+          <button
             type="button"
-            variant={
-              isMoreActive(pathname) || desktopMoreOpen ? "secondary" : "ghost"
-            }
-            size="sm"
             className={cn(
-              (isMoreActive(pathname) || desktopMoreOpen) &&
-                "bg-brand-surface text-[#2F8F7A]",
-              !(isMoreActive(pathname) || desktopMoreOpen) &&
-                "text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
+              desktopTabClassName,
+              participantFocusRingClassName,
+              desktopMoreActive ? desktopTabActiveClassName : desktopTabIdleClassName
             )}
             onClick={() => setDesktopMoreOpen((open) => !open)}
             aria-expanded={desktopMoreOpen}
             aria-haspopup="menu"
           >
-            <Menu className="mr-1 h-4 w-4" />
+            <Menu className="h-4 w-4" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
             More
-          </Button>
+          </button>
           {desktopMoreOpen ? (
             <>
               <button
@@ -254,7 +276,7 @@ export function DashboardNav({
                 onClick={() => setDesktopMoreOpen(false)}
               />
               <div
-                className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-lg border border-[#2F8F7A]/20 bg-white/95 py-1 shadow-lg backdrop-blur"
+                className="absolute right-0 top-full z-50 mt-1 min-w-[11rem] rounded-xl border border-participant-primary/20 bg-participant-surface/95 p-1 shadow-lg backdrop-blur"
                 role="menu"
               >
                 {participantMoreItems.map((item) => {
@@ -265,12 +287,16 @@ export function DashboardNav({
                       key={item.href}
                       href={item.href}
                       role="menuitem"
+                      aria-current={active ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm text-[#17483F] transition-colors hover:bg-[#f1faf7]",
-                        active && "text-[#2F8F7A] font-medium"
+                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                        participantFocusRingClassName,
+                        active
+                          ? "bg-participant-surface-strong font-medium text-participant-primary-active"
+                          : "text-participant-ink hover:bg-participant-page"
                       )}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-4 w-4" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
                       {item.label}
                     </Link>
                   );
@@ -286,29 +312,32 @@ export function DashboardNav({
       ) : null}
       {showProfileLink ? (
         <Link
-          href="/dashboard/profile"
+          href={PARTICIPANT_PROFILE_PATH}
           className={cn(
-            "max-w-[10rem] truncate text-sm text-[#2A6F60] underline-offset-2",
-            "hover:text-[#17483F] hover:underline",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F8F7A]/45 focus-visible:ring-offset-2 rounded-sm"
+            "max-w-[10rem] truncate rounded-sm text-sm text-participant-ink underline-offset-2",
+            "hover:text-participant-primary hover:underline",
+            participantFocusRingClassName
           )}
           aria-label="Open profile"
         >
           {user.name ?? user.email}
         </Link>
       ) : (
-        <span className="max-w-[10rem] truncate text-sm text-[#2A6F60]">
+        <span className="max-w-[10rem] truncate text-sm text-participant-ink">
           {user.name ?? user.email}
         </span>
       )}
       <Button
         variant="ghost"
         size="icon"
-        className="text-[#17483F] hover:bg-[#e8f3f0] hover:text-[#2F8F7A]"
+        className={cn(
+          "h-9 w-9 text-participant-ink hover:bg-participant-surface hover:text-participant-primary",
+          participantFocusRingClassName
+        )}
         aria-label="Sign out"
         onClick={() => signOut({ callbackUrl: "/" })}
       >
-        <LogOut className="h-4 w-4" />
+        <LogOut className="h-4 w-4" strokeWidth={NAV_ICON_STROKE} aria-hidden="true" />
       </Button>
     </div>
   );

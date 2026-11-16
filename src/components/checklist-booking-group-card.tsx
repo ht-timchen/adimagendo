@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChecklistLockReasons } from "@/components/checklist-lock-reasons";
 import { ChecklistAvailabilityNote } from "@/components/checklist/checklist-availability-note";
 import { ChecklistLevelLabel } from "@/components/checklist/checklist-level-label";
+import { ParticipantHelpToggletip } from "@/components/participant/participant-help-toggletip";
 import {
   ChecklistExternalBookingFlow,
   type ChecklistBookingProgress,
@@ -9,12 +10,14 @@ import {
 import type { BookAppointmentRowConfig } from "@/lib/checklist-booking-group";
 import type { ChecklistStatus } from "@prisma/client";
 import {
+  participantChecklistAnchorClassName,
   participantDashboardCardClassName,
   participantDashboardHeadingClassName,
   participantDashboardMutedClassName,
   participantDashboardSurfaceClassName,
 } from "@/lib/participant-dashboard-ui";
 import { cn } from "@/lib/utils";
+import { checklistItemAnchorId } from "@/lib/participant/search-index";
 
 type AppointmentPayload = {
   id: string;
@@ -40,7 +43,8 @@ export type BookingGroupRowState = {
 
 type Props = {
   title: string;
-  description: string;
+  /** Supplementary explanation, shown behind the "?" button. */
+  helpText: string;
   rows: BookingGroupRowState[];
   isLocked: boolean;
   lockReasons: string[];
@@ -51,7 +55,7 @@ type Props = {
 
 export function ChecklistBookingGroupCard({
   title,
-  description,
+  helpText,
   rows,
   isLocked,
   lockReasons,
@@ -62,17 +66,21 @@ export function ChecklistBookingGroupCard({
   return (
     <Card className={participantDashboardCardClassName}>
       <CardHeader className="flex flex-row items-start gap-4 pb-2">
-        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#2F8F7A]/30" />
+        <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-participant-primary/30" />
         <div className="min-w-0 flex-1">
           {levelLabel ? <ChecklistLevelLabel label={levelLabel} /> : null}
-          <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
-            {title}
-          </CardTitle>
-          <p className={cn("mt-1 text-sm", participantDashboardMutedClassName)}>
-            {description}
-          </p>
+          <ParticipantHelpToggletip
+            sectionName={title}
+            heading={
+              <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>
+                {title}
+              </CardTitle>
+            }
+          >
+            {helpText}
+          </ParticipantHelpToggletip>
           {dueLabel ? (
-            <p className="mt-1 text-xs text-[#2F8F7A]">{dueLabel}</p>
+            <p className="mt-1 text-xs text-participant-primary">{dueLabel}</p>
           ) : null}
           {availabilityNote ? (
             <ChecklistAvailabilityNote text={availabilityNote} />
@@ -87,7 +95,14 @@ export function ChecklistBookingGroupCard({
         {rows.map((row) => (
           <div
             key={row.config.templateKey}
-            className={cn("rounded-md p-3", participantDashboardSurfaceClassName)}
+            id={checklistItemAnchorId(row.config.templateKey)}
+            tabIndex={-1}
+            className={cn(
+              "p-3",
+              participantDashboardSurfaceClassName,
+              participantChecklistAnchorClassName,
+              "rounded-md"
+            )}
           >
             <p className={cn("text-sm font-medium", participantDashboardHeadingClassName)}>
               {row.config.label}

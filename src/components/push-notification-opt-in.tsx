@@ -61,13 +61,13 @@ export function PushNotificationOptIn() {
     <Card className={participantDashboardCardClassName}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className={cn("text-base", participantDashboardHeadingClassName)}>Push notifications</CardTitle>
-        <Bell className="h-5 w-5 text-[#2F8F7A]" />
+        <Bell className="h-5 w-5 text-participant-primary" />
       </CardHeader>
       <CardContent className="space-y-3">
         {isSubscribed ? (
           <div className="space-y-3">
             {feedback === "Notifications enabled!" && (
-              <p className="text-sm font-medium text-emerald-600">
+              <p className="text-sm font-medium text-participant-success">
                 Notifications enabled!
               </p>
             )}
@@ -77,7 +77,7 @@ export function PushNotificationOptIn() {
             <Button
               type="button"
               variant="outline"
-              className="border-[#2F8F7A]/40 text-[#1E5D50] hover:bg-[#e8f3f0]"
+              className="border-participant-primary/40 text-participant-primary-active hover:bg-participant-surface"
               onClick={async () => {
                 setFeedback(null);
                 setPending(true);
@@ -128,7 +128,7 @@ export function PushNotificationOptIn() {
                 className={`text-sm ${
                   feedback === "Notifications enabled!" ||
                   feedback === "Notifications disabled."
-                    ? "text-emerald-600"
+                    ? "text-participant-success"
                     : "text-amber-800"
                 }`}
               >

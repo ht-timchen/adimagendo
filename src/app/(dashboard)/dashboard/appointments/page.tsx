@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
+import { ParticipantHelpToggletip } from "@/components/participant/participant-help-toggletip";
 import {
   AppointmentManageCardActions,
   type SerializableAppointment,
@@ -42,15 +43,15 @@ export default async function AppointmentsPage() {
       <div>
         <Link
           href="/dashboard"
-          className="mb-3 inline-flex items-center text-sm font-medium text-[#2F8F7A] hover:text-[#277866]"
+          className="mb-3 inline-flex items-center text-sm font-medium text-participant-primary hover:text-participant-primary-hover"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to dashboard
         </Link>
-        <h1 className={participantDashboardPageTitleClassName}>
-          Appointments
-        </h1>
-        <p className="text-[#17483F]">
+        <ParticipantHelpToggletip
+          sectionName="Appointments"
+          heading={<h1 className={participantDashboardPageTitleClassName}>Appointments</h1>}
+        >
           Confirmed visits can be added to Apple Calendar, Google Calendar, or
           Outlook using <span className="font-medium">Add to Calendar</span>.
           If your browser does not download the calendar file (common on
@@ -58,14 +59,14 @@ export default async function AppointmentsPage() {
           or <span className="font-medium">Cancel appointment</span> below to
           change or remove a visit. Cancelling a checklist-linked visit sends
           you back to the checklist to pick a new time.
-        </p>
+        </ParticipantHelpToggletip>
       </div>
 
       {appointments.length === 0 ? (
         <Card className={participantDashboardCardClassName}>
           <CardContent className={cn("py-10 text-center text-sm", participantDashboardMutedClassName)}>
-            You have no appointments yet. When your study team schedules a visit,
-            it will appear here.
+            You have no appointments yet. When you confirm a booking from your
+            checklist, it will appear here.
           </CardContent>
         </Card>
       ) : (
@@ -75,6 +76,8 @@ export default async function AppointmentsPage() {
             const displayStart = a.scheduledStartAt ?? a.startAt;
             const displayLocation = a.scheduledLocation ?? a.location;
             const cancelled = a.status === "CANCELLED";
+            const showDescription =
+              a.description && !(a.participantChecklistItemId && a.status === "CONFIRMED");
 
             const serializable: SerializableAppointment = {
               id: a.id,
@@ -94,7 +97,7 @@ export default async function AppointmentsPage() {
                 <Card
                   className={cn(
                     participantDashboardCardClassName,
-                    cancelled && "opacity-70 ring-1 ring-[#2F8F7A]/15"
+                    cancelled && "opacity-70 ring-1 ring-participant-primary/15"
                   )}
                 >
                   <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
@@ -134,7 +137,7 @@ export default async function AppointmentsPage() {
                       />
                     ) : null}
                   </CardHeader>
-                  {a.description ? (
+                  {showDescription ? (
                     <CardContent className={cn("pt-0 text-sm", participantDashboardMutedClassName)}>
                       {a.description}
                     </CardContent>
@@ -145,7 +148,7 @@ export default async function AppointmentsPage() {
                         href={a.externalUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm font-medium text-[#2F8F7A] hover:text-[#277866] hover:underline"
+                        className="text-sm font-medium text-participant-primary hover:text-participant-primary-hover hover:underline"
                       >
                         Open booking link
                       </a>

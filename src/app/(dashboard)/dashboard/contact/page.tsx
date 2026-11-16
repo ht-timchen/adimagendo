@@ -16,7 +16,7 @@ export default async function ContactPage() {
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Contact us</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Get in touch with the study team.
         </p>
       </div>

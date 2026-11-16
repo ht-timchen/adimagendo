@@ -31,7 +31,7 @@ export function ChecklistSurveyWindowNote({
           "flex items-start gap-1.5 text-xs font-medium",
           surveyWindow.state === "closed" || endingSoon
             ? "text-amber-800"
-            : "text-[#2A6F60]"
+            : "text-participant-muted"
         )}
       >
         <Icon className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />

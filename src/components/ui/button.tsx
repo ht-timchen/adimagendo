@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -8,7 +9,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-brand text-white hover:bg-brand-hover active:bg-brand-active focus-visible:ring-brand/50",
+          "bg-button-fill text-white hover:bg-button-fill-hover active:bg-button-fill-active focus-visible:ring-brand/50",
         participant:
           "bg-[#2F8F7A] text-white hover:bg-[#277866] active:bg-[#216657] focus-visible:ring-[#2F8F7A]/50",
         brand:
@@ -36,16 +37,36 @@ const buttonVariants = cva(
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {}
+    VariantProps<typeof buttonVariants> {
+  /** Disabled because a prerequisite is not met (not while saving); adds a lock in the participant shell. */
+  locked?: boolean;
+}
+
+/** The label comes first, so the lock does not sit next to an existing leading icon. */
+function startsWithText(children: React.ReactNode): boolean {
+  const first = React.Children.toArray(children)[0];
+  return typeof first === "string" || typeof first === "number";
+}
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, ...props }, ref) => (
-    <button
-      className={cn(buttonVariants({ variant, size }), className)}
-      ref={ref}
-      {...props}
-    />
-  )
+  ({ className, variant, size, locked = false, children, ...props }, ref) => {
+    const showLock =
+      locked &&
+      (props.disabled || props["aria-disabled"] === true || props["aria-disabled"] === "true") &&
+      startsWithText(children);
+    return (
+      <button
+        className={cn(buttonVariants({ variant, size }), className)}
+        ref={ref}
+        {...props}
+      >
+        {showLock ? (
+          <Lock className="button-disabled-lock" strokeWidth={1.5} aria-hidden="true" />
+        ) : null}
+        {children}
+      </button>
+    );
+  }
 );
 Button.displayName = "Button";
 

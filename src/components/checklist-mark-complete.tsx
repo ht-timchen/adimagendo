@@ -30,13 +30,7 @@ export function MarkCompleteButton({
     }
   };
   return (
-    <Button
-      variant="secondary"
-      size="sm"
-      onClick={handleClick}
-      disabled={disabledProp || loading}
-      className={disabledProp ? "cursor-not-allowed opacity-50" : undefined}
-    >
+    <Button size="sm" onClick={handleClick} disabled={disabledProp || loading} locked={disabledProp}>
       {loading ? "…" : label}
     </Button>
   );

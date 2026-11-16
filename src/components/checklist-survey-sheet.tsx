@@ -19,7 +19,7 @@ type Props = {
 };
 
 const triggerClassName =
-  "h-9 rounded-lg bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover active:bg-brand-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+  "h-9 rounded-lg bg-participant-button px-4 text-sm font-medium text-white hover:bg-participant-button-hover active:bg-participant-button-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-participant-primary/50 focus-visible:ring-offset-2";
 
 export function ChecklistSurveySheet({
   templateId,
@@ -91,7 +91,7 @@ export function ChecklistSurveySheet({
             href={surveyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-[#2F8F7A] underline-offset-2 hover:underline"
+            className="font-medium text-participant-primary underline-offset-2 hover:underline"
           >
             Reopen survey
           </a>
@@ -128,7 +128,7 @@ export function ChecklistSurveySheet({
   return (
     <>
       {disabledProp ? (
-        <Button type="button" className={triggerClassName} disabled>
+        <Button type="button" className={triggerClassName} disabled locked>
           {triggerLabel}
         </Button>
       ) : (

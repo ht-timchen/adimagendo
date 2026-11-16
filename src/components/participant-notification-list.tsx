@@ -63,7 +63,7 @@ export function ParticipantNotificationList({ items }: { items: ParticipantNotif
               <Card
                 className={cn(
                   participantDashboardCardClassName,
-                  !read && "border-l-4 border-l-[#C45C26]"
+                  !read && "border-l-4 border-l-[#B5521F]"
                 )}
               >
                 <CardContent className="space-y-2 p-4">
@@ -73,17 +73,17 @@ export function ParticipantNotificationList({ items }: { items: ParticipantNotif
                     </p>
                   ) : null}
                   <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                    <h2 className="min-w-0 break-words text-base font-semibold text-[#17483F]">{item.title}</h2>
+                    <h2 className="min-w-0 break-words text-base font-semibold text-participant-ink">{item.title}</h2>
                     {!read ? (
-                      <span className="shrink-0 rounded-full bg-[#C45C26] px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="shrink-0 rounded-full bg-[#B5521F] px-2 py-0.5 text-xs font-semibold text-white">
                         New
                       </span>
                     ) : (
-                      <span className="shrink-0 text-xs text-[#2A6F60]">Read</span>
+                      <span className="shrink-0 text-xs text-participant-muted">Read</span>
                     )}
                   </div>
                   {item.body ? (
-                    <p className="whitespace-pre-wrap break-words text-sm text-[#17483F]">{item.body}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm text-participant-ink">{item.body}</p>
                   ) : null}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <time dateTime={item.createdAt} className={cn("text-xs", participantDashboardMutedClassName)}>

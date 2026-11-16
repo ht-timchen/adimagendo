@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { ParticipantBrandLogo } from "@/components/auth/participant-brand-logo";
+import { participantFocusRingClassName } from "@/lib/participant-dashboard-ui";
+import { cn } from "@/lib/utils";
 
 type ChromeUser = {
   id: string;
@@ -40,24 +42,18 @@ export function DashboardLayoutChrome({
   }
 
   return (
-    <div className="dashboard-participant-light light [color-scheme:light] relative isolate flex min-h-screen flex-col bg-slate-50">
-      <div className="fixed inset-0 -z-10 pointer-events-none">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/images/background-participant.png"
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-white/50" />
-      </div>
-      <header className="relative sticky top-0 z-20 border-b border-[#2F8F7A]/20 bg-white/40 backdrop-blur">
+    <div className="dashboard-participant-light light [color-scheme:light] relative isolate flex min-h-screen flex-col bg-participant-page">
+      <header className="relative sticky top-0 z-20 border-b border-participant-primary/10 bg-participant-page/70 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-3 px-2 md:px-3">
-          <Link href="/dashboard" className="inline-flex shrink-0 focus-visible:outline-none">
+          <Link
+            href="/dashboard"
+            aria-label="Dashboard home"
+            className={cn("inline-flex shrink-0 rounded-full", participantFocusRingClassName)}
+          >
             <ParticipantBrandLogo
               className="mx-0"
               sizeClassName="h-16 w-16"
-              imageSrc="/images/adimagendo-mascot-transparent.png"
+              imageSrc="/images/adimagendo-mascot-rose.png"
               priority
             />
           </Link>
@@ -75,7 +71,7 @@ export function DashboardLayoutChrome({
         {children}
       </main>
       <nav
-        className="dashboard-bottom-nav-safe fixed bottom-0 left-0 right-0 z-20 flex border-t border-[#2F8F7A]/20 bg-white/95 backdrop-blur md:hidden"
+        className="dashboard-bottom-nav-safe fixed bottom-0 left-0 right-0 z-20 flex px-2 pb-2 min-[360px]:px-3 md:hidden"
         aria-label="Main"
       >
         <DashboardNav user={user} mobile />

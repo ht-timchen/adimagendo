@@ -16,7 +16,7 @@ export default async function SymptomsPage() {
     <div className={participantDashboardPageClassName}>
       <div>
         <h1 className={participantDashboardPageTitleClassName}>Symptom diary</h1>
-        <p className="text-[#17483F]">
+        <p className="text-participant-ink">
           Log your symptoms by day. Select a date on the calendar to add or edit an entry.
         </p>
       </div>

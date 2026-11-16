@@ -59,7 +59,7 @@ export function MedicalAppointmentsReminderBanner({ cycleId }: Props) {
 
   return (
     <div
-      className="rounded-lg border border-[#2F8F7A]/30 bg-white/85 p-4 text-sm text-[#2A6F60] shadow-sm backdrop-blur-sm"
+      className="rounded-2xl border border-participant-primary/30 bg-participant-card p-4 text-sm text-participant-muted shadow-(--participant-shadow) backdrop-blur-sm"
       role="dialog"
       aria-labelledby="medical-appointments-reminder-title"
     >
@@ -67,11 +67,11 @@ export function MedicalAppointmentsReminderBanner({ cycleId }: Props) {
         <div className="min-w-0 flex-1 space-y-3">
           <p
             id="medical-appointments-reminder-title"
-            className="font-semibold text-[#17483F]"
+            className="font-semibold text-participant-heading"
           >
             Medical Appointments Diary
           </p>
-          <p className="text-[#2A6F60]">
+          <p className="text-participant-muted">
             Did you see a health professional at any time this month? Let us know here!
           </p>
           <div className="flex flex-wrap gap-2">
@@ -87,7 +87,7 @@ export function MedicalAppointmentsReminderBanner({ cycleId }: Props) {
               type="button"
               size="sm"
               variant="outline"
-              className="border-[#2F8F7A]/40 text-[#1E5D50] hover:bg-[#e8f3f0]"
+              className="border-participant-primary/40 text-participant-primary-active hover:bg-participant-surface"
               disabled={busy}
               onClick={() => respond("no")}
             >
@@ -104,7 +104,7 @@ export function MedicalAppointmentsReminderBanner({ cycleId }: Props) {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-8 w-8 shrink-0 p-0 text-[#2F8F7A] hover:bg-[#e8f3f0]"
+          className="h-8 w-8 shrink-0 p-0 text-participant-primary hover:bg-participant-surface"
           disabled={busy}
           aria-label="Dismiss reminder"
           onClick={dismiss}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddToCalendarButton } from "@/components/add-to-calendar-button";
-import { ExternalLink } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import {
   participantDashboardBodyClassName,
   participantDashboardHeadingClassName,
@@ -88,10 +88,11 @@ function BookingProgressBadge({
   const tone = statusTone(progress);
   const badgeClass =
     tone === "ok"
-      ? "bg-emerald-50 text-emerald-900 ring-emerald-200"
+      ? "bg-participant-success-surface text-participant-success ring-participant-success-border"
       : tone === "warn"
-        ? "bg-amber-50 text-amber-950 ring-amber-200"
-        : "bg-[#e8f3f0] text-[#17483F] ring-[#2F8F7A]/20";
+        ? "bg-participant-pending-surface text-participant-pending ring-participant-pending-border"
+        : "bg-participant-surface text-participant-ink ring-participant-primary/20";
+  const dotClass = tone === "warn" ? "bg-participant-pending-dot" : "bg-current opacity-70";
 
   let text = statusLabelBase(progress);
   if (mounted && progress === "CONFIRMED") {
@@ -105,7 +106,15 @@ function BookingProgressBadge({
     <div
       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset ${badgeClass}`}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      {tone === "ok" ? (
+        <Check
+          className="h-3.5 w-3.5 shrink-0 text-participant-success-dot"
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      ) : (
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      )}
       {text}
     </div>
   );
@@ -304,6 +313,7 @@ export function ChecklistExternalBookingFlow({
               type="button"
               size="sm"
               disabled={actionsDisabled}
+              locked={actionsDisabled}
               onClick={onBookNow}
             >
               Book Now
@@ -314,6 +324,7 @@ export function ChecklistExternalBookingFlow({
               size="sm"
               variant="outline"
               disabled={actionsDisabled || bookingNow}
+              locked={actionsDisabled}
               onClick={onMarkBookedExternally}
             >
               {bookingNow ? "Saving…" : "I've booked my appointment"}
@@ -324,7 +335,7 @@ export function ChecklistExternalBookingFlow({
             href={externalUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-[#2F8F7A]/30 bg-white/85 px-3 text-sm font-medium text-[#17483F] hover:bg-[#2F8F7A]/10"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-participant-primary/30 bg-participant-card px-3 text-sm font-medium text-participant-ink hover:bg-participant-primary/10"
           >
             Open booking site <ExternalLink className="ml-1 h-4 w-4" />
           </a>
@@ -349,6 +360,7 @@ export function ChecklistExternalBookingFlow({
                 type="button"
                 size="sm"
                 disabled={actionsDisabled}
+                locked={actionsDisabled}
                 onClick={openModal}
               >
                 Confirm appointment details
@@ -479,7 +491,7 @@ export function ChecklistExternalBookingFlow({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-24 left-1/2 z-[60] max-w-sm -translate-x-1/2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 shadow-md md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
+          className="fixed bottom-24 left-1/2 z-[60] max-w-sm -translate-x-1/2 rounded-md border border-participant-success-border bg-participant-success-surface px-4 py-2 text-sm text-participant-success shadow-md md:bottom-6 md:left-auto md:right-6 md:translate-x-0"
         >
           {toast}
         </div>

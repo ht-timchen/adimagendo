@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { adelaideCivilDate, formatCivilDateDMY } from "@/lib/dates/adelaide-calendar";
 import {
   participantDashboardBodyClassName,
   participantDashboardCalendarDayClassName,
@@ -260,10 +261,10 @@ export function AbsenceTracker() {
               {entries.map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/70 px-3 py-2 text-sm text-[#17483F]"
+                  className="flex items-center justify-between rounded-lg border border-participant-primary/20 bg-participant-card px-3 py-2 text-sm text-participant-ink"
                 >
                   <span>
-                    {format(parseISO(e.date), "MMM d, yyyy")}
+                    {formatCivilDateDMY(adelaideCivilDate(parseISO(e.date)))}
                     {e.halfDay && " (half day)"} · {e.reason}
                     {e.context && ` · ${e.context}`}
                   </span>

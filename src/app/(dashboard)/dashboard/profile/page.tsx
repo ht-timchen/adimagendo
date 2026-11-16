@@ -141,13 +141,13 @@ export default async function ProfilePage() {
         <CardContent>
           <Link
             href="/dashboard/contact"
-            className="flex items-center justify-between rounded-lg border border-[#2F8F7A]/20 bg-white/70 px-4 py-3 text-sm font-medium text-[#17483F] transition-colors hover:bg-[#f1faf7]"
+            className="flex items-center justify-between rounded-lg border border-participant-primary/20 bg-participant-card px-4 py-3 text-sm font-medium text-participant-ink transition-colors hover:bg-participant-surface"
           >
             <span className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-[#2F8F7A]" />
+              <Mail className="h-4 w-4 text-participant-primary" />
               Contact study team
             </span>
-            <ChevronRight className="h-4 w-4 text-[#1F5C50]" />
+            <ChevronRight className="h-4 w-4 text-participant-muted" />
           </Link>
         </CardContent>
       </Card>

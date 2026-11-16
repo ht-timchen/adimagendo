@@ -41,7 +41,7 @@ export function ChecklistOpenSection({
       aria-labelledby={`${id}-heading`}
       className={participantDashboardSectionClassName}
     >
-      <h2 id={`${id}-heading`} className="border-b border-[#2F8F7A]/20 pb-3">
+      <h2 id={`${id}-heading`} className="border-b border-participant-primary/20 pb-3">
         <SectionHeading title={title} count={count} />
       </h2>
       <div className="space-y-3">{children}</div>
@@ -64,7 +64,7 @@ export function ChecklistCollapsibleSection({
         </h2>
         <ChevronDown
           aria-hidden
-          className="h-5 w-5 shrink-0 text-[#2F8F7A] transition-transform group-open:rotate-180"
+          className="h-5 w-5 shrink-0 text-participant-primary transition-transform group-open:rotate-180"
         />
       </summary>
       {description ? (
@@ -86,7 +86,7 @@ export function ChecklistShowMore({
 }) {
   return (
     <details className="group">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-[#2F8F7A]/30 text-sm font-medium text-[#2F8F7A] [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-participant-primary/30 text-sm font-medium text-participant-primary [&::-webkit-details-marker]:hidden">
         <span className="group-open:hidden">Show {hiddenCount} more</span>
         <span className="hidden group-open:inline">Show fewer</span>
         <ChevronDown

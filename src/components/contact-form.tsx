@@ -47,7 +47,7 @@ export function ContactForm() {
     return (
       <Card className={participantDashboardCardClassName}>
         <CardContent className="py-8 text-center">
-          <p className="font-medium text-[#2F8F7A]">
+          <p className="font-medium text-participant-primary">
             Message sent. We&apos;ll get back to you soon.
           </p>
         </CardContent>
